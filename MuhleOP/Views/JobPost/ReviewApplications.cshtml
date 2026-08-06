@@ -50,6 +50,10 @@
                         <span class="badge bg-info">@Model.Count</span>
                         <small class="text-muted">Total Applications</small>
                     </div>
+                    <div>
+                        <span class="badge bg-success">@Model.Count(a => a.IsHired)</span>
+                        <small class="text-muted">Hired</small>
+                    </div>
                 </div>
             </div>
             <div class="col-md-6 text-end">
@@ -85,11 +89,15 @@
                             int rank = 1;
                             foreach (var app in Model)
                             {
-                                <tr class="@(app.IsShortlisted ? "table-success" : "") @(app.InterviewScheduled ? "table-info" : "")">
+                                <tr class="@(app.IsShortlisted ? "table-success" : "") @(app.InterviewScheduled ? "table-info" : "") @(app.IsHired ? "table-hired" : "")">
                                     <td>
-                                        @if (!app.IsShortlisted)
+                                        @if (!app.IsShortlisted && !app.IsHired)
                                         {
                                             <input type="checkbox" name="ApplicationIds" value="@app.ApplicationId" class="application-checkbox" />
+                                        }
+                                        else if (app.IsHired)
+                                        {
+                                            <span class="badge bg-success"><i class="fas fa-check"></i></span>
                                         }
                                         else
                                         {
@@ -164,7 +172,19 @@
                                         }
                                     </td>
                                     <td>
-                                        @if (app.InterviewScheduled)
+                                        @if (app.IsHired)
+                                        {
+                                            <span class="badge bg-success">Hired</span>
+                                        }
+                                        else if (app.InterviewResult == "Passed")
+                                        {
+                                            <span class="badge bg-success">Passed Interview</span>
+                                        }
+                                        else if (app.InterviewResult == "Failed")
+                                        {
+                                            <span class="badge bg-danger">Failed Interview</span>
+                                        }
+                                        else if (app.InterviewScheduled)
                                         {
                                             <span class="badge bg-info">Interview Scheduled</span>
                                             <br />
@@ -184,7 +204,19 @@
                                             <a href="@Url.Action("CandidateDetails", new { id = app.CandidateId })" class="btn btn-outline-info" title="View Details">
                                                 <i class="fas fa-user"></i>
                                             </a>
-                                            @if (app.IsShortlisted && !app.InterviewScheduled)
+                                            @if (app.InterviewScheduled && app.InterviewResult == "Pending" && !app.IsHired)
+                                            {
+                                                <a href="@Url.Action("AssessInterview", "JobPost", new { id = app.ApplicationId })" class="btn btn-outline-warning" title="Assess Interview">
+                                                    <i class="fas fa-clipboard-check"></i>
+                                                </a>
+                                            }
+                                            else if (app.InterviewResult == "Passed" && !app.IsHired)
+                                            {
+                                                <a href="@Url.Action("HireCandidate", "JobPost", new { id = app.ApplicationId })" class="btn btn-outline-success" title="Hire Candidate">
+                                                    <i class="fas fa-user-plus"></i>
+                                                </a>
+                                            }
+                                            @if (app.IsShortlisted && !app.InterviewScheduled && !app.IsHired)
                                             {
                                                 <a href="@Url.Action("ScheduleInterview", new { id = app.ApplicationId })" class="btn btn-outline-primary" title="Schedule Interview">
                                                     <i class="fas fa-calendar-plus"></i>
@@ -210,7 +242,7 @@
                 </table>
             </div>
 
-            if (Model.Any(a => !a.IsShortlisted))
+            if (Model.Any(a => !a.IsShortlisted && !a.IsHired))
             {
                 <div class="mt-3 d-flex gap-2">
                     <button type="submit" class="btn btn-success" id="shortlistBtn">
@@ -232,12 +264,20 @@
         background-color: var(--bg-info, rgba(54, 185, 204, 0.1)) !important;
     }
 
+    .table-hired {
+        background-color: rgba(28, 200, 138, 0.2) !important;
+    }
+
     [data-theme="dark"] .table-success {
         background-color: rgba(28, 200, 138, 0.2) !important;
     }
 
     [data-theme="dark"] .table-info {
         background-color: rgba(54, 185, 204, 0.2) !important;
+    }
+
+    [data-theme="dark"] .table-hired {
+        background-color: rgba(28, 200, 138, 0.3) !important;
     }
 
     .progress {
@@ -265,6 +305,26 @@
 
         .btn-outline-primary:hover {
             background-color: #4e73df;
+            color: #fff;
+        }
+
+    .btn-outline-warning {
+        color: #f6c23e;
+        border-color: #f6c23e;
+    }
+
+        .btn-outline-warning:hover {
+            background-color: #f6c23e;
+            color: #fff;
+        }
+
+    .btn-outline-success {
+        color: #1cc88a;
+        border-color: #1cc88a;
+    }
+
+        .btn-outline-success:hover {
+            background-color: #1cc88a;
             color: #fff;
         }
 

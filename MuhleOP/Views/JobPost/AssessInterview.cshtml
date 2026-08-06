@@ -1,0 +1,143 @@
+﻿@model MuhleOP.ViewModels.AssessInterviewViewModel
+@{
+    ViewBag.Title = "Assess Interview";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Assess Interview</h2>
+    <a href="javascript:history.back()" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back
+    </a>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Assessing Interview for:</strong> @Model.CandidateFullName - @Model.JobTitle
+                    @if (Model.InterviewDateTime.HasValue)
+                    {
+                        <br />
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        <strong>Interview Date:</strong> @Model.InterviewDateTime.Value.ToString("dd MMM yyyy HH:mm")
+                    }
+                </div>
+
+                @using (Html.BeginForm())
+                {
+                    @Html.AntiForgeryToken()
+                    @Html.HiddenFor(m => m.ApplicationId)
+                    @Html.HiddenFor(m => m.CandidateId)
+
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.InterviewResult, new { @class = "form-label fw-bold" })
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                @Html.RadioButtonFor(m => m.InterviewResult, "Passed", new { @class = "form-check-input", id = "resultPassed" })
+                                <label class="form-check-label text-success fw-bold" for="resultPassed">
+                                    <i class="fas fa-check-circle"></i> Passed
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                @Html.RadioButtonFor(m => m.InterviewResult, "Failed", new { @class = "form-check-input", id = "resultFailed" })
+                                <label class="form-check-label text-danger fw-bold" for="resultFailed">
+                                    <i class="fas fa-times-circle"></i> Failed
+                                </label>
+                            </div>
+                        </div>
+                        @Html.ValidationMessageFor(m => m.InterviewResult, "", new { @class = "text-danger" })
+                    </div>
+
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.InterviewFeedback, new { @class = "form-label fw-bold" })
+                        @Html.TextAreaFor(m => m.InterviewFeedback, new { @class = "form-control", rows = "6", placeholder = "Provide detailed feedback about the candidate's interview performance..." })
+                        @Html.ValidationMessageFor(m => m.InterviewFeedback, "", new { @class = "text-danger" })
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Submit Assessment
+                        </button>
+                        <a href="javascript:history.back()" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">Assessment Tips</h6>
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Be objective in your assessment
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Provide constructive feedback
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Consider both technical and soft skills
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Note any specific strengths or weaknesses
+                    </li>
+                    <li>
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Suggest next steps for the candidate
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+                <h6 class="card-title">Candidate Summary</h6>
+                <dl class="row small">
+                    <dt class="col-5">Name:</dt>
+                    <dd class="col-7">@Model.CandidateFullName</dd>
+                    <dt class="col-5">Email:</dt>
+                    <dd class="col-7">@Model.CandidateEmail</dd>
+                    <dt class="col-5">Position:</dt>
+                    <dd class="col-7">@Model.JobTitle</dd>
+                    <dt class="col-5">Application ID:</dt>
+                    <dd class="col-7">#@Model.ApplicationId</dd>
+                    @if (Model.InterviewDateTime.HasValue)
+                    {
+                        <dt class="col-5">Interview:</dt>
+                        <dd class="col-7">@Model.InterviewDateTime.Value.ToString("dd MMM HH:mm")</dd>
+                    }
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @Scripts.Render("~/bundles/jqueryval")
+}

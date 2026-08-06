@@ -30,14 +30,23 @@ namespace MuhleOP
                     var roleStore = new RoleStore<IdentityRole>(context);
                     var roleManager = new RoleManager<IdentityRole>(roleStore);
 
-                    // Create roles
-                    string[] roleNames = { "Admin", "Candidate" };
+                    // Create all roles
+                    string[] roleNames = {
+                        "Admin",
+                        "Candidate",
+                        "Crew Member",
+                        "Project Manager",
+                        "Finance Officer",
+                        "Site Manager"
+                    };
+
                     foreach (var roleName in roleNames)
                     {
                         if (!roleManager.RoleExists(roleName))
                         {
                             var role = new IdentityRole(roleName);
                             roleManager.Create(role);
+                            System.Diagnostics.Debug.WriteLine($"Created role: {roleName}");
                         }
                     }
 
@@ -56,6 +65,14 @@ namespace MuhleOP
                         if (result.Succeeded)
                         {
                             userManager.AddToRole(user.Id, "Admin");
+                            System.Diagnostics.Debug.WriteLine("Admin user created successfully.");
+                        }
+                        else
+                        {
+                            foreach (var error in result.Errors)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Admin creation error: {error}");
+                            }
                         }
                     }
                     else
@@ -63,13 +80,15 @@ namespace MuhleOP
                         if (!userManager.IsInRole(adminUser.Id, "Admin"))
                         {
                             userManager.AddToRole(adminUser.Id, "Admin");
+                            System.Diagnostics.Debug.WriteLine("Admin role assigned to existing admin user.");
                         }
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Handle or log exception if needed
+                System.Diagnostics.Debug.WriteLine($"Error seeding roles and admin: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
             }
         }
 

@@ -115,7 +115,7 @@ namespace MuhleOP.Models
         public bool HasLicense { get; set; }
 
         [Display(Name = "Qualification Level")]
-        public string QualificationLevel { get; set; } // Diploma, Degree, Honours, Masters, PhD
+        public string QualificationLevel { get; set; }
 
         [Display(Name = "Is Shortlisted")]
         public bool IsShortlisted { get; set; }
@@ -130,6 +130,23 @@ namespace MuhleOP.Models
         [Display(Name = "Interview Notes")]
         public string InterviewNotes { get; set; }
 
+        // Interview Result Fields
+        [Display(Name = "Interview Result")]
+        public string InterviewResult { get; set; } // Passed, Failed, Pending
+
+        [Display(Name = "Interview Feedback")]
+        [DataType(DataType.MultilineText)]
+        public string InterviewFeedback { get; set; }
+
+        [Display(Name = "Interview Assessed By")]
+        public string InterviewAssessedBy { get; set; }
+
+        [Display(Name = "Interview Assessed Date")]
+        public DateTime? InterviewAssessedDate { get; set; }
+
+        [Display(Name = "Is Hired")]
+        public bool IsHired { get; set; }
+
         public JobApplication()
         {
             ApplicationDate = DateTime.Now;
@@ -137,11 +154,13 @@ namespace MuhleOP.Models
             IsWithdrawn = false;
             IsShortlisted = false;
             InterviewScheduled = false;
+            IsHired = false;
             RankingScore = 0;
             SkillsMatchPercentage = 0;
             HasMatric = false;
             HasLicense = false;
             QualificationLevel = "None";
+            InterviewResult = "Pending";
         }
     }
 }

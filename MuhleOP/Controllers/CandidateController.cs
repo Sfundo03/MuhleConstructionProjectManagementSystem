@@ -747,28 +747,31 @@ namespace MuhleOP.Controllers
                     return Json(new { success = false, message = "Invalid user ID" }, JsonRequestBehavior.AllowGet);
                 }
 
+                // First, get the notifications from database
                 var notifications = db.Notifications
                     .Where(n => n.UserId == userId)
                     .OrderByDescending(n => n.CreatedDate)
                     .Take(10)
-                    .Select(n => new
-                    {
-                        id = n.Id,
-                        title = n.Title,
-                        message = n.Message,
-                        type = n.Type,
-                        isRead = n.IsRead,
-                        link = n.Link,
-                        createdDate = n.CreatedDate.ToString("yyyy-MM-dd HH:mm"),
-                        timeAgo = GetTimeAgo(n.CreatedDate)
-                    })
-                    .ToList();
+                    .ToList(); // Materialize the query first
+
+                // Then format in memory
+                var formattedNotifications = notifications.Select(n => new
+                {
+                    id = n.Id,
+                    title = n.Title,
+                    message = n.Message,
+                    type = n.Type,
+                    isRead = n.IsRead,
+                    link = n.Link,
+                    createdDate = n.CreatedDate.ToString("yyyy-MM-dd HH:mm"),
+                    timeAgo = GetTimeAgo(n.CreatedDate)
+                }).ToList();
 
                 var unreadCount = db.Notifications.Count(n => n.UserId == userId && !n.IsRead);
 
-                System.Diagnostics.Debug.WriteLine($"Found {notifications.Count} notifications, {unreadCount} unread");
+                System.Diagnostics.Debug.WriteLine($"Found {formattedNotifications.Count} notifications, {unreadCount} unread");
 
-                return Json(new { success = true, notifications, unreadCount }, JsonRequestBehavior.AllowGet);
+                return Json(new { success = true, notifications = formattedNotifications, unreadCount }, JsonRequestBehavior.AllowGet);
             }
             catch (Exception ex)
             {

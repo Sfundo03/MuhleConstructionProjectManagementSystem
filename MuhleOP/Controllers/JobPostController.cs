@@ -103,6 +103,9 @@ namespace MuhleOP.Controllers
                         InterviewScheduled = app.InterviewScheduled,
                         InterviewDateTime = app.InterviewDateTime,
                         InterviewNotes = app.InterviewNotes,
+                        InterviewResult = app.InterviewResult ?? "Pending",
+                        InterviewFeedback = app.InterviewFeedback,
+                        IsHired = app.IsHired,
                         ExtractedSkills = new List<string>(),
                         ExtractedQualifications = new List<string>(),
                         YearsOfExperience = 0,
@@ -235,6 +238,9 @@ namespace MuhleOP.Controllers
                         InterviewScheduled = app.InterviewScheduled,
                         InterviewDateTime = app.InterviewDateTime,
                         InterviewNotes = app.InterviewNotes,
+                        InterviewResult = app.InterviewResult ?? "Pending",
+                        InterviewFeedback = app.InterviewFeedback,
+                        IsHired = app.IsHired,
                         ExtractedSkills = rankedData.ExtractedSkills,
                         ExtractedQualifications = rankedData.ExtractedQualifications,
                         YearsOfExperience = rankedData.YearsOfExperience,
@@ -259,6 +265,193 @@ namespace MuhleOP.Controllers
                 System.Diagnostics.Debug.WriteLine($"!!! EXCEPTION in ReviewApplications: {ex.Message}");
                 System.Diagnostics.Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
                 throw;
+            }
+        }
+
+        // GET: JobPost/AssessInterview/5
+        [Authorize(Roles = "Admin")]
+        public ActionResult AssessInterview(int id)
+        {
+            System.Diagnostics.Debug.WriteLine($"=== ASSESS INTERVIEW LOADED - Application ID: {id} ===");
+
+            try
+            {
+                var application = db.JobApplications.Find(id);
+                if (application == null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Application not found - ID: {id}");
+                    return HttpNotFound();
+                }
+
+                var candidate = db.Candidates.Find(application.CandidateId);
+                var jobPost = db.JobPosts.Find(application.JobPostId);
+
+                if (candidate == null || jobPost == null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Candidate or JobPost not found");
+                    return HttpNotFound();
+                }
+
+                var viewModel = new AssessInterviewViewModel
+                {
+                    ApplicationId = application.Id,
+                    CandidateId = candidate.Id,
+                    CandidateFullName = candidate.FullName,
+                    CandidateEmail = candidate.Email,
+                    JobTitle = jobPost.JobTitle,
+                    InterviewDateTime = application.InterviewDateTime,
+                    InterviewNotes = application.InterviewNotes,
+                    InterviewResult = application.InterviewResult ?? "Pending",
+                    InterviewFeedback = application.InterviewFeedback
+                };
+
+                System.Diagnostics.Debug.WriteLine($"Assess interview prepared for: {candidate.FullName}");
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"!!! EXCEPTION in AssessInterview: {ex.Message}");
+                throw;
+            }
+        }
+
+        // POST: JobPost/AssessInterview
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> AssessInterview(AssessInterviewViewModel model)
+        {
+            System.Diagnostics.Debug.WriteLine($"=== ASSESS INTERVIEW POST STARTED ===");
+            System.Diagnostics.Debug.WriteLine($"ApplicationId: {model.ApplicationId}");
+            System.Diagnostics.Debug.WriteLine($"Result: {model.InterviewResult}");
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    var application = await db.JobApplications.FindAsync(model.ApplicationId);
+                    if (application == null)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Application not found - ID: {model.ApplicationId}");
+                        return HttpNotFound();
+                    }
+
+                    // Update application with interview result
+                    application.InterviewResult = model.InterviewResult;
+                    application.InterviewFeedback = model.InterviewFeedback;
+                    application.InterviewAssessedBy = User.Identity.Name;
+                    application.InterviewAssessedDate = DateTime.Now;
+
+                    // Update status based on result
+                    if (model.InterviewResult == "Passed")
+                    {
+                        application.Status = "Passed Interview";
+                        application.IsHired = true;
+                    }
+                    else if (model.InterviewResult == "Failed")
+                    {
+                        application.Status = "Failed Interview";
+                        application.IsHired = false;
+                    }
+
+                    await db.SaveChangesAsync();
+                    System.Diagnostics.Debug.WriteLine($"Interview assessment saved for application {model.ApplicationId}");
+
+                    // Create status history
+                    var history = new ApplicationStatusHistory
+                    {
+                        ApplicationId = application.Id,
+                        Status = application.Status,
+                        Notes = $"Interview assessment: {model.InterviewResult}. Feedback: {model.InterviewFeedback}",
+                        ChangedBy = User.Identity.Name
+                    };
+                    db.ApplicationStatusHistories.Add(history);
+                    await db.SaveChangesAsync();
+
+                    // Create notification for candidate
+                    await CreateNotificationForCandidate(
+                        application.CandidateId,
+                        $"Interview {model.InterviewResult}!",
+                        $"Your interview for '{application.JobPost?.JobTitle ?? "the position"}' has been assessed as: {model.InterviewResult}. Feedback: {model.InterviewFeedback}",
+                        "Interview",
+                        $"/Candidate/ApplicationStatus/{application.Id}"
+                    );
+
+                    // If passed, create a notification about hiring
+                    if (model.InterviewResult == "Passed")
+                    {
+                        await CreateNotificationForCandidate(
+                            application.CandidateId,
+                            "Congratulations! You've Been Selected!",
+                            $"You have passed the interview for '{application.JobPost?.JobTitle ?? "the position"}'. The HR team will contact you with the next steps.",
+                            "System",
+                            $"/Candidate/ApplicationStatus/{application.Id}"
+                        );
+                    }
+
+                    TempData["SuccessMessage"] = $"Interview assessment completed for {model.CandidateFullName}. Result: {model.InterviewResult}";
+                    return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"!!! EXCEPTION in AssessInterview POST: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
+                    ModelState.AddModelError("", "Error saving interview assessment: " + ex.Message);
+                }
+            }
+
+            return View(model);
+        }
+
+        // GET: JobPost/HireCandidate/5
+        [Authorize(Roles = "Admin")]
+        public ActionResult HireCandidate(int id)
+        {
+            System.Diagnostics.Debug.WriteLine($"=== HIRE CANDIDATE LOADED - Application ID: {id} ===");
+
+            try
+            {
+                var application = db.JobApplications.Find(id);
+                if (application == null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Application not found - ID: {id}");
+                    TempData["ErrorMessage"] = "Application not found.";
+                    return RedirectToAction("Index");
+                }
+
+                var candidate = db.Candidates.Find(application.CandidateId);
+                var jobPost = db.JobPosts.Find(application.JobPostId);
+
+                if (candidate == null || jobPost == null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Candidate or JobPost not found");
+                    TempData["ErrorMessage"] = "Candidate or job not found.";
+                    return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
+                }
+
+                // Check if candidate passed the interview
+                if (application.InterviewResult != "Passed")
+                {
+                    TempData["ErrorMessage"] = "This candidate has not passed the interview. Only candidates who passed can be hired.";
+                    return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
+                }
+
+                // Check if already hired
+                if (application.IsHired)
+                {
+                    TempData["ErrorMessage"] = "This candidate has already been hired.";
+                    return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
+                }
+
+                // Redirect to Staff/Hire with candidate details pre-filled
+                return RedirectToAction("HireFromCandidate", "Staff", new { id = candidate.Id, applicationId = application.Id });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"!!! EXCEPTION in HireCandidate: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
+                TempData["ErrorMessage"] = "An error occurred: " + ex.Message;
+                return RedirectToAction("Index");
             }
         }
 
@@ -294,7 +487,10 @@ namespace MuhleOP.Controllers
                     IsShortlisted = app.IsShortlisted,
                     InterviewScheduled = app.InterviewScheduled,
                     InterviewDateTime = app.InterviewDateTime,
-                    InterviewNotes = app.InterviewNotes
+                    InterviewNotes = app.InterviewNotes,
+                    InterviewResult = app.InterviewResult ?? "Pending",
+                    InterviewFeedback = app.InterviewFeedback,
+                    IsHired = app.IsHired
                 }).ToList();
 
                 var viewModel = new CandidateDetailsViewModel
@@ -465,13 +661,13 @@ namespace MuhleOP.Controllers
                     application.InterviewDateTime = model.InterviewDateTime;
                     application.InterviewNotes = model.InterviewNotes;
                     application.InterviewScheduled = true;
-                    application.Status = "Interviewed";
+                    application.Status = "Interview Scheduled";
 
                     // Create status history
                     var history = new ApplicationStatusHistory
                     {
                         ApplicationId = application.Id,
-                        Status = "Interviewed",
+                        Status = "Interview Scheduled",
                         Notes = $"Interview scheduled for {model.InterviewDateTime:yyyy-MM-dd HH:mm}",
                         ChangedBy = User.Identity.Name
                     };
@@ -520,74 +716,6 @@ namespace MuhleOP.Controllers
             }
 
             return View(model);
-        }
-
-        // POST: JobPost/UpdateApplicationStatus
-        [HttpPost]
-        [Authorize(Roles = "Admin")]
-        public async Task<JsonResult> UpdateApplicationStatus(int applicationId, string status, string notes)
-        {
-            try
-            {
-                var application = await db.JobApplications.FindAsync(applicationId);
-                if (application == null)
-                {
-                    return Json(new { success = false, message = "Application not found" });
-                }
-
-                var oldStatus = application.Status;
-                application.Status = status;
-
-                // Update specific status flags
-                if (status == "Shortlisted")
-                {
-                    application.IsShortlisted = true;
-                }
-                else if (status == "Interviewed")
-                {
-                    application.InterviewScheduled = true;
-                }
-                else if (status == "Hired")
-                {
-                    // Additional logic for hired status
-                }
-                else if (status == "Rejected")
-                {
-                    // Additional logic for rejected status
-                }
-
-                // Create status history
-                var history = new ApplicationStatusHistory
-                {
-                    ApplicationId = applicationId,
-                    Status = status,
-                    Notes = string.IsNullOrEmpty(notes) ? $"Status changed from {oldStatus} to {status}" : notes,
-                    ChangedBy = User.Identity.Name
-                };
-                db.ApplicationStatusHistories.Add(history);
-
-                await db.SaveChangesAsync();
-
-                // Get candidate info
-                var candidate = db.Candidates.Find(application.CandidateId);
-                if (candidate != null)
-                {
-                    // Create notification for candidate
-                    await CreateNotificationForCandidate(
-                        candidate.Id,
-                        $"Application {status}",
-                        $"Your application for '{application.JobPost?.JobTitle ?? "the position"}' has been updated to: {status}",
-                        "Status",
-                        $"/Candidate/ApplicationStatus/{applicationId}"
-                    );
-                }
-
-                return Json(new { success = true });
-            }
-            catch (Exception ex)
-            {
-                return Json(new { success = false, message = ex.Message });
-            }
         }
 
         // Ranking Method
@@ -764,8 +892,7 @@ namespace MuhleOP.Controllers
                 "plumbing", "hvac", "environmental", "health and safety", "risk assessment",
                 "project coordination", "stakeholder management", "time management", "teamwork",
                 "critical thinking", "attention to detail", "multitasking", "adaptability",
-                "autocad", "revit", "microsoft project", "primavera", "microsoft office",
-                "project management", "construction management", "site supervision"
+                "autocad", "revit", "microsoft project", "primavera", "microsoft office"
             };
 
             foreach (var skill in skillKeywords)
@@ -1144,7 +1271,6 @@ namespace MuhleOP.Controllers
                 if (candidate == null) return;
 
                 System.Diagnostics.Debug.WriteLine($"Sending interview notification to: {candidate.Email}");
-                // Email implementation would go here
                 System.Diagnostics.Debug.WriteLine($"Interview scheduled for {candidate.FullName} on {application.InterviewDateTime}");
             }
             catch (Exception ex)

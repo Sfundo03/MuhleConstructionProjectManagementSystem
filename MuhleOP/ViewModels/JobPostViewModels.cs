@@ -145,6 +145,11 @@ namespace MuhleOP.ViewModels
         public DateTime? InterviewDateTime { get; set; }
         public string InterviewNotes { get; set; }
 
+        // Interview Result Properties
+        public string InterviewResult { get; set; }
+        public string InterviewFeedback { get; set; }
+        public bool IsHired { get; set; }
+
         // Extracted CV Data
         public List<string> ExtractedSkills { get; set; }
         public List<string> ExtractedQualifications { get; set; }
@@ -157,6 +162,32 @@ namespace MuhleOP.ViewModels
         {
             ExtractedSkills = new List<string>();
             ExtractedQualifications = new List<string>();
+            InterviewResult = "Pending";
+            IsHired = false;
+        }
+    }
+
+    public class AssessInterviewViewModel
+    {
+        public int ApplicationId { get; set; }
+        public int CandidateId { get; set; }
+        public string CandidateFullName { get; set; }
+        public string CandidateEmail { get; set; }
+        public string JobTitle { get; set; }
+        public DateTime? InterviewDateTime { get; set; }
+        public string InterviewNotes { get; set; }
+
+        [Required(ErrorMessage = "Please select the interview result")]
+        [Display(Name = "Interview Result")]
+        public string InterviewResult { get; set; }
+
+        [Display(Name = "Interview Feedback")]
+        [DataType(DataType.MultilineText)]
+        public string InterviewFeedback { get; set; }
+
+        public AssessInterviewViewModel()
+        {
+            InterviewResult = "Pending";
         }
     }
 
@@ -193,7 +224,7 @@ namespace MuhleOP.ViewModels
         public string InterviewLocation { get; set; }
 
         [Display(Name = "Interview Type")]
-        public string InterviewType { get; set; } // In-person, Phone, Video
+        public string InterviewType { get; set; }
 
         public ScheduleInterviewViewModel()
         {
@@ -244,6 +275,9 @@ namespace MuhleOP.ViewModels
         public bool InterviewScheduled { get; set; }
         public DateTime? InterviewDateTime { get; set; }
         public string InterviewNotes { get; set; }
+        public string InterviewResult { get; set; }
+        public string InterviewFeedback { get; set; }
+        public bool IsHired { get; set; }
     }
 
     public class CandidateApplicationSummaryViewModel
