@@ -1,0 +1,202 @@
+﻿@model MuhleOP.ViewModels.CandidateDetailsViewModel
+@{
+    ViewBag.Title = "Candidate Details";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Candidate Details</h2>
+    <a href="javascript:history.back()" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back
+    </a>
+</div>
+
+<div class="row">
+    <!-- Profile Section -->
+    <div class="col-lg-4 mb-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    @if (!string.IsNullOrEmpty(Model.ProfilePicturePath))
+                    {
+                        <img src="@Url.Content(Model.ProfilePicturePath)" alt="Profile" class="rounded-circle" style="width:120px;height:120px;object-fit:cover;border:4px solid var(--primary-gold);" />
+                    }
+                    else
+                    {
+                        <div class="rounded-circle bg-gold d-flex align-items-center justify-content-center mx-auto" style="width:120px;height:120px;font-size:48px;color:#fff;font-weight:700;">
+                            @(Model.FullName?.Substring(0, 1).ToUpper() ?? "U")
+                        </div>
+                    }
+                </div>
+                <h4>@Model.FullName</h4>
+                <p class="text-muted">@Model.Email</p>
+                <p class="text-muted"><i class="fas fa-phone me-2"></i>@Model.PhoneNumber</p>
+
+                <hr />
+
+                <div class="text-start">
+                    <h6 class="mb-3">Personal Information</h6>
+                    <dl class="row">
+                        <dt class="col-6">Date of Birth</dt>
+                        <dd class="col-6">@(Model.DateOfBirth?.ToString("yyyy-MM-dd") ?? "N/A")</dd>
+                        <dt class="col-6">Gender</dt>
+                        <dd class="col-6">@(Model.Gender ?? "N/A")</dd>
+                        <dt class="col-6">Nationality</dt>
+                        <dd class="col-6">@(Model.Nationality ?? "N/A")</dd>
+                        <dt class="col-6">Registered</dt>
+                        <dd class="col-6">@Model.RegistrationDate.ToString("yyyy-MM-dd")</dd>
+                        <dt class="col-6">Status</dt>
+                        <dd class="col-6">
+                            @if (Model.IsActive)
+                            {
+                                <span class="badge bg-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger">Inactive</span>
+                            }
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Documents Section -->
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="mb-0">Documents</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    @if (!string.IsNullOrEmpty(Model.CvPath))
+                    {
+                        <a href="@Url.Content(Model.CvPath)" target="_blank" class="btn btn-outline-primary">
+                            <i class="fas fa-file-alt me-2"></i> View CV
+                        </a>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.IdDocumentPath))
+                    {
+                        <a href="@Url.Content(Model.IdDocumentPath)" target="_blank" class="btn btn-outline-secondary">
+                            <i class="fas fa-id-card me-2"></i> ID Document
+                        </a>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.QualificationsPath))
+                    {
+                        <a href="@Url.Content(Model.QualificationsPath)" target="_blank" class="btn btn-outline-info">
+                            <i class="fas fa-certificate me-2"></i> Qualifications
+                        </a>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.LicensePath))
+                    {
+                        <a href="@Url.Content(Model.LicensePath)" target="_blank" class="btn btn-outline-warning">
+                            <i class="fas fa-car me-2"></i> Driver's License
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application History Section -->
+    <div class="col-lg-8 mb-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="mb-0">Application History</h6>
+            </div>
+            <div class="card-body">
+                @if (Model.ApplicationHistory != null && Model.ApplicationHistory.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Job Title</th>
+                                    <th>Date Applied</th>
+                                    <th>Score</th>
+                                    <th>Skills Match</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var app in Model.ApplicationHistory)
+                                {
+                                    <tr>
+                                        <td>@app.JobTitle</td>
+                                        <td>@app.ApplicationDate.ToString("yyyy-MM-dd")</td>
+                                        <td>
+                                            <span class="fw-bold">@app.RankingScore</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-primary">@app.SkillsMatchPercentage%</span>
+                                        </td>
+                                        <td>
+                                            @if (app.InterviewScheduled)
+                                            {
+                                                <span class="badge bg-info">Interview Scheduled</span>
+                                            }
+                                            else if (app.IsShortlisted)
+                                            {
+                                                <span class="badge bg-success">Shortlisted</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">@app.Status</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <a href="@Url.Action("ScheduleInterview", "JobPost", new { id = app.ApplicationId })" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-calendar-plus"></i> Schedule
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">This candidate has not applied for any positions yet.</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Address Section -->
+        @if (!string.IsNullOrEmpty(Model.CurrentAddress))
+        {
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0">Address</h6>
+                </div>
+                <div class="card-body">
+                    <p>@Model.CurrentAddress</p>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    [data-theme="dark"] .bg-gold {
+        background: var(--primary-gold);
+    }
+
+    .btn-outline-warning {
+        color: #f6c23e;
+        border-color: #f6c23e;
+    }
+
+        .btn-outline-warning:hover {
+            background-color: #f6c23e;
+            color: #fff;
+        }
+
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+</style>

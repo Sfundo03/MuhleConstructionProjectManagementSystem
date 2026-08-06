@@ -1,0 +1,310 @@
+﻿@model List<MuhleOP.ViewModels.ApplicationReviewViewModel>
+@{
+    ViewBag.Title = "Review Applications";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var jobTitle = ViewBag.JobTitle ?? "Job";
+    var jobPostId = ViewBag.JobPostId ?? 0;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Review Applications</h2>
+        <p class="text-muted">@jobTitle - Ranked candidates by potential</p>
+    </div>
+    <a href="@Url.Action("Index")" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Job Posts
+    </a>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <h6 class="text-muted">Ranking Summary</h6>
+                <div class="d-flex gap-4">
+                    <div>
+                        <span class="badge bg-primary">@Model.Count(a => a.IsShortlisted)</span>
+                        <small class="text-muted">Shortlisted</small>
+                    </div>
+                    <div>
+                        <span class="badge bg-warning">@Model.Count(a => a.InterviewScheduled)</span>
+                        <small class="text-muted">Interviews Scheduled</small>
+                    </div>
+                    <div>
+                        <span class="badge bg-info">@Model.Count</span>
+                        <small class="text-muted">Total Applications</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 text-end">
+                <span class="badge bg-success">Ranked by AI Analysis</span>
+            </div>
+        </div>
+
+        @using (Html.BeginForm("ShortlistCandidates", "JobPost", FormMethod.Post))
+        {
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="JobPostId" value="@jobPostId" />
+
+            <div class="table-responsive">
+                <table class="table table-hover" id="applicationsTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">
+                                <input type="checkbox" id="selectAll" />
+                            </th>
+                            <th>Rank</th>
+                            <th>Candidate</th>
+                            <th>Score</th>
+                            <th>Skills Match</th>
+                            <th>Qualifications</th>
+                            <th>Experience</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Any())
+                        {
+                            int rank = 1;
+                            foreach (var app in Model)
+                            {
+                                <tr class="@(app.IsShortlisted ? "table-success" : "") @(app.InterviewScheduled ? "table-info" : "")">
+                                    <td>
+                                        @if (!app.IsShortlisted)
+                                        {
+                                            <input type="checkbox" name="ApplicationIds" value="@app.ApplicationId" class="application-checkbox" />
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success"><i class="fas fa-check"></i></span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge @(rank <= 3 ? "bg-success" : rank <= 5 ? "bg-warning" : "bg-secondary")">#@rank</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-2">
+                                                @if (!string.IsNullOrEmpty(app.ProfilePicturePath))
+                                                {
+                                                    <img src="@Url.Content(app.ProfilePicturePath)" alt="Profile" class="rounded-circle" style="width:35px;height:35px;object-fit:cover;" />
+                                                }
+                                                else
+                                                {
+                                                    <div class="rounded-circle bg-gold d-flex align-items-center justify-content-center" style="width:35px;height:35px;color:#fff;font-size:14px;font-weight:700;">
+                                                        @(app.CandidateFullName?.Substring(0, 1).ToUpper() ?? "U")
+                                                    </div>
+                                                }
+                                            </div>
+                                            <div>
+                                                <strong>@app.CandidateFullName</strong>
+                                                <br />
+                                                <small class="text-muted">@app.CandidateEmail</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <span class="fw-bold me-2">@app.RankingScore</span>
+                                            <div class="progress" style="width:60px;height:6px;">
+                                                <div class="progress-bar bg-@(app.RankingScore >= 70 ? "success" : app.RankingScore >= 50 ? "warning" : "danger")"
+                                                     style="width:@(app.RankingScore)%;"
+                                                     role="progressbar"
+                                                     aria-valuenow="@app.RankingScore"
+                                                     aria-valuemin="0"
+                                                     aria-valuemax="100">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">@app.SkillsMatchPercentage%</span>
+                                        @if (app.ExtractedSkills != null && app.ExtractedSkills.Any())
+                                        {
+                                            <br />
+                                            <small class="text-muted">@string.Join(", ", app.ExtractedSkills.Take(3))</small>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">@(app.HighestQualification ?? "N/A")</span>
+                                        @if (app.HasMatric)
+                                        {
+                                            <span class="badge bg-secondary">Matric</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (app.YearsOfExperience > 0)
+                                        {
+                                            <span class="badge bg-success">@app.YearsOfExperience yrs</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">0 yrs</span>
+                                        }
+                                        @if (app.HasLicense)
+                                        {
+                                            <span class="badge bg-warning">License</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (app.InterviewScheduled)
+                                        {
+                                            <span class="badge bg-info">Interview Scheduled</span>
+                                            <br />
+                                            <small class="text-muted">@(app.InterviewDateTime?.ToString("yyyy-MM-dd HH:mm") ?? "N/A")</small>
+                                        }
+                                        else if (app.IsShortlisted)
+                                        {
+                                            <span class="badge bg-success">Shortlisted</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Pending</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="@Url.Action("CandidateDetails", new { id = app.CandidateId })" class="btn btn-outline-info" title="View Details">
+                                                <i class="fas fa-user"></i>
+                                            </a>
+                                            @if (app.IsShortlisted && !app.InterviewScheduled)
+                                            {
+                                                <a href="@Url.Action("ScheduleInterview", new { id = app.ApplicationId })" class="btn btn-outline-primary" title="Schedule Interview">
+                                                    <i class="fas fa-calendar-plus"></i>
+                                                </a>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                                rank++;
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="9" class="text-center py-5">
+                                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                    <h5>No Applications Yet</h5>
+                                    <p class="text-muted">No candidates have applied for this position yet.</p>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            if (Model.Any(a => !a.IsShortlisted))
+            {
+                <div class="mt-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-success" id="shortlistBtn">
+                        <i class="fas fa-star"></i> Shortlist Selected Candidates
+                    </button>
+                    <span class="text-muted align-self-center" id="selectedCount">0 selected</span>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<style>
+    .table-success {
+        background-color: var(--bg-success, rgba(28, 200, 138, 0.1)) !important;
+    }
+
+    .table-info {
+        background-color: var(--bg-info, rgba(54, 185, 204, 0.1)) !important;
+    }
+
+    [data-theme="dark"] .table-success {
+        background-color: rgba(28, 200, 138, 0.2) !important;
+    }
+
+    [data-theme="dark"] .table-info {
+        background-color: rgba(54, 185, 204, 0.2) !important;
+    }
+
+    .progress {
+        background-color: var(--bg-hover);
+    }
+
+    .bg-gold {
+        background-color: var(--primary-gold);
+    }
+
+    .btn-outline-info {
+        color: #36b9cc;
+        border-color: #36b9cc;
+    }
+
+        .btn-outline-info:hover {
+            background-color: #36b9cc;
+            color: #fff;
+        }
+
+    .btn-outline-primary {
+        color: #4e73df;
+        border-color: #4e73df;
+    }
+
+        .btn-outline-primary:hover {
+            background-color: #4e73df;
+            color: #fff;
+        }
+
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+</style>
+
+@section Scripts {
+    <script>
+        // Select All functionality
+        document.getElementById('selectAll')?.addEventListener('change', function () {
+            const checkboxes = document.querySelectorAll('.application-checkbox');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+            updateSelectedCount();
+        });
+
+        // Update selected count
+        document.querySelectorAll('.application-checkbox').forEach(cb => {
+            cb.addEventListener('change', updateSelectedCount);
+        });
+
+        function updateSelectedCount() {
+            const checked = document.querySelectorAll('.application-checkbox:checked').length;
+            document.getElementById('selectedCount').textContent = checked + ' selected';
+        }
+
+        // Confirm shortlist
+        document.getElementById('shortlistBtn')?.addEventListener('click', function (e) {
+            const checked = document.querySelectorAll('.application-checkbox:checked').length;
+            if (checked === 0) {
+                e.preventDefault();
+                alert('Please select at least one candidate to shortlist.');
+                return false;
+            }
+            if (!confirm('Are you sure you want to shortlist ' + checked + ' candidate(s)?')) {
+                e.preventDefault();
+                return false;
+            }
+        });
+    </script>
+}

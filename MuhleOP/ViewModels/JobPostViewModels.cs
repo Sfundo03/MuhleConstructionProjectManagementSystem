@@ -111,4 +111,147 @@ namespace MuhleOP.ViewModels
 
         public string FullName => $"{FirstName} {LastName}";
     }
+
+    public class ApplicationReviewViewModel
+    {
+        public int ApplicationId { get; set; }
+        public int JobPostId { get; set; }
+        public string JobTitle { get; set; }
+        public int CandidateId { get; set; }
+        public string CandidateFullName { get; set; }
+        public string CandidateEmail { get; set; }
+        public string CandidatePhone { get; set; }
+        public string CandidateNationality { get; set; }
+        public DateTime? CandidateDateOfBirth { get; set; }
+        public string CandidateGender { get; set; }
+        public string CandidateCurrentAddress { get; set; }
+        public string IdDocumentPath { get; set; }
+        public string QualificationsPath { get; set; }
+        public string CvPath { get; set; }
+        public string LicensePath { get; set; }
+        public string ProfilePicturePath { get; set; }
+        public string CoverLetter { get; set; }
+        public DateTime ApplicationDate { get; set; }
+        public string Status { get; set; }
+
+        // Ranking Properties
+        public double RankingScore { get; set; }
+        public int SkillsMatchPercentage { get; set; }
+        public bool HasMatric { get; set; }
+        public bool HasLicense { get; set; }
+        public string QualificationLevel { get; set; }
+        public bool IsShortlisted { get; set; }
+        public bool InterviewScheduled { get; set; }
+        public DateTime? InterviewDateTime { get; set; }
+        public string InterviewNotes { get; set; }
+
+        // Extracted CV Data
+        public List<string> ExtractedSkills { get; set; }
+        public List<string> ExtractedQualifications { get; set; }
+        public int YearsOfExperience { get; set; }
+        public string HighestQualification { get; set; }
+        public bool HasGrade12 { get; set; }
+        public bool HasDriversLicense { get; set; }
+
+        public ApplicationReviewViewModel()
+        {
+            ExtractedSkills = new List<string>();
+            ExtractedQualifications = new List<string>();
+        }
+    }
+
+    public class BulkShortlistViewModel
+    {
+        public List<int> ApplicationIds { get; set; }
+        public int JobPostId { get; set; }
+
+        public BulkShortlistViewModel()
+        {
+            ApplicationIds = new List<int>();
+        }
+    }
+
+    public class ScheduleInterviewViewModel
+    {
+        public int ApplicationId { get; set; }
+        public int CandidateId { get; set; }
+        public string CandidateFullName { get; set; }
+        public string JobTitle { get; set; }
+
+        [Required(ErrorMessage = "Interview date and time is required")]
+        [Display(Name = "Interview Date & Time")]
+        [DataType(DataType.DateTime)]
+        [DisplayFormat(DataFormatString = "{0:yyyy-MM-ddTHH:mm}", ApplyFormatInEditMode = true)]
+        public DateTime InterviewDateTime { get; set; }
+
+        [Display(Name = "Interview Notes")]
+        [DataType(DataType.MultilineText)]
+        public string InterviewNotes { get; set; }
+
+        [Display(Name = "Interview Location")]
+        [StringLength(200)]
+        public string InterviewLocation { get; set; }
+
+        [Display(Name = "Interview Type")]
+        public string InterviewType { get; set; } // In-person, Phone, Video
+
+        public ScheduleInterviewViewModel()
+        {
+            InterviewDateTime = DateTime.Now.AddDays(3).Date.AddHours(10);
+            InterviewLocation = "Muhle Building Office";
+            InterviewType = "In-person";
+        }
+    }
+
+    public class CandidateDetailsViewModel
+    {
+        public int Id { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string FullName { get; set; }
+        public string Email { get; set; }
+        public string PhoneNumber { get; set; }
+        public DateTime? DateOfBirth { get; set; }
+        public string Gender { get; set; }
+        public string Nationality { get; set; }
+        public string CurrentAddress { get; set; }
+        public string IdDocumentPath { get; set; }
+        public string QualificationsPath { get; set; }
+        public string CvPath { get; set; }
+        public string LicensePath { get; set; }
+        public string ProfilePicturePath { get; set; }
+        public DateTime RegistrationDate { get; set; }
+        public bool IsActive { get; set; }
+
+        // Application History
+        public List<ApplicationHistoryViewModel> ApplicationHistory { get; set; }
+
+        public CandidateDetailsViewModel()
+        {
+            ApplicationHistory = new List<ApplicationHistoryViewModel>();
+        }
+    }
+
+    public class ApplicationHistoryViewModel
+    {
+        public int ApplicationId { get; set; }
+        public string JobTitle { get; set; }
+        public DateTime ApplicationDate { get; set; }
+        public string Status { get; set; }
+        public double RankingScore { get; set; }
+        public int SkillsMatchPercentage { get; set; }
+        public bool IsShortlisted { get; set; }
+        public bool InterviewScheduled { get; set; }
+        public DateTime? InterviewDateTime { get; set; }
+        public string InterviewNotes { get; set; }
+    }
+
+    public class CandidateApplicationSummaryViewModel
+    {
+        public int TotalApplications { get; set; }
+        public int PendingApplications { get; set; }
+        public int ShortlistedApplications { get; set; }
+        public int InterviewScheduledCount { get; set; }
+        public double AverageRankingScore { get; set; }
+    }
 }

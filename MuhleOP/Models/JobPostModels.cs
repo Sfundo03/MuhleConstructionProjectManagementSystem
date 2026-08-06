@@ -101,11 +101,47 @@ namespace MuhleOP.Models
         [Display(Name = "Is Withdrawn")]
         public bool IsWithdrawn { get; set; }
 
+        // Ranking Properties
+        [Display(Name = "Ranking Score")]
+        public double RankingScore { get; set; }
+
+        [Display(Name = "Skills Match %")]
+        public int SkillsMatchPercentage { get; set; }
+
+        [Display(Name = "Has Matric/Grade 12")]
+        public bool HasMatric { get; set; }
+
+        [Display(Name = "Has License")]
+        public bool HasLicense { get; set; }
+
+        [Display(Name = "Qualification Level")]
+        public string QualificationLevel { get; set; } // Diploma, Degree, Honours, Masters, PhD
+
+        [Display(Name = "Is Shortlisted")]
+        public bool IsShortlisted { get; set; }
+
+        [Display(Name = "Interview Scheduled")]
+        public bool InterviewScheduled { get; set; }
+
+        [Display(Name = "Interview Date")]
+        [DataType(DataType.DateTime)]
+        public DateTime? InterviewDateTime { get; set; }
+
+        [Display(Name = "Interview Notes")]
+        public string InterviewNotes { get; set; }
+
         public JobApplication()
         {
             ApplicationDate = DateTime.Now;
             Status = "Pending";
             IsWithdrawn = false;
+            IsShortlisted = false;
+            InterviewScheduled = false;
+            RankingScore = 0;
+            SkillsMatchPercentage = 0;
+            HasMatric = false;
+            HasLicense = false;
+            QualificationLevel = "None";
         }
     }
 }
