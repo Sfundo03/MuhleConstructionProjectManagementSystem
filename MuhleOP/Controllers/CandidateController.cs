@@ -507,9 +507,14 @@ namespace MuhleOP.Controllers
                     SendApplicationNotification(candidate, job);
                     System.Diagnostics.Debug.WriteLine("Application notification sent");
 
-                    TempData["SuccessMessage"] = "Your application has been submitted successfully!";
+                    // Set success message with application details
+                    TempData["ApplicationSuccess"] = "Your application has been submitted successfully!";
+                    TempData["JobTitle"] = job.JobTitle;
+                    TempData["ApplicationId"] = application.Id;
+                    TempData["CompanyName"] = "Muhle Building";
+
                     System.Diagnostics.Debug.WriteLine("=== APPLY POST COMPLETED SUCCESSFULLY ===");
-                    return RedirectToAction("Dashboard", "Home");
+                    return RedirectToAction("ApplicationSuccess");
                 }
                 catch (Exception ex)
                 {
@@ -537,6 +542,26 @@ namespace MuhleOP.Controllers
 
             System.Diagnostics.Debug.WriteLine("=== APPLY POST ENDED WITH ERRORS ===");
             return View(model);
+        }
+
+        // GET: Candidate/ApplicationSuccess
+        [Authorize]
+        public ActionResult ApplicationSuccess()
+        {
+            System.Diagnostics.Debug.WriteLine("=== APPLICATION SUCCESS PAGE LOADED ===");
+
+            // Check if we have the success data
+            if (TempData["ApplicationSuccess"] == null)
+            {
+                return RedirectToAction("Dashboard", "Home");
+            }
+
+            ViewBag.SuccessMessage = TempData["ApplicationSuccess"];
+            ViewBag.JobTitle = TempData["JobTitle"];
+            ViewBag.ApplicationId = TempData["ApplicationId"];
+            ViewBag.CompanyName = TempData["CompanyName"];
+
+            return View();
         }
 
         private string GetStatusColor(string status)

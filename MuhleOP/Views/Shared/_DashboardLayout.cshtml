@@ -578,6 +578,203 @@
         .badge-primary { background: #4e73df; color: #fff; }
         .badge-secondary { background: #858796; color: #fff; }
 
+        /* Success Page Styles */
+        .success-container {
+            max-width: 700px;
+            margin: 40px auto;
+            text-align: center;
+        }
+
+        .success-icon {
+            font-size: 80px;
+            color: #1cc88a;
+            margin-bottom: 20px;
+            animation: bounceIn 0.6s ease;
+        }
+
+        .success-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 50px 40px;
+            box-shadow: 0 10px 40px var(--shadow-color);
+            border: 1px solid var(--border-color);
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+
+        .success-card h2 {
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .success-card .subtitle {
+            color: var(--text-secondary);
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .application-details {
+            background: var(--bg-hover);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+            border-left: 4px solid #1cc88a;
+        }
+
+        .application-details p {
+            margin: 8px 0;
+            color: var(--text-primary);
+        }
+
+        .application-details .label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: block;
+        }
+
+        .application-details .value {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .countdown-container {
+            margin: 30px 0 20px;
+        }
+
+        .countdown-circle {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--bg-hover);
+            border: 4px solid var(--primary-gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary-gold);
+            position: relative;
+        }
+
+        .countdown-circle .label {
+            font-size: 10px;
+            font-weight: 400;
+            color: var(--text-secondary);
+            display: block;
+            position: absolute;
+            bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            max-width: 400px;
+            margin: 20px auto;
+            height: 6px;
+            background: var(--bg-hover);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-gold), #1cc88a);
+            border-radius: 3px;
+            width: 100%;
+            animation: progressShrink 10s linear forwards;
+        }
+
+        .btn-view-applications {
+            display: inline-block;
+            padding: 12px 30px;
+            background: var(--primary-gold);
+            color: var(--primary-dark);
+            border: none;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 15px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .btn-view-applications:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 166, 35, 0.3);
+            color: var(--primary-dark);
+        }
+
+        .btn-view-applications i {
+            margin-right: 8px;
+        }
+
+        .confetti-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            overflow: hidden;
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            opacity: 0;
+            animation: confettiFall 3s ease-in forwards;
+        }
+
+        @@keyframes bounceIn {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.2); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @@keyframes progressShrink {
+            0% { width: 100%; }
+            100% { width: 0%; }
+        }
+
+        @@keyframes confettiFall {
+            0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        .pulse {
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @@keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Dark mode adjustments for success page */
+        [data-theme="dark"] .btn-view-applications {
+            color: #fff;
+        }
+
+        [data-theme="dark"] .btn-view-applications:hover {
+            color: #fff;
+        }
+
+        [data-theme="dark"] .application-details {
+            background: var(--bg-card);
+            border-color: var(--border-color);
+        }
+
         /* Responsive */
         @@media (max-width: 768px) {
             .sidebar {
@@ -606,6 +803,20 @@
 
             .header-right .logout-btn span {
                 display: none;
+            }
+
+            .success-card {
+                padding: 30px 20px;
+            }
+
+            .success-icon {
+                font-size: 60px;
+            }
+
+            .countdown-circle {
+                width: 60px;
+                height: 60px;
+                font-size: 22px;
             }
         }
 
@@ -766,7 +977,7 @@
             }
             else if (User.IsInRole("Candidate"))
             {
-                <!-- Candidate Menu - All point to Home/Dashboard which is role-based -->
+                <!-- Candidate Menu -->
                 <a href="@Url.Action("Dashboard", "Home")" class="nav-item">
                     <i class="fas fa-home"></i>
                     <span>Dashboard</span>
