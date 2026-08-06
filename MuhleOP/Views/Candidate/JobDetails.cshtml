@@ -7,14 +7,31 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Job Details</h2>
     <div>
-        <a href="@Url.Action("Apply", new { id = Model.JobPostId })" class="btn btn-success">
-            <i class="fas fa-paper-plane"></i> Apply Now
-        </a>
+        @if (Model.HasApplied)
+        {
+            <span class="badge bg-success me-2" style="font-size:16px;padding:10px 20px;">
+                <i class="fas fa-check-circle me-2"></i> Already Applied
+            </span>
+        }
+        else
+        {
+            <a href="@Url.Action("Apply", new { id = Model.JobPostId })" class="btn btn-success">
+                <i class="fas fa-paper-plane"></i> Apply Now
+            </a>
+        }
         <a href="@Url.Action("BrowseJobs")" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Back to Jobs
         </a>
     </div>
 </div>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
 
 <div class="row">
     <div class="col-lg-8">
@@ -46,17 +63,53 @@
             <div class="card-body">
                 <h5 class="card-title">Quick Actions</h5>
                 <div class="d-grid gap-2">
-                    <a href="@Url.Action("Apply", new { id = Model.JobPostId })" class="btn btn-success">
-                        <i class="fas fa-paper-plane"></i> Apply Now
-                    </a>
+                    @if (Model.HasApplied)
+                    {
+                        <button class="btn btn-success" disabled>
+                            <i class="fas fa-check-circle me-2"></i> Already Applied
+                        </button>
+                        <div class="alert alert-info mt-2">
+                            <i class="fas fa-info-circle me-2"></i>
+                            You have already applied for this position. Please wait for feedback or check your email for updates.
+                        </div>
+                    }
+                    else
+                    {
+                        <a href="@Url.Action("Apply", new { id = Model.JobPostId })" class="btn btn-success">
+                            <i class="fas fa-paper-plane me-2"></i> Apply Now
+                        </a>
+                    }
                     <a href="@Url.Action("BrowseJobs")" class="btn btn-outline-secondary">
-                        <i class="fas fa-list"></i> Browse More Jobs
+                        <i class="fas fa-list me-2"></i> Browse More Jobs
                     </a>
-                    <a href="@Url.Action("Dashboard")" class="btn btn-outline-primary">
-                        <i class="fas fa-home"></i> Dashboard
+                    <a href="@Url.Action("Dashboard", "Home")" class="btn btn-outline-primary">
+                        <i class="fas fa-home me-2"></i> Dashboard
                     </a>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-warning {
+            color: #fff;
+        }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+</style>

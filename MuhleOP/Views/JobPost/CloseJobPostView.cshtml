@@ -1,0 +1,129 @@
+﻿@{
+    ViewBag.Title = (ViewBag.IsClosed ? "Reopen" : "Close") + " Job Post";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var jobTitle = ViewBag.JobTitle ?? "Unknown";
+    var isClosed = ViewBag.IsClosed ?? false;
+    var jobId = ViewBag.JobId ?? 0;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>@(isClosed ? "Reopen" : "Close") Job Post</h2>
+    <a href="@Url.Action("Index")" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to List
+    </a>
+</div>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <div class="alert alert-@(isClosed ? "info" : "warning")">
+            <i class="fas fa-@(isClosed ? "info-circle" : "exclamation-triangle") me-2"></i>
+            <strong>@(isClosed ? "Reopen" : "Close") Job Post:</strong>
+            @if (isClosed)
+            {
+                <text>Are you sure you want to reopen this job post? Candidates will be able to apply again.</text>
+            }
+            else
+            {
+                <text>Are you sure you want to close this job post? Candidates will no longer be able to apply.</text>
+            }
+        </div>
+
+        <dl class="row">
+            <dt class="col-sm-3">Job Title</dt>
+            <dd class="col-sm-9">@jobTitle</dd>
+            <dt class="col-sm-3">Current Status</dt>
+            <dd class="col-sm-9">
+                @if (isClosed)
+                {
+                    <span class="badge bg-secondary">Closed</span>
+                }
+                else
+                {
+                    <span class="badge bg-success">Open</span>
+                }
+            </dd>
+        </dl>
+
+        <div class="d-flex gap-2">
+            <button onclick="toggleJobPost(@jobId)" class="btn btn-@(isClosed ? "success" : "warning")">
+                <i class="fas fa-@(isClosed ? "folder-open" : "folder") me-2"></i>
+                @(isClosed ? "Reopen Job Post" : "Close Job Post")
+            </button>
+            <a href="@Url.Action("Index")" class="btn btn-secondary">
+                <i class="fas fa-times me-2"></i> Cancel
+            </a>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function toggleJobPost(id) {
+            const action = @(isClosed ? "'reopen'" : "'close'");
+
+            if (!confirm(`Are you sure you want to ${action} the job post "${@Html.Raw(Json.Encode(jobTitle))}"?`)) {
+                return;
+            }
+
+            showLoading(true);
+
+            fetch('@Url.Action("CloseJobPost", "JobPost")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ id: id })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                showLoading(false);
+                if (data.success) {
+                    window.location.href = '@Url.Action("Index")';
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.\nError: ' + error.message);
+            });
+        }
+
+        function showLoading(show) {
+            const button = document.querySelector('button[onclick*="toggleJobPost"]');
+            if (button) {
+                if (show) {
+                    button.disabled = true;
+                    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Processing...';
+                } else {
+                    button.disabled = false;
+                    const isClosed = @(isClosed ? "true" : "false");
+                    button.innerHTML = '<i class="fas fa-' + (isClosed ? 'folder-open' : 'folder') + ' me-2"></i> ' + (isClosed ? 'Reopen Job Post' : 'Close Job Post');
+                }
+            }
+        }
+    </script>
+}

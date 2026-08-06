@@ -55,6 +55,9 @@ namespace MuhleOP.Models
         [Display(Name = "Is Published")]
         public bool IsPublished { get; set; }
 
+        [Display(Name = "Is Closed")]
+        public bool IsClosed { get; set; }
+
         [Display(Name = "Date Posted")]
         public DateTime DatePosted { get; set; }
 
@@ -65,6 +68,7 @@ namespace MuhleOP.Models
         {
             DatePosted = DateTime.Now;
             IsPublished = true;
+            IsClosed = false;
         }
     }
 

@@ -19,6 +19,14 @@
     </div>
 }
 
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
 <div class="card border-0 shadow-sm">
     <div class="card-body">
         <div class="table-responsive">
@@ -37,7 +45,7 @@
                 <tbody>
                     @foreach (var item in Model)
                     {
-                        <tr>
+                        <tr class="@(item.IsClosed ? "table-secondary" : "")">
                             <td>
                                 <strong>@item.JobTitle</strong>
                                 <br />
@@ -50,13 +58,17 @@
                                 <span class="badge bg-info">@item.ApplicationCount</span>
                             </td>
                             <td>
-                                @if (item.IsPublished)
+                                @if (item.IsClosed)
+                                {
+                                    <span class="badge bg-secondary">Closed</span>
+                                }
+                                else if (item.IsPublished)
                                 {
                                     <span class="badge bg-success">Published</span>
                                 }
                                 else
                                 {
-                                    <span class="badge bg-secondary">Draft</span>
+                                    <span class="badge bg-warning">Draft</span>
                                 }
                             </td>
                             <td>
@@ -70,6 +82,28 @@
                                     <a href="@Url.Action("Delete", new { id = item.Id })" class="btn btn-outline-danger" title="Delete">
                                         <i class="fas fa-trash"></i>
                                     </a>
+                                    @if (item.IsClosed)
+                                    {
+                                        <button onclick="toggleJobPost(@item.Id, '@item.JobTitle')"
+                                                class="btn btn-outline-success"
+                                                title="Reopen Job Post">
+                                            <i class="fas fa-folder-open"></i>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button onclick="toggleJobPost(@item.Id, '@item.JobTitle')"
+                                                class="btn btn-outline-secondary"
+                                                title="Close Job Post">
+                                            <i class="fas fa-folder"></i>
+                                        </button>
+                                    }
+                                    @if (item.ApplicationCount > 0)
+                                    {
+                                        <a href="@Url.Action("ReviewApplications", new { id = item.Id })" class="btn btn-outline-success" title="Review Applications">
+                                            <i class="fas fa-users"></i>
+                                        </a>
+                                    }
                                 </div>
                             </td>
                         </tr>
@@ -91,3 +125,92 @@
         }
     </div>
 </div>
+
+<style>
+    .table-secondary {
+        background-color: var(--bg-hover) !important;
+        opacity: 0.7;
+    }
+
+    [data-theme="dark"] .table-secondary {
+        background-color: rgba(45, 55, 72, 0.5) !important;
+    }
+
+    .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px;
+    }
+
+        .btn-group .btn {
+            margin: 1px;
+        }
+</style>
+
+@section Scripts {
+    <script>
+        function toggleJobPost(id, title) {
+            console.log('Toggle Job Post called - ID:', id, 'Title:', title);
+
+            // Determine action based on current status
+            const row = document.querySelector(`button[onclick*="toggleJobPost(${id}"]`)?.closest('tr');
+            const statusBadge = row?.querySelector('.badge');
+            const isClosed = statusBadge?.textContent.trim() === 'Closed';
+            const action = isClosed ? 'reopen' : 'close';
+
+            if (!confirm(`Are you sure you want to ${action} the job post "${title}"?`)) {
+                console.log('User cancelled the action');
+                return;
+            }
+
+            console.log('Sending request to close/reopen job post...');
+
+            // Show loading state
+            const button = document.querySelector(`button[onclick*="toggleJobPost(${id}"]`);
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+
+            fetch('/JobPost/CloseJobPost', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ id: id })
+            })
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Response data:', data);
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                        // Reset button
+                        if (button) {
+                            button.disabled = false;
+                            const isClosed = data.isClosed !== undefined ? data.isClosed : false;
+                            button.innerHTML = '<i class="fas fa-' + (isClosed ? 'folder-open' : 'folder') + '"></i>';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred. Please try again.\nError: ' + error.message);
+                    // Reset button
+                    if (button) {
+                        button.disabled = false;
+                        const isClosed = statusBadge?.textContent.trim() === 'Closed';
+                        button.innerHTML = '<i class="fas fa-' + (isClosed ? 'folder-open' : 'folder') + '"></i>';
+                    }
+                });
+        }
+    </script>
+}

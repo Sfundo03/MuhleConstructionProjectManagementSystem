@@ -11,6 +11,22 @@
     </a>
 </div>
 
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
 <div class="card border-0 shadow-sm">
     <div class="card-body">
         @using (Html.BeginForm())
@@ -19,6 +35,7 @@
             @Html.HiddenFor(m => m.Id)
             @Html.HiddenFor(m => m.DatePosted)
             @Html.HiddenFor(m => m.PostedBy)
+            @Html.HiddenFor(m => m.IsClosed)
 
             <div class="row">
                 <div class="col-md-6">
@@ -111,6 +128,14 @@
                 @Html.LabelFor(m => m.IsPublished, new { @class = "form-check-label" })
                 <small class="text-muted d-block">Publish or unpublish this job post.</small>
             </div>
+
+            @if (Model.IsClosed)
+            {
+                <div class="alert alert-warning">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Note:</strong> This job post is currently closed. Candidates cannot apply until it is reopened.
+                </div>
+            }
 
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">

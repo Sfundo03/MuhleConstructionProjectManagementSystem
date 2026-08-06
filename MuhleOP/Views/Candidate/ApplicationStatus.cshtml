@@ -49,7 +49,25 @@
                         </p>
                     </div>
                     <div>
-                        @if (Model.InterviewScheduled)
+                        @if (Model.IsHired)
+                        {
+                            <span class="badge bg-success" style="font-size:16px;padding:8px 16px;">
+                                <i class="fas fa-check-circle me-2"></i> Hired!
+                            </span>
+                        }
+                        else if (Model.InterviewResult == "Passed")
+                        {
+                            <span class="badge bg-success" style="font-size:16px;padding:8px 16px;">
+                                <i class="fas fa-star me-2"></i> Passed Interview
+                            </span>
+                        }
+                        else if (Model.InterviewResult == "Failed")
+                        {
+                            <span class="badge bg-danger" style="font-size:16px;padding:8px 16px;">
+                                <i class="fas fa-times-circle me-2"></i> Failed Interview
+                            </span>
+                        }
+                        else if (Model.InterviewScheduled)
                         {
                             <span class="badge bg-info" style="font-size:16px;padding:8px 16px;">
                                 <i class="fas fa-calendar-check me-2"></i> Interview Scheduled
@@ -81,6 +99,15 @@
                             <br />
                             <small class="text-muted">Notes: @Model.InterviewNotes</small>
                         }
+                    </div>
+                }
+
+                @if (Model.InterviewResult != "Pending" && !string.IsNullOrEmpty(Model.InterviewFeedback))
+                {
+                    <div class="alert alert-@(Model.InterviewResult == "Passed" ? "success" : "danger") mt-3">
+                        <i class="fas fa-@(Model.InterviewResult == "Passed" ? "check-circle" : "times-circle") me-2"></i>
+                        <strong>Interview Feedback:</strong>
+                        <p class="mb-0 mt-1">@Model.InterviewFeedback</p>
                     </div>
                 }
 
@@ -203,7 +230,19 @@
                     <dd class="col-6">@Model.ApplicationDate.ToString("dd MMM yyyy")</dd>
                     <dt class="col-6">Status:</dt>
                     <dd class="col-6">
-                        @if (Model.InterviewScheduled)
+                        @if (Model.IsHired)
+                        {
+                            <span class="badge bg-success">Hired</span>
+                        }
+                        else if (Model.InterviewResult == "Passed")
+                        {
+                            <span class="badge bg-success">Passed</span>
+                        }
+                        else if (Model.InterviewResult == "Failed")
+                        {
+                            <span class="badge bg-danger">Failed</span>
+                        }
+                        else if (Model.InterviewScheduled)
                         {
                             <span class="badge bg-info">Interview</span>
                         }
@@ -253,12 +292,12 @@
                         <span class="small">Interview Scheduled - Interview date set</span>
                     </div>
                     <div class="d-flex align-items-center">
-                        <span class="badge bg-primary me-2" style="width:20px;height:20px;border-radius:50%;padding:0;"></span>
-                        <span class="small">Interviewed - Interview completed</span>
+                        <span class="badge bg-success me-2" style="width:20px;height:20px;border-radius:50%;padding:0;"></span>
+                        <span class="small">Passed - Candidate passed the interview</span>
                     </div>
                     <div class="d-flex align-items-center">
                         <span class="badge bg-danger me-2" style="width:20px;height:20px;border-radius:50%;padding:0;"></span>
-                        <span class="small">Rejected - Application unsuccessful</span>
+                        <span class="small">Failed - Candidate failed the interview</span>
                     </div>
                     <div class="d-flex align-items-center">
                         <span class="badge bg-success me-2" style="width:20px;height:20px;border-radius:50%;padding:0;"></span>
@@ -383,9 +422,10 @@
         {
             case "Pending": return "warning";
             case "Shortlisted": return "info";
-            case "Interviewed": return "primary";
+            case "Interview Scheduled": return "primary";
+            case "Passed Interview": return "success";
+            case "Failed Interview": return "danger";
             case "Hired": return "success";
-            case "Rejected": return "danger";
             default: return "secondary";
         }
     }
@@ -396,9 +436,10 @@
         {
             case "Pending": return "clock";
             case "Shortlisted": return "star";
-            case "Interviewed": return "calendar-check";
+            case "Interview Scheduled": return "calendar-check";
+            case "Passed Interview": return "check-circle";
+            case "Failed Interview": return "times-circle";
             case "Hired": return "check-circle";
-            case "Rejected": return "times-circle";
             default: return "circle";
         }
     }

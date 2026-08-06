@@ -1,5 +1,4 @@
-﻿
-@model List<MuhleOP.ViewModels.ApplicationStatusViewModel>
+﻿@model List<MuhleOP.ViewModels.ApplicationStatusViewModel>
 @{
     ViewBag.Title = "My Applications";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -49,7 +48,7 @@
                     <tbody>
                         @foreach (var app in Model)
                         {
-                            <tr class="@(app.InterviewScheduled ? "table-info" : app.IsShortlisted ? "table-success" : "")">
+                            <tr class="@(app.IsHired ? "table-hired" : app.InterviewScheduled ? "table-info" : app.IsShortlisted ? "table-success" : "")">
                                 <td>
                                     <strong>@app.JobTitle</strong>
                                     @if (app.InterviewScheduled && app.InterviewDateTime.HasValue)
@@ -60,10 +59,27 @@
                                             Interview: @app.InterviewDateTime.Value.ToString("dd MMM yyyy HH:mm")
                                         </small>
                                     }
+                                    @if (app.IsHired)
+                                    {
+                                        <br />
+                                        <span class="badge bg-success">Hired!</span>
+                                    }
                                 </td>
                                 <td>@app.ApplicationDate.ToString("dd MMM yyyy")</td>
                                 <td>
-                                    @if (app.InterviewScheduled)
+                                    @if (app.IsHired)
+                                    {
+                                        <span class="badge bg-success">Hired</span>
+                                    }
+                                    else if (app.InterviewResult == "Passed")
+                                    {
+                                        <span class="badge bg-success">Passed Interview</span>
+                                    }
+                                    else if (app.InterviewResult == "Failed")
+                                    {
+                                        <span class="badge bg-danger">Failed Interview</span>
+                                    }
+                                    else if (app.InterviewScheduled)
                                     {
                                         <span class="badge bg-info">Interview Scheduled</span>
                                     }
@@ -133,12 +149,20 @@
         background-color: var(--bg-info, rgba(54, 185, 204, 0.1)) !important;
     }
 
+    .table-hired {
+        background-color: rgba(28, 200, 138, 0.2) !important;
+    }
+
     [data-theme="dark"] .table-success {
         background-color: rgba(28, 200, 138, 0.2) !important;
     }
 
     [data-theme="dark"] .table-info {
         background-color: rgba(54, 185, 204, 0.2) !important;
+    }
+
+    [data-theme="dark"] .table-hired {
+        background-color: rgba(28, 200, 138, 0.3) !important;
     }
 
     .badge {
@@ -159,6 +183,10 @@
         }
 
         .badge.bg-secondary {
+            color: #fff;
+        }
+
+        .badge.bg-danger {
             color: #fff;
         }
 

@@ -94,6 +94,9 @@ namespace MuhleOP.ViewModels
         public DateTime ApplicationDate { get; set; }
         public string Status { get; set; }
         public string StatusColor { get; set; }
+        public string InterviewResult { get; set; }
+        public bool IsHired { get; set; }
+        public bool IsInterviewCompleted { get; set; }
     }
 
     public class JobPostSummaryViewModel
@@ -135,6 +138,7 @@ namespace MuhleOP.ViewModels
         public HttpPostedFileBase UpdatedLicense { get; set; }
 
         public bool HasExistingDocuments { get; set; }
+        public bool HasApplied { get; set; }
     }
 
     public class CandidateProfileViewModel

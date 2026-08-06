@@ -270,6 +270,7 @@
     <Content Include="Views\Staff\Index.cshtml" />
     <Content Include="Views\Staff\Details.cshtml" />
     <Content Include="Views\JobPost\AssessInterview.cshtml" />
+    <Content Include="Views\JobPost\CloseJobPostView.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />

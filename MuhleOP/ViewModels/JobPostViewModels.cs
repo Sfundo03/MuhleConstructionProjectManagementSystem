@@ -55,6 +55,9 @@ namespace MuhleOP.ViewModels
         [Display(Name = "Is Published")]
         public bool IsPublished { get; set; }
 
+        [Display(Name = "Is Closed")]
+        public bool IsClosed { get; set; }
+
         [Display(Name = "Date Posted")]
         public DateTime DatePosted { get; set; }
 
@@ -149,6 +152,7 @@ namespace MuhleOP.ViewModels
         public string InterviewResult { get; set; }
         public string InterviewFeedback { get; set; }
         public bool IsHired { get; set; }
+        public bool IsInterviewCompleted { get; set; }
 
         // Extracted CV Data
         public List<string> ExtractedSkills { get; set; }
@@ -164,6 +168,7 @@ namespace MuhleOP.ViewModels
             ExtractedQualifications = new List<string>();
             InterviewResult = "Pending";
             IsHired = false;
+            IsInterviewCompleted = false;
         }
     }
 
@@ -278,6 +283,7 @@ namespace MuhleOP.ViewModels
         public string InterviewResult { get; set; }
         public string InterviewFeedback { get; set; }
         public bool IsHired { get; set; }
+        public bool IsInterviewCompleted { get; set; }
     }
 
     public class CandidateApplicationSummaryViewModel

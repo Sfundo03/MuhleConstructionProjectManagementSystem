@@ -42,6 +42,7 @@ namespace MuhleOP.Controllers
                 NumberOfOpenings = j.NumberOfOpenings,
                 Department = j.Department,
                 IsPublished = j.IsPublished,
+                IsClosed = j.IsClosed,
                 DatePosted = j.DatePosted,
                 PostedBy = j.PostedBy,
                 ApplicationCount = db.JobApplications.Count(a => a.JobPostId == j.Id)
@@ -106,6 +107,7 @@ namespace MuhleOP.Controllers
                         InterviewResult = app.InterviewResult ?? "Pending",
                         InterviewFeedback = app.InterviewFeedback,
                         IsHired = app.IsHired,
+                        IsInterviewCompleted = app.InterviewResult != "Pending",
                         ExtractedSkills = new List<string>(),
                         ExtractedQualifications = new List<string>(),
                         YearsOfExperience = 0,
@@ -117,7 +119,6 @@ namespace MuhleOP.Controllers
                     viewModels.Add(viewModel);
                 }
 
-                // Sort by ranking score (highest first)
                 viewModels = viewModels.OrderByDescending(v => v.RankingScore).ToList();
 
                 ViewBag.TotalApplications = viewModels.Count;
@@ -159,6 +160,7 @@ namespace MuhleOP.Controllers
                 NumberOfOpenings = jobPost.NumberOfOpenings,
                 Department = jobPost.Department,
                 IsPublished = jobPost.IsPublished,
+                IsClosed = jobPost.IsClosed,
                 DatePosted = jobPost.DatePosted,
                 PostedBy = jobPost.PostedBy,
                 ApplicationCount = db.JobApplications.Count(a => a.JobPostId == jobPost.Id)
@@ -195,17 +197,13 @@ namespace MuhleOP.Controllers
                     var candidate = db.Candidates.Find(app.CandidateId);
                     if (candidate == null) continue;
 
-                    // Extract and rank the candidate
                     var rankedData = RankCandidate(candidate, jobPost);
 
-                    // Update application with ranking data
                     app.RankingScore = rankedData.RankingScore;
                     app.SkillsMatchPercentage = rankedData.SkillsMatchPercentage;
                     app.HasMatric = rankedData.HasGrade12;
                     app.HasLicense = rankedData.HasDriversLicense;
                     app.QualificationLevel = rankedData.HighestQualification;
-
-                    // Update interview scheduled status
                     app.InterviewScheduled = app.InterviewDateTime.HasValue;
 
                     var viewModel = new ApplicationReviewViewModel
@@ -241,6 +239,7 @@ namespace MuhleOP.Controllers
                         InterviewResult = app.InterviewResult ?? "Pending",
                         InterviewFeedback = app.InterviewFeedback,
                         IsHired = app.IsHired,
+                        IsInterviewCompleted = app.InterviewResult != "Pending",
                         ExtractedSkills = rankedData.ExtractedSkills,
                         ExtractedQualifications = rankedData.ExtractedQualifications,
                         YearsOfExperience = rankedData.YearsOfExperience,
@@ -252,7 +251,6 @@ namespace MuhleOP.Controllers
                     viewModels.Add(viewModel);
                 }
 
-                // Sort by ranking score (highest first)
                 viewModels = viewModels.OrderByDescending(v => v.RankingScore).ToList();
 
                 System.Diagnostics.Debug.WriteLine($"Returning {viewModels.Count} ranked applications");
@@ -281,6 +279,12 @@ namespace MuhleOP.Controllers
                 {
                     System.Diagnostics.Debug.WriteLine($"Application not found - ID: {id}");
                     return HttpNotFound();
+                }
+
+                if (application.InterviewResult != "Pending")
+                {
+                    TempData["ErrorMessage"] = "This interview has already been assessed.";
+                    return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
                 }
 
                 var candidate = db.Candidates.Find(application.CandidateId);
@@ -336,13 +340,17 @@ namespace MuhleOP.Controllers
                         return HttpNotFound();
                     }
 
-                    // Update application with interview result
+                    if (application.InterviewResult != "Pending")
+                    {
+                        TempData["ErrorMessage"] = "This interview has already been assessed.";
+                        return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
+                    }
+
                     application.InterviewResult = model.InterviewResult;
                     application.InterviewFeedback = model.InterviewFeedback;
                     application.InterviewAssessedBy = User.Identity.Name;
                     application.InterviewAssessedDate = DateTime.Now;
 
-                    // Update status based on result
                     if (model.InterviewResult == "Passed")
                     {
                         application.Status = "Passed Interview";
@@ -357,7 +365,6 @@ namespace MuhleOP.Controllers
                     await db.SaveChangesAsync();
                     System.Diagnostics.Debug.WriteLine($"Interview assessment saved for application {model.ApplicationId}");
 
-                    // Create status history
                     var history = new ApplicationStatusHistory
                     {
                         ApplicationId = application.Id,
@@ -368,7 +375,6 @@ namespace MuhleOP.Controllers
                     db.ApplicationStatusHistories.Add(history);
                     await db.SaveChangesAsync();
 
-                    // Create notification for candidate
                     await CreateNotificationForCandidate(
                         application.CandidateId,
                         $"Interview {model.InterviewResult}!",
@@ -377,19 +383,24 @@ namespace MuhleOP.Controllers
                         $"/Candidate/ApplicationStatus/{application.Id}"
                     );
 
-                    // If passed, create a notification about hiring
                     if (model.InterviewResult == "Passed")
                     {
                         await CreateNotificationForCandidate(
                             application.CandidateId,
                             "Congratulations! You've Been Selected!",
-                            $"You have passed the interview for '{application.JobPost?.JobTitle ?? "the position"}'. The HR team will contact you with the next steps.",
+                            $"You have passed the interview for '{application.JobPost?.JobTitle ?? "the position"}'. You will be hired soon!",
                             "System",
                             $"/Candidate/ApplicationStatus/{application.Id}"
                         );
                     }
 
                     TempData["SuccessMessage"] = $"Interview assessment completed for {model.CandidateFullName}. Result: {model.InterviewResult}";
+
+                    if (model.InterviewResult == "Passed")
+                    {
+                        return RedirectToAction("HireCandidate", new { id = application.Id });
+                    }
+
                     return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
                 }
                 catch (Exception ex)
@@ -429,21 +440,18 @@ namespace MuhleOP.Controllers
                     return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
                 }
 
-                // Check if candidate passed the interview
                 if (application.InterviewResult != "Passed")
                 {
-                    TempData["ErrorMessage"] = "This candidate has not passed the interview. Only candidates who passed can be hired.";
+                    TempData["ErrorMessage"] = "This candidate has not passed the interview.";
                     return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
                 }
 
-                // Check if already hired
                 if (application.IsHired)
                 {
                     TempData["ErrorMessage"] = "This candidate has already been hired.";
                     return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
                 }
 
-                // Redirect to Staff/Hire with candidate details pre-filled
                 return RedirectToAction("HireFromCandidate", "Staff", new { id = candidate.Id, applicationId = application.Id });
             }
             catch (Exception ex)
@@ -470,7 +478,6 @@ namespace MuhleOP.Controllers
                     return HttpNotFound();
                 }
 
-                // Get all applications for this candidate
                 var applications = db.JobApplications
                     .Where(a => a.CandidateId == candidate.Id)
                     .OrderByDescending(a => a.ApplicationDate)
@@ -490,7 +497,8 @@ namespace MuhleOP.Controllers
                     InterviewNotes = app.InterviewNotes,
                     InterviewResult = app.InterviewResult ?? "Pending",
                     InterviewFeedback = app.InterviewFeedback,
-                    IsHired = app.IsHired
+                    IsHired = app.IsHired,
+                    IsInterviewCompleted = app.InterviewResult != "Pending"
                 }).ToList();
 
                 var viewModel = new CandidateDetailsViewModel
@@ -534,13 +542,11 @@ namespace MuhleOP.Controllers
         {
             System.Diagnostics.Debug.WriteLine($"=== SHORTLIST CANDIDATES POST STARTED ===");
             System.Diagnostics.Debug.WriteLine($"JobPostId: {model.JobPostId}");
-            System.Diagnostics.Debug.WriteLine($"ApplicationIds: {(model.ApplicationIds != null ? string.Join(", ", model.ApplicationIds) : "NULL")}");
 
             try
             {
                 if (model.ApplicationIds == null || !model.ApplicationIds.Any())
                 {
-                    System.Diagnostics.Debug.WriteLine("No applications selected for shortlisting");
                     TempData["ErrorMessage"] = "Please select at least one candidate to shortlist.";
                     return RedirectToAction("ReviewApplications", new { id = model.JobPostId });
                 }
@@ -548,13 +554,11 @@ namespace MuhleOP.Controllers
                 foreach (var appId in model.ApplicationIds)
                 {
                     var application = await db.JobApplications.FindAsync(appId);
-                    if (application != null)
+                    if (application != null && !application.IsShortlisted && application.InterviewResult == "Pending")
                     {
                         application.IsShortlisted = true;
                         application.Status = "Shortlisted";
-                        System.Diagnostics.Debug.WriteLine($"Application {appId} shortlisted");
 
-                        // Create status history
                         var history = new ApplicationStatusHistory
                         {
                             ApplicationId = application.Id,
@@ -564,7 +568,6 @@ namespace MuhleOP.Controllers
                         };
                         db.ApplicationStatusHistories.Add(history);
 
-                        // Create notification for candidate
                         await CreateNotificationForCandidate(
                             application.CandidateId,
                             "Application Shortlisted",
@@ -576,15 +579,12 @@ namespace MuhleOP.Controllers
                 }
 
                 await db.SaveChangesAsync();
-                System.Diagnostics.Debug.WriteLine($"Successfully shortlisted {model.ApplicationIds.Count} candidates");
-
                 TempData["SuccessMessage"] = $"{model.ApplicationIds.Count} candidate(s) have been shortlisted successfully!";
                 return RedirectToAction("ReviewApplications", new { id = model.JobPostId });
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"!!! EXCEPTION in ShortlistCandidates: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
                 TempData["ErrorMessage"] = "An error occurred while shortlisting candidates: " + ex.Message;
                 return RedirectToAction("ReviewApplications", new { id = model.JobPostId });
             }
@@ -601,8 +601,13 @@ namespace MuhleOP.Controllers
                 var application = db.JobApplications.Find(id);
                 if (application == null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Application not found - ID: {id}");
                     return HttpNotFound();
+                }
+
+                if (application.InterviewScheduled || application.InterviewResult != "Pending")
+                {
+                    TempData["ErrorMessage"] = "This candidate already has an interview scheduled or the interview has been completed.";
+                    return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
                 }
 
                 var candidate = db.Candidates.Find(application.CandidateId);
@@ -610,7 +615,6 @@ namespace MuhleOP.Controllers
 
                 if (candidate == null || jobPost == null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Candidate or JobPost not found");
                     return HttpNotFound();
                 }
 
@@ -620,13 +624,12 @@ namespace MuhleOP.Controllers
                     CandidateId = candidate.Id,
                     CandidateFullName = candidate.FullName,
                     JobTitle = jobPost.JobTitle,
-                    InterviewDateTime = application.InterviewDateTime ?? DateTime.Now.AddDays(3).Date.AddHours(10),
+                    InterviewDateTime = DateTime.Now.AddDays(3).Date.AddHours(10),
                     InterviewNotes = application.InterviewNotes,
                     InterviewLocation = "Muhle Building Office",
                     InterviewType = "In-person"
                 };
 
-                System.Diagnostics.Debug.WriteLine($"Schedule interview prepared for: {candidate.FullName}");
                 return View(viewModel);
             }
             catch (Exception ex)
@@ -643,9 +646,6 @@ namespace MuhleOP.Controllers
         public async Task<ActionResult> ScheduleInterview(ScheduleInterviewViewModel model)
         {
             System.Diagnostics.Debug.WriteLine($"=== SCHEDULE INTERVIEW POST STARTED ===");
-            System.Diagnostics.Debug.WriteLine($"ApplicationId: {model.ApplicationId}");
-            System.Diagnostics.Debug.WriteLine($"InterviewDateTime: {model.InterviewDateTime}");
-            System.Diagnostics.Debug.WriteLine($"InterviewType: {model.InterviewType}");
 
             if (ModelState.IsValid)
             {
@@ -654,8 +654,13 @@ namespace MuhleOP.Controllers
                     var application = await db.JobApplications.FindAsync(model.ApplicationId);
                     if (application == null)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Application not found - ID: {model.ApplicationId}");
                         return HttpNotFound();
+                    }
+
+                    if (application.InterviewScheduled || application.InterviewResult != "Pending")
+                    {
+                        TempData["ErrorMessage"] = "This candidate already has an interview scheduled or the interview has been completed.";
+                        return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
                     }
 
                     application.InterviewDateTime = model.InterviewDateTime;
@@ -663,7 +668,6 @@ namespace MuhleOP.Controllers
                     application.InterviewScheduled = true;
                     application.Status = "Interview Scheduled";
 
-                    // Create status history
                     var history = new ApplicationStatusHistory
                     {
                         ApplicationId = application.Id,
@@ -674,9 +678,7 @@ namespace MuhleOP.Controllers
                     db.ApplicationStatusHistories.Add(history);
 
                     await db.SaveChangesAsync();
-                    System.Diagnostics.Debug.WriteLine($"Interview scheduled for application {model.ApplicationId}");
 
-                    // Create notification for candidate
                     await CreateNotificationForCandidate(
                         application.CandidateId,
                         "Interview Scheduled",
@@ -685,7 +687,6 @@ namespace MuhleOP.Controllers
                         $"/Candidate/ApplicationStatus/{application.Id}"
                     );
 
-                    // Send interview notification email
                     SendInterviewNotification(application);
 
                     TempData["SuccessMessage"] = $"Interview scheduled successfully for {model.CandidateFullName} on {model.InterviewDateTime:yyyy-MM-dd HH:mm}";
@@ -694,12 +695,10 @@ namespace MuhleOP.Controllers
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"!!! EXCEPTION in ScheduleInterview POST: {ex.Message}");
-                    System.Diagnostics.Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
                     ModelState.AddModelError("", "Error scheduling interview: " + ex.Message);
                 }
             }
 
-            // If we got this far, something failed
             var app = db.JobApplications.Find(model.ApplicationId);
             if (app != null)
             {
@@ -718,13 +717,60 @@ namespace MuhleOP.Controllers
             return View(model);
         }
 
-        // Ranking Method
+        // POST: JobPost/CloseJobPost
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        // Removed ValidateAntiForgeryToken for AJAX compatibility
+        public async Task<JsonResult> CloseJobPost(int id)
+        {
+            System.Diagnostics.Debug.WriteLine("=== CLOSE JOB POST CALLED ===");
+            System.Diagnostics.Debug.WriteLine($"Job ID: {id}");
+            System.Diagnostics.Debug.WriteLine($"Request Method: {Request.HttpMethod}");
+
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("Attempting to find job post...");
+                var jobPost = await db.JobPosts.FindAsync(id);
+
+                if (jobPost == null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"ERROR: Job post with ID {id} not found");
+                    return Json(new { success = false, message = "Job post not found" }, JsonRequestBehavior.AllowGet);
+                }
+
+                System.Diagnostics.Debug.WriteLine($"Job post found: {jobPost.JobTitle} (ID: {jobPost.Id})");
+                System.Diagnostics.Debug.WriteLine($"Current IsClosed status: {jobPost.IsClosed}");
+
+                // Toggle the IsClosed status
+                jobPost.IsClosed = !jobPost.IsClosed;
+                System.Diagnostics.Debug.WriteLine($"New IsClosed status: {jobPost.IsClosed}");
+
+                System.Diagnostics.Debug.WriteLine("Saving changes to database...");
+                await db.SaveChangesAsync();
+
+                System.Diagnostics.Debug.WriteLine($"SUCCESS: Job post {jobPost.JobTitle} closed status changed to: {jobPost.IsClosed}");
+
+                return Json(new
+                {
+                    success = true,
+                    isClosed = jobPost.IsClosed,
+                    message = $"Job post {(jobPost.IsClosed ? "closed" : "reopened")} successfully"
+                }, JsonRequestBehavior.AllowGet);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"!!! EXCEPTION in CloseJobPost: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Inner Exception: {ex.InnerException.Message}");
+                }
+                return Json(new { success = false, message = "An error occurred: " + ex.Message }, JsonRequestBehavior.AllowGet);
+            }
+        }
+
         private ApplicationReviewViewModel RankCandidate(Candidate candidate, JobPost jobPost)
         {
-            System.Diagnostics.Debug.WriteLine($"=== RANKING CANDIDATE STARTED ===");
-            System.Diagnostics.Debug.WriteLine($"Candidate: {candidate.FullName}");
-            System.Diagnostics.Debug.WriteLine($"Job: {jobPost.JobTitle}");
-
             var result = new ApplicationReviewViewModel
             {
                 ExtractedSkills = new List<string>(),
@@ -739,61 +785,30 @@ namespace MuhleOP.Controllers
 
             try
             {
-                // Extract text from CV if file exists
                 string cvText = "";
                 if (!string.IsNullOrEmpty(candidate.CvPath))
                 {
                     string cvFullPath = Server.MapPath(candidate.CvPath);
-                    System.Diagnostics.Debug.WriteLine($"CV path: {cvFullPath}");
-
                     if (System.IO.File.Exists(cvFullPath))
                     {
-                        System.Diagnostics.Debug.WriteLine($"CV found at: {cvFullPath}");
                         cvText = ExtractTextFromFile(cvFullPath);
-                        System.Diagnostics.Debug.WriteLine($"CV text extracted: {(string.IsNullOrEmpty(cvText) ? "EMPTY" : cvText.Substring(0, Math.Min(500, cvText.Length)))}");
                     }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($"CV file not found: {cvFullPath}");
-                    }
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine("No CV path found for candidate");
                 }
 
-                // Extract skills from CV
                 var skills = ExtractSkills(cvText);
                 result.ExtractedSkills = skills;
-                System.Diagnostics.Debug.WriteLine($"Extracted {skills.Count} skills: {string.Join(", ", skills.Take(5))}");
 
-                // Extract qualifications from CV
                 var qualifications = ExtractQualifications(cvText);
                 result.ExtractedQualifications = qualifications;
-                System.Diagnostics.Debug.WriteLine($"Extracted {qualifications.Count} qualifications");
 
-                // Extract experience
                 result.YearsOfExperience = ExtractYearsOfExperience(cvText);
-                System.Diagnostics.Debug.WriteLine($"Years of experience: {result.YearsOfExperience}");
-
-                // Check for matric/Grade 12
                 result.HasGrade12 = CheckForMatric(cvText);
-                System.Diagnostics.Debug.WriteLine($"Has Matric/Grade 12: {result.HasGrade12}");
-
-                // Check for driver's license
                 result.HasDriversLicense = CheckForLicense(candidate.LicensePath, cvText);
-                System.Diagnostics.Debug.WriteLine($"Has Driver's License: {result.HasDriversLicense}");
-
-                // Determine highest qualification
                 result.HighestQualification = DetermineHighestQualification(cvText);
-                System.Diagnostics.Debug.WriteLine($"Highest Qualification: {result.HighestQualification}");
 
-                // Calculate skills match percentage
                 var jobRequirements = ExtractSkills(jobPost.Requirements);
                 result.SkillsMatchPercentage = CalculateSkillsMatch(skills, jobRequirements);
-                System.Diagnostics.Debug.WriteLine($"Skills Match Percentage: {result.SkillsMatchPercentage}%");
 
-                // Calculate overall ranking score
                 result.RankingScore = CalculateRankingScore(
                     result.SkillsMatchPercentage,
                     result.YearsOfExperience,
@@ -801,20 +816,14 @@ namespace MuhleOP.Controllers
                     result.HasGrade12,
                     result.HasDriversLicense
                 );
-                System.Diagnostics.Debug.WriteLine($"Ranking Score: {result.RankingScore:F2}");
 
-                // Check if candidate has matric (for ranking)
                 result.HasMatric = result.HasGrade12;
-                System.Diagnostics.Debug.WriteLine($"Has Matric (for ranking): {result.HasMatric}");
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"!!! EXCEPTION in RankCandidate: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                // Return default values on error
             }
 
-            System.Diagnostics.Debug.WriteLine($"=== RANKING CANDIDATE COMPLETED ===");
             return result;
         }
 
@@ -823,7 +832,6 @@ namespace MuhleOP.Controllers
             try
             {
                 string extension = System.IO.Path.GetExtension(filePath).ToLower();
-                System.Diagnostics.Debug.WriteLine($"Extracting text from: {filePath} (Extension: {extension})");
 
                 if (extension == ".txt")
                 {
@@ -833,7 +841,6 @@ namespace MuhleOP.Controllers
                 {
                     try
                     {
-                        System.Diagnostics.Debug.WriteLine("Using iTextSharp to extract PDF text...");
                         StringBuilder text = new StringBuilder();
                         using (PdfReader reader = new PdfReader(filePath))
                         {
@@ -847,27 +854,22 @@ namespace MuhleOP.Controllers
                                 }
                             }
                         }
-                        string result = text.ToString().Trim();
-                        System.Diagnostics.Debug.WriteLine($"PDF extracted {result.Length} characters");
-                        return result;
+                        return text.ToString().Trim();
                     }
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine($"iTextSharp extraction failed: {ex.Message}");
-                        System.Diagnostics.Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
                         return "";
                     }
                 }
                 else
                 {
-                    System.Diagnostics.Debug.WriteLine($"Unsupported file type: {extension}. Only .pdf and .txt are supported.");
                     return "";
                 }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error extracting text: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
                 return "";
             }
         }
@@ -879,7 +881,6 @@ namespace MuhleOP.Controllers
 
             string lowerText = text.ToLower();
 
-            // Common construction and management skills
             var skillKeywords = new List<string>
             {
                 "project management", "construction", "safety", "compliance", "team leadership",
@@ -939,7 +940,6 @@ namespace MuhleOP.Controllers
 
             string lowerText = text.ToLower();
 
-            // Look for patterns like "5 years", "5+ years", "5 years experience"
             var regex = new Regex(@"(\d+)\s*\+\s*years|\b(\d+)\s*years\b");
             var matches = regex.Matches(lowerText);
 
@@ -970,7 +970,6 @@ namespace MuhleOP.Controllers
 
         private bool CheckForLicense(string licensePath, string cvText)
         {
-            // Check if license file exists
             if (!string.IsNullOrEmpty(licensePath))
             {
                 string fullPath = Server.MapPath(licensePath);
@@ -980,7 +979,6 @@ namespace MuhleOP.Controllers
                 }
             }
 
-            // Check CV text for license keywords
             if (!string.IsNullOrEmpty(cvText))
             {
                 string lowerText = cvText.ToLower();
@@ -1040,17 +1038,14 @@ namespace MuhleOP.Controllers
         {
             double score = 0;
 
-            // Skills match (max 40 points)
             score += skillsMatch * 0.4;
 
-            // Experience (max 20 points)
             if (yearsExperience >= 10) score += 20;
             else if (yearsExperience >= 7) score += 18;
             else if (yearsExperience >= 5) score += 15;
             else if (yearsExperience >= 3) score += 10;
             else if (yearsExperience >= 1) score += 5;
 
-            // Qualification (max 25 points)
             switch (qualification.ToLower())
             {
                 case "phd": score += 25; break;
@@ -1064,10 +1059,7 @@ namespace MuhleOP.Controllers
                 default: score += 0; break;
             }
 
-            // Matric/Grade 12 (max 10 points)
             if (hasMatric) score += 10;
-
-            // Driver's License (max 5 points)
             if (hasLicense) score += 5;
 
             return Math.Round(score, 2);
@@ -1101,6 +1093,7 @@ namespace MuhleOP.Controllers
                     NumberOfOpenings = viewModel.NumberOfOpenings,
                     Department = viewModel.Department,
                     IsPublished = viewModel.IsPublished,
+                    IsClosed = false,
                     DatePosted = DateTime.Now,
                     PostedBy = User.Identity.Name
                 };
@@ -1139,6 +1132,7 @@ namespace MuhleOP.Controllers
                 NumberOfOpenings = jobPost.NumberOfOpenings,
                 Department = jobPost.Department,
                 IsPublished = jobPost.IsPublished,
+                IsClosed = jobPost.IsClosed,
                 DatePosted = jobPost.DatePosted,
                 PostedBy = jobPost.PostedBy
             };
@@ -1204,6 +1198,7 @@ namespace MuhleOP.Controllers
                 NumberOfOpenings = jobPost.NumberOfOpenings,
                 Department = jobPost.Department,
                 IsPublished = jobPost.IsPublished,
+                IsClosed = jobPost.IsClosed,
                 DatePosted = jobPost.DatePosted,
                 PostedBy = jobPost.PostedBy
             };
@@ -1271,7 +1266,6 @@ namespace MuhleOP.Controllers
                 if (candidate == null) return;
 
                 System.Diagnostics.Debug.WriteLine($"Sending interview notification to: {candidate.Email}");
-                System.Diagnostics.Debug.WriteLine($"Interview scheduled for {candidate.FullName} on {application.InterviewDateTime}");
             }
             catch (Exception ex)
             {

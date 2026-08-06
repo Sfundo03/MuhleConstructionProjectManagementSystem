@@ -317,8 +317,12 @@ namespace MuhleOP.Controllers
                     IsShortlisted = app.IsShortlisted,
                     InterviewScheduled = app.InterviewScheduled,
                     InterviewDateTime = app.InterviewDateTime,
+                    InterviewResult = app.InterviewResult ?? "Pending",
+                    IsHired = app.IsHired,
+                    IsInterviewCompleted = app.InterviewResult != "Pending",
                     RankingScore = app.RankingScore,
-                    SkillsMatchPercentage = app.SkillsMatchPercentage
+                    SkillsMatchPercentage = app.SkillsMatchPercentage,
+                    StatusHistory = new List<ApplicationStatusHistoryViewModel>()
                 }).ToList();
 
                 return View(viewModels);
@@ -375,6 +379,13 @@ namespace MuhleOP.Controllers
                 var statusHistory = db.ApplicationStatusHistories
                     .Where(h => h.ApplicationId == application.Id)
                     .OrderByDescending(h => h.ChangeDate)
+                    .Select(h => new ApplicationStatusHistoryViewModel
+                    {
+                        Status = h.Status,
+                        Notes = h.Notes,
+                        ChangedBy = h.ChangedBy,
+                        ChangeDate = h.ChangeDate
+                    })
                     .ToList();
 
                 var viewModel = new ApplicationStatusViewModel
@@ -388,15 +399,13 @@ namespace MuhleOP.Controllers
                     InterviewScheduled = application.InterviewScheduled,
                     InterviewDateTime = application.InterviewDateTime,
                     InterviewNotes = application.InterviewNotes,
+                    InterviewResult = application.InterviewResult ?? "Pending",
+                    InterviewFeedback = application.InterviewFeedback,
+                    IsHired = application.IsHired,
+                    IsInterviewCompleted = application.InterviewResult != "Pending",
                     RankingScore = application.RankingScore,
                     SkillsMatchPercentage = application.SkillsMatchPercentage,
-                    StatusHistory = statusHistory.Select(h => new ApplicationStatusHistoryViewModel
-                    {
-                        Status = h.Status,
-                        Notes = h.Notes,
-                        ChangedBy = h.ChangedBy,
-                        ChangeDate = h.ChangeDate
-                    }).ToList()
+                    StatusHistory = statusHistory
                 };
 
                 return View(viewModel);
@@ -416,7 +425,7 @@ namespace MuhleOP.Controllers
             try
             {
                 var jobs = db.JobPosts
-                    .Where(j => j.IsPublished && j.ClosingDate >= DateTime.Now)
+                    .Where(j => j.IsPublished && !j.IsClosed && j.ClosingDate >= DateTime.Now)
                     .OrderByDescending(j => j.DatePosted)
                     .ToList();
 
@@ -450,10 +459,19 @@ namespace MuhleOP.Controllers
             try
             {
                 var job = db.JobPosts.Find(id);
-                if (job == null || !job.IsPublished)
+                if (job == null || !job.IsPublished || job.IsClosed)
                 {
                     System.Diagnostics.Debug.WriteLine($"Job not found or not published: {id}");
                     return HttpNotFound();
+                }
+
+                // Check if candidate already applied
+                var user = UserManager.FindById(User.Identity.GetUserId());
+                var candidate = db.Candidates.FirstOrDefault(c => c.UserId == user.Id);
+                bool hasApplied = false;
+                if (candidate != null)
+                {
+                    hasApplied = db.JobApplications.Any(a => a.JobPostId == id && a.CandidateId == candidate.Id);
                 }
 
                 var viewModel = new ApplyJobViewModel
@@ -464,7 +482,8 @@ namespace MuhleOP.Controllers
                     Requirements = job.Requirements,
                     Location = job.Location,
                     JobType = job.JobType,
-                    ClosingDate = job.ClosingDate
+                    ClosingDate = job.ClosingDate,
+                    HasApplied = hasApplied
                 };
 
                 System.Diagnostics.Debug.WriteLine($"Job details loaded: {job.JobTitle}");
@@ -485,7 +504,7 @@ namespace MuhleOP.Controllers
             try
             {
                 var job = db.JobPosts.Find(id);
-                if (job == null || !job.IsPublished || job.ClosingDate < DateTime.Now)
+                if (job == null || !job.IsPublished || job.IsClosed || job.ClosingDate < DateTime.Now)
                 {
                     System.Diagnostics.Debug.WriteLine($"Job not available - Job ID: {id}");
                     TempData["ErrorMessage"] = "This job is no longer available.";
@@ -504,15 +523,15 @@ namespace MuhleOP.Controllers
                     return RedirectToAction("Register");
                 }
 
-                // Check if already applied
+                // Check if already applied - Prevent duplicate applications
                 var existingApplication = db.JobApplications
                     .FirstOrDefault(a => a.JobPostId == id && a.CandidateId == candidate.Id);
 
                 if (existingApplication != null)
                 {
                     System.Diagnostics.Debug.WriteLine($"User already applied for this job - Application ID: {existingApplication.Id}");
-                    TempData["ErrorMessage"] = "You have already applied for this position.";
-                    return RedirectToAction("Dashboard", "Home");
+                    TempData["ErrorMessage"] = "You have already applied for this position. Please wait for feedback or check your email for updates.";
+                    return RedirectToAction("BrowseJobs");
                 }
 
                 var viewModel = new ApplyJobViewModel
@@ -525,6 +544,7 @@ namespace MuhleOP.Controllers
                     JobType = job.JobType,
                     ClosingDate = job.ClosingDate,
                     HasExistingDocuments = true,
+                    HasApplied = false,
                     CoverLetter = "Dear Hiring Manager,\n\nI am writing to apply for the " + job.JobTitle + " position. I am very interested in this opportunity and believe my skills and experience make me a strong candidate for this role.\n\nI look forward to hearing from you.\n\nSincerely,\n" + candidate.FullName
                 };
 
@@ -568,10 +588,21 @@ namespace MuhleOP.Controllers
                     var job = db.JobPosts.Find(model.JobPostId);
                     System.Diagnostics.Debug.WriteLine($"Job found: {(job != null ? job.JobTitle : "NULL")}");
 
-                    if (job == null || !job.IsPublished)
+                    if (job == null || !job.IsPublished || job.IsClosed)
                     {
                         System.Diagnostics.Debug.WriteLine($"Job not found or not published - Job ID: {model.JobPostId}");
                         TempData["ErrorMessage"] = "Job not found or no longer available.";
+                        return RedirectToAction("BrowseJobs");
+                    }
+
+                    // Check again for duplicate application
+                    var existingApplication = db.JobApplications
+                        .FirstOrDefault(a => a.JobPostId == model.JobPostId && a.CandidateId == candidate.Id);
+
+                    if (existingApplication != null)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Duplicate application detected - Application ID: {existingApplication.Id}");
+                        TempData["ErrorMessage"] = "You have already applied for this position. Please wait for feedback or check your email for updates.";
                         return RedirectToAction("BrowseJobs");
                     }
 
@@ -731,7 +762,6 @@ namespace MuhleOP.Controllers
 
             try
             {
-                // Check if user is authenticated
                 if (!User.Identity.IsAuthenticated)
                 {
                     System.Diagnostics.Debug.WriteLine("User is not authenticated");
@@ -747,14 +777,12 @@ namespace MuhleOP.Controllers
                     return Json(new { success = false, message = "Invalid user ID" }, JsonRequestBehavior.AllowGet);
                 }
 
-                // First, get the notifications from database
                 var notifications = db.Notifications
                     .Where(n => n.UserId == userId)
                     .OrderByDescending(n => n.CreatedDate)
                     .Take(10)
-                    .ToList(); // Materialize the query first
+                    .ToList();
 
-                // Then format in memory
                 var formattedNotifications = notifications.Select(n => new
                 {
                     id = n.Id,
@@ -936,11 +964,9 @@ namespace MuhleOP.Controllers
             {
                 System.Diagnostics.Debug.WriteLine($"Sending application notification for: {job.JobTitle}");
 
-                // Create notification for admin (in a real app, you'd send to admin role users)
                 var adminUsers = UserManager.Users.Where(u => UserManager.IsInRole(u.Id, "Admin")).ToList();
                 foreach (var admin in adminUsers)
                 {
-                    // Create in-app notification for admin
                     Task.Run(async () => await CreateNotification(
                         admin.Id,
                         "New Application Received",

@@ -14,9 +14,21 @@ namespace MuhleOP.ViewModels
         public bool InterviewScheduled { get; set; }
         public DateTime? InterviewDateTime { get; set; }
         public string InterviewNotes { get; set; }
+        public string InterviewResult { get; set; }
+        public string InterviewFeedback { get; set; }
+        public bool IsHired { get; set; }
+        public bool IsInterviewCompleted { get; set; }
         public double RankingScore { get; set; }
         public int SkillsMatchPercentage { get; set; }
         public List<ApplicationStatusHistoryViewModel> StatusHistory { get; set; }
+
+        public ApplicationStatusViewModel()
+        {
+            StatusHistory = new List<ApplicationStatusHistoryViewModel>();
+            InterviewResult = "Pending";
+            IsHired = false;
+            IsInterviewCompleted = false;
+        }
     }
 
     public class ApplicationStatusHistoryViewModel
