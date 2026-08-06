@@ -1,0 +1,164 @@
+﻿@model MuhleOP.ViewModels.ApplyJobViewModel
+@{
+    ViewBag.Title = "Apply for Job";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Apply for: @Model.JobTitle</h2>
+    <a href="@Url.Action("BrowseJobs")" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Jobs
+    </a>
+</div>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                @using (Html.BeginForm("Apply", "Candidate", FormMethod.Post, new { enctype = "multipart/form-data" }))
+                {
+                    @Html.AntiForgeryToken()
+                    @Html.HiddenFor(m => m.JobPostId)
+                    @Html.HiddenFor(m => m.JobTitle)
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Note:</strong> You can update your documents before submitting the application.
+                    </div>
+
+                    <div class="mb-4">
+                        <h5>Job Information</h5>
+                        <dl class="row">
+                            <dt class="col-sm-4">Position</dt>
+                            <dd class="col-sm-8">@Model.JobTitle</dd>
+                            <dt class="col-sm-4">Location</dt>
+                            <dd class="col-sm-8">@Model.Location</dd>
+                            <dt class="col-sm-4">Job Type</dt>
+                            <dd class="col-sm-8">@Model.JobType</dd>
+                            <dt class="col-sm-4">Closing Date</dt>
+                            <dd class="col-sm-8">@Model.ClosingDate.ToString("yyyy-MM-dd")</dd>
+                        </dl>
+                    </div>
+
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.CoverLetter, new { @class = "form-label fw-bold" })
+                        @Html.TextAreaFor(m => m.CoverLetter, new { @class = "form-control", rows = "8" })
+                        @Html.ValidationMessageFor(m => m.CoverLetter, "", new { @class = "text-danger" })
+                    </div>
+
+                    <hr />
+
+                    <div class="mb-3">
+                        <h5>Update Your Documents (Optional)</h5>
+                        <p class="text-muted small">Upload new versions of your documents if they have changed.</p>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                @Html.LabelFor(m => m.UpdatedCv, new { @class = "form-label fw-bold" })
+                                <input type="file" name="UpdatedCv" class="form-control-file" accept=".pdf,.doc,.docx" />
+                                @Html.ValidationMessageFor(m => m.UpdatedCv, "", new { @class = "text-danger" })
+                                <small class="text-muted" style="display:block;font-size:11px;">PDF, DOC (Max 5MB)</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                @Html.LabelFor(m => m.UpdatedQualifications, new { @class = "form-label fw-bold" })
+                                <input type="file" name="UpdatedQualifications" class="form-control-file" accept=".pdf,.doc,.docx" />
+                                @Html.ValidationMessageFor(m => m.UpdatedQualifications, "", new { @class = "text-danger" })
+                                <small class="text-muted" style="display:block;font-size:11px;">PDF, DOC (Max 5MB)</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                @Html.LabelFor(m => m.UpdatedIdDocument, new { @class = "form-label fw-bold" })
+                                <input type="file" name="UpdatedIdDocument" class="form-control-file" accept=".pdf,.doc,.docx,.jpg,.png" />
+                                @Html.ValidationMessageFor(m => m.UpdatedIdDocument, "", new { @class = "text-danger" })
+                                <small class="text-muted" style="display:block;font-size:11px;">PDF, DOC, JPG, PNG (Max 5MB)</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                @Html.LabelFor(m => m.UpdatedLicense, new { @class = "form-label fw-bold" })
+                                <input type="file" name="UpdatedLicense" class="form-control-file" accept=".pdf,.doc,.docx,.jpg,.png" />
+                                @Html.ValidationMessageFor(m => m.UpdatedLicense, "", new { @class = "text-danger" })
+                                <small class="text-muted" style="display:block;font-size:11px;">Optional: PDF, DOC, JPG, PNG (Max 5MB)</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-paper-plane"></i> Submit Application
+                        </button>
+                        <a href="@Url.Action("BrowseJobs")" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Application Tips</h5>
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Ensure your CV is up to date
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Customize your cover letter
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Upload all required documents
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Double-check your contact information
+                    </li>
+                    <li>
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Review your application before submitting
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+                <h6 class="card-title">Job Summary</h6>
+                <dl class="row small">
+                    <dt class="col-6">Position:</dt>
+                    <dd class="col-6">@Model.JobTitle</dd>
+                    <dt class="col-6">Location:</dt>
+                    <dd class="col-6">@Model.Location</dd>
+                    <dt class="col-6">Type:</dt>
+                    <dd class="col-6">@Model.JobType</dd>
+                    <dt class="col-6">Closes:</dt>
+                    <dd class="col-6">@Model.ClosingDate.ToString("yyyy-MM-dd")</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @Scripts.Render("~/bundles/jqueryval")
+}

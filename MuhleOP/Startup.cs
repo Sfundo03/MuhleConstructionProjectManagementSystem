@@ -16,10 +16,10 @@ namespace MuhleOP
         public void Configuration(IAppBuilder app)
         {
             ConfigureAuth(app);
-            SeedAdminUserAndRole();
+            SeedRolesAndAdmin();
         }
 
-        private void SeedAdminUserAndRole()
+        private void SeedRolesAndAdmin()
         {
             try
             {
@@ -30,14 +30,18 @@ namespace MuhleOP
                     var roleStore = new RoleStore<IdentityRole>(context);
                     var roleManager = new RoleManager<IdentityRole>(roleStore);
 
-                    // Create Admin role if it doesn't exist
-                    if (!roleManager.RoleExists("Admin"))
+                    // Create roles
+                    string[] roleNames = { "Admin", "Candidate" };
+                    foreach (var roleName in roleNames)
                     {
-                        var role = new IdentityRole("Admin");
-                        roleManager.Create(role);
+                        if (!roleManager.RoleExists(roleName))
+                        {
+                            var role = new IdentityRole(roleName);
+                            roleManager.Create(role);
+                        }
                     }
 
-                    // Create Admin user if it doesn't exist
+                    // Create Admin user
                     var adminUser = userManager.FindByEmail("admin@gmail.com");
                     if (adminUser == null)
                     {
@@ -51,13 +55,11 @@ namespace MuhleOP
                         var result = userManager.Create(user, "Admin123!");
                         if (result.Succeeded)
                         {
-                            // Assign Admin role to the user
                             userManager.AddToRole(user.Id, "Admin");
                         }
                     }
                     else
                     {
-                        // If user exists but doesn't have Admin role, add it
                         if (!userManager.IsInRole(adminUser.Id, "Admin"))
                         {
                             userManager.AddToRole(adminUser.Id, "Admin");

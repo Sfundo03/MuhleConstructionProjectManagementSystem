@@ -1,0 +1,62 @@
+﻿@model MuhleOP.ViewModels.ApplyJobViewModel
+@{
+    ViewBag.Title = "Job Details";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Job Details</h2>
+    <div>
+        <a href="@Url.Action("Apply", new { id = Model.JobPostId })" class="btn btn-success">
+            <i class="fas fa-paper-plane"></i> Apply Now
+        </a>
+        <a href="@Url.Action("BrowseJobs")" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Jobs
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h3>@Model.JobTitle</h3>
+
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <span class="badge bg-primary">@Model.JobType</span>
+                    <span class="badge bg-info">@Model.Location</span>
+                    <span class="badge bg-warning">Closes: @Model.ClosingDate.ToString("yyyy-MM-dd")</span>
+                </div>
+
+                <div class="mb-4">
+                    <h5 class="border-bottom pb-2">Job Description</h5>
+                    <p style="white-space: pre-wrap;">@Model.JobDescription</p>
+                </div>
+
+                <div>
+                    <h5 class="border-bottom pb-2">Requirements</h5>
+                    <p style="white-space: pre-wrap;">@Model.Requirements</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Quick Actions</h5>
+                <div class="d-grid gap-2">
+                    <a href="@Url.Action("Apply", new { id = Model.JobPostId })" class="btn btn-success">
+                        <i class="fas fa-paper-plane"></i> Apply Now
+                    </a>
+                    <a href="@Url.Action("BrowseJobs")" class="btn btn-outline-secondary">
+                        <i class="fas fa-list"></i> Browse More Jobs
+                    </a>
+                    <a href="@Url.Action("Dashboard")" class="btn btn-outline-primary">
+                        <i class="fas fa-home"></i> Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

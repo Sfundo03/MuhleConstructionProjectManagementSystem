@@ -1,4 +1,4 @@
-﻿@using MuhleOP.Models
+﻿﻿@using MuhleOP.Models
 @model LoginViewModel
 @{
     ViewBag.Title = "Log in";
@@ -38,16 +38,16 @@
             background-position: center;
         }
 
-            .login-hero::after {
-                content: "";
-                position: absolute;
-                left: 0;
-                bottom: 0;
-                width: 55%;
-                height: 60%;
-                background: radial-gradient(ellipse at bottom left, rgba(245,166,35,0.28) 0%, rgba(245,166,35,0) 70%);
-                pointer-events: none;
-            }
+        .login-hero::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 55%;
+            height: 60%;
+            background: radial-gradient(ellipse at bottom left, rgba(245,166,35,0.28) 0%, rgba(245,166,35,0) 70%);
+            pointer-events: none;
+        }
 
         .hero-content {
             position: relative;
@@ -78,9 +78,9 @@
             text-transform: uppercase;
         }
 
-            .hero-heading .accent {
-                color: #F5A623;
-            }
+        .hero-heading .accent {
+            color: #F5A623;
+        }
 
         .hero-desc {
             color: rgba(255,255,255,0.78);
@@ -128,33 +128,61 @@
             padding: 44px 40px 36px 40px;
         }
 
-            .login-card h1 {
-                font-size: 21px;
-                font-weight: 800;
-                letter-spacing: 0.3px;
-                color: #10151c;
-                margin: 0 0 6px 0;
-            }
+        .login-card h1 {
+            font-size: 21px;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            color: #10151c;
+            margin: 0 0 6px 0;
+        }
 
-            .login-card .subtitle {
-                font-size: 13.5px;
-                color: #6b7280;
-                margin: 0 0 26px 0;
-            }
+        .login-card .subtitle {
+            font-size: 13.5px;
+            color: #6b7280;
+            margin: 0 0 26px 0;
+        }
+
+        .register-links {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .register-links a {
+            color: #4e73df;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: color 0.15s ease;
+        }
+
+        .register-links a:hover {
+            color: #2e59d9;
+            text-decoration: underline;
+        }
+
+        .register-links .candidate-link {
+            color: #1cc88a;
+        }
+
+        .register-links .candidate-link:hover {
+            color: #17a673;
+        }
 
         .field-group {
             margin-bottom: 20px;
         }
 
-            .field-group label {
-                display: block;
-                font-size: 11px;
-                font-weight: 700;
-                letter-spacing: 1px;
-                text-transform: uppercase;
-                color: #374151;
-                margin-bottom: 8px;
-            }
+        .field-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: #374151;
+            margin-bottom: 8px;
+        }
 
         .input-wrap {
             display: flex;
@@ -167,28 +195,28 @@
             transition: border-color .15s ease;
         }
 
-            .input-wrap:focus-within {
-                border-color: #F5A623;
-            }
+        .input-wrap:focus-within {
+            border-color: #F5A623;
+        }
 
-            .input-wrap svg {
-                flex-shrink: 0;
-                color: #9AA1AC;
-            }
+        .input-wrap svg {
+            flex-shrink: 0;
+            color: #9AA1AC;
+        }
 
-            .input-wrap input {
-                border: none;
-                outline: none;
-                flex: 1;
-                font-size: 14px;
-                font-family: 'Inter', sans-serif;
-                color: #10151c;
-                background: transparent;
-            }
+        .input-wrap input {
+            border: none;
+            outline: none;
+            flex: 1;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            color: #10151c;
+            background: transparent;
+        }
 
-                .input-wrap input::placeholder {
-                    color: #A6ACB6;
-                }
+        .input-wrap input::placeholder {
+            color: #A6ACB6;
+        }
 
         .btn-enter {
             width: 100%;
@@ -211,9 +239,9 @@
             transition: background .15s ease;
         }
 
-            .btn-enter:hover {
-                background: #0e1620;
-            }
+        .btn-enter:hover {
+            background: #0e1620;
+        }
 
         .card-divider {
             border: none;
@@ -227,10 +255,10 @@
             margin: 0;
         }
 
-            .card-footer strong {
-                color: #10151c;
-                font-weight: 700;
-            }
+        .card-footer strong {
+            color: #10151c;
+            font-weight: 700;
+        }
 
         .validation-summary-errors {
             color: #d0392c;
@@ -238,10 +266,10 @@
             margin-bottom: 16px;
         }
 
-            .validation-summary-errors ul {
-                margin: 0;
-                padding-left: 18px;
-            }
+        .validation-summary-errors ul {
+            margin: 0;
+            padding-left: 18px;
+        }
 
         .field-validation-error {
             display: block;
@@ -252,6 +280,19 @@
 
         .text-danger {
             color: #d0392c;
+        }
+
+        .default-creds {
+            background: #f8f9fa;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #F5A623;
+            font-size: 12px;
+        }
+
+        .default-creds strong {
+            color: #16202C;
         }
 
         @@media (max-width: 900px) {
@@ -315,6 +356,10 @@
             <h1>Sign In</h1>
             <p class="subtitle">Use the credentials issued to you by the Admin.</p>
 
+            <div class="default-creds">
+                <strong>Default Admin:</strong> admin@gmail.com / Admin123!
+            </div>
+
             @using (Html.BeginForm("Login", "Account", new { ReturnUrl = ViewBag.ReturnUrl }, FormMethod.Post, new { role = "form" }))
             {
                 @Html.AntiForgeryToken()
@@ -345,6 +390,11 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
                 </button>
             }
+
+            <div class="register-links">
+                <a href="@Url.Action("Register", "Account")">Register as a new user</a>
+                <a href="@Url.Action("Register", "Candidate")" class="candidate-link">Register as a Candidate</a>
+            </div>
 
             <hr class="card-divider" />
             <p class="card-footer">

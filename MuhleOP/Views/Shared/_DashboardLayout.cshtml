@@ -13,6 +13,39 @@
             --header-height: 60px;
             --primary-dark: #16202C;
             --primary-gold: #F5A623;
+
+            /* Light Mode Colors */
+            --bg-body: #f4f6f9;
+            --bg-card: #ffffff;
+            --bg-header: #ffffff;
+            --text-primary: #1a202c;
+            --text-secondary: #6b7280;
+            --border-color: #e9ecef;
+            --shadow-color: rgba(0,0,0,0.08);
+            --bg-input: #ffffff;
+            --bg-hover: #f3f4f6;
+            --bg-sidebar: #16202C;
+            --text-sidebar: rgba(255,255,255,0.7);
+            --text-sidebar-hover: #ffffff;
+            --bg-sidebar-hover: rgba(255,255,255,0.06);
+            --bg-sidebar-active: rgba(245,166,35,0.12);
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #0f1419;
+            --bg-card: #1a202c;
+            --bg-header: #1a202c;
+            --text-primary: #e2e8f0;
+            --text-secondary: #a0aec0;
+            --border-color: #2d3748;
+            --shadow-color: rgba(0,0,0,0.3);
+            --bg-input: #2d3748;
+            --bg-hover: #2d3748;
+            --bg-sidebar: #0f1419;
+            --text-sidebar: rgba(255,255,255,0.6);
+            --text-sidebar-hover: #ffffff;
+            --bg-sidebar-hover: rgba(255,255,255,0.05);
+            --bg-sidebar-active: rgba(245,166,35,0.08);
         }
 
         * {
@@ -23,8 +56,10 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #f4f6f9;
+            background: var(--bg-body);
+            color: var(--text-primary);
             overflow-x: hidden;
+            transition: background 0.3s ease, color 0.3s ease;
         }
 
         /* Sidebar */
@@ -34,10 +69,10 @@
             left: 0;
             width: var(--sidebar-width);
             height: 100vh;
-            background: var(--primary-dark);
+            background: var(--bg-sidebar);
             color: #fff;
             z-index: 1000;
-            transition: transform 0.3s ease;
+            transition: transform 0.3s ease, background 0.3s ease;
             display: flex;
             flex-direction: column;
         }
@@ -93,7 +128,7 @@
             align-items: center;
             gap: 14px;
             padding: 10px 24px;
-            color: rgba(255,255,255,0.7);
+            color: var(--text-sidebar);
             text-decoration: none;
             font-size: 14px;
             font-weight: 500;
@@ -103,13 +138,13 @@
         }
 
         .sidebar-menu .nav-item:hover {
-            background: rgba(255,255,255,0.06);
-            color: #fff;
+            background: var(--bg-sidebar-hover);
+            color: var(--text-sidebar-hover);
             border-left-color: var(--primary-gold);
         }
 
         .sidebar-menu .nav-item.active {
-            background: rgba(245,166,35,0.12);
+            background: var(--bg-sidebar-active);
             color: #fff;
             border-left-color: var(--primary-gold);
         }
@@ -153,6 +188,7 @@
         .sidebar-footer .user-name {
             font-size: 13px;
             font-weight: 600;
+            color: rgba(255,255,255,0.9);
         }
 
         .sidebar-footer .user-email {
@@ -170,8 +206,8 @@
         /* Header */
         .header {
             height: var(--header-height);
-            background: #fff;
-            border-bottom: 1px solid #e9ecef;
+            background: var(--bg-header);
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -179,6 +215,7 @@
             position: sticky;
             top: 0;
             z-index: 999;
+            transition: background 0.3s ease, border-color 0.3s ease;
         }
 
         .header-left {
@@ -191,7 +228,7 @@
             background: none;
             border: none;
             font-size: 20px;
-            color: #6b7280;
+            color: var(--text-secondary);
             cursor: pointer;
             display: none;
             padding: 4px;
@@ -200,13 +237,28 @@
         .header-left .page-title {
             font-size: 16px;
             font-weight: 600;
-            color: #1a202c;
+            color: var(--text-primary);
         }
 
         .header-right {
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 16px;
+        }
+
+        .header-right .theme-toggle {
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 6px;
+            transition: background 0.15s ease;
+        }
+
+        .header-right .theme-toggle:hover {
+            background: var(--bg-hover);
         }
 
         .header-right .notification-btn {
@@ -214,7 +266,7 @@
             background: none;
             border: none;
             font-size: 18px;
-            color: #6b7280;
+            color: var(--text-secondary);
             cursor: pointer;
             padding: 4px;
         }
@@ -227,13 +279,13 @@
             height: 8px;
             background: #e74c3c;
             border-radius: 50%;
-            border: 2px solid #fff;
+            border: 2px solid var(--bg-header);
         }
 
         .header-right .logout-btn {
             background: none;
             border: none;
-            color: #6b7280;
+            color: var(--text-secondary);
             font-size: 14px;
             font-weight: 500;
             cursor: pointer;
@@ -246,13 +298,31 @@
         }
 
         .header-right .logout-btn:hover {
-            background: #f3f4f6;
-            color: #1a202c;
+            background: var(--bg-hover);
+            color: var(--text-primary);
         }
 
         /* Page Content */
         .page-content {
             padding: 24px 30px 40px;
+        }
+
+        /* Card Styles */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+
+        .card-header {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 20px;
+        }
+
+        .card-body {
+            padding: 20px;
         }
 
         /* Alert Styles */
@@ -269,10 +339,22 @@
             border-color: #c3e6cb;
         }
 
+        [data-theme="dark"] .alert-success {
+            color: #b7eb8f;
+            background-color: #1a3a2a;
+            border-color: #2d5a3d;
+        }
+
         .alert-danger {
             color: #721c24;
             background-color: #f8d7da;
             border-color: #f5c6cb;
+        }
+
+        [data-theme="dark"] .alert-danger {
+            color: #f5a3a3;
+            background-color: #3a1a1a;
+            border-color: #5a2d2d;
         }
 
         .alert-warning {
@@ -281,10 +363,22 @@
             border-color: #ffeeba;
         }
 
+        [data-theme="dark"] .alert-warning {
+            color: #f5d98a;
+            background-color: #3a2a1a;
+            border-color: #5a4a2d;
+        }
+
         .alert-info {
             color: #0c5460;
             background-color: #d1ecf1;
             border-color: #bee5eb;
+        }
+
+        [data-theme="dark"] .alert-info {
+            color: #8ad4e8;
+            background-color: #1a2a3a;
+            border-color: #2d4a5a;
         }
 
         .alert-dismissible {
@@ -306,14 +400,6 @@
         }
 
         .alert-dismissible .btn-close:hover {
-            opacity: 1;
-        }
-
-        .fade {
-            transition: opacity 0.15s linear;
-        }
-
-        .show {
             opacity: 1;
         }
 
@@ -390,6 +476,108 @@
             border-color: #717384;
         }
 
+        .btn-outline-primary {
+            color: #4e73df;
+            border-color: #4e73df;
+            background: transparent;
+        }
+
+        .btn-outline-primary:hover {
+            background-color: #4e73df;
+            color: #fff;
+        }
+
+        .btn-outline-secondary {
+            color: var(--text-secondary);
+            border-color: var(--border-color);
+            background: transparent;
+        }
+
+        .btn-outline-secondary:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        /* Form Controls */
+        .form-control, .form-select {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 14px;
+            width: 100%;
+            transition: border-color 0.15s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary-gold);
+            box-shadow: 0 0 0 3px rgba(245,166,35,0.1);
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        .form-check-input {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            accent-color: var(--primary-gold);
+        }
+
+        .form-check-label {
+            color: var(--text-primary);
+        }
+
+        /* Table Styles */
+        .table {
+            width: 100%;
+            color: var(--text-primary);
+            border-collapse: collapse;
+        }
+
+        .table th, .table td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            text-align: left;
+        }
+
+        .table th {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .table-hover tbody tr:hover {
+            background: var(--bg-hover);
+        }
+
+        /* Badge Styles */
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-success { background: #1cc88a; color: #fff; }
+        .badge-warning { background: #f6c23e; color: #fff; }
+        .badge-danger { background: #e74a3b; color: #fff; }
+        .badge-info { background: #36b9cc; color: #fff; }
+        .badge-primary { background: #4e73df; color: #fff; }
+        .badge-secondary { background: #858796; color: #fff; }
+
         /* Responsive */
         @@media (max-width: 768px) {
             .sidebar {
@@ -440,13 +628,38 @@
         }
 
         /* Utility */
-        .text-gold {
-            color: var(--primary-gold);
-        }
-
-        .bg-gold {
-            background: var(--primary-gold);
-        }
+        .text-gold { color: var(--primary-gold); }
+        .bg-gold { background: var(--primary-gold); }
+        .text-muted { color: var(--text-secondary); }
+        .text-center { text-align: center; }
+        .text-start { text-align: left; }
+        .text-end { text-align: right; }
+        .mb-0 { margin-bottom: 0; }
+        .mb-1 { margin-bottom: 4px; }
+        .mb-2 { margin-bottom: 8px; }
+        .mb-3 { margin-bottom: 12px; }
+        .mb-4 { margin-bottom: 20px; }
+        .mt-3 { margin-top: 12px; }
+        .mt-4 { margin-top: 20px; }
+        .me-2 { margin-right: 8px; }
+        .me-3 { margin-right: 12px; }
+        .ms-2 { margin-left: 8px; }
+        .d-flex { display: flex; }
+        .d-grid { display: grid; }
+        .gap-2 { gap: 8px; }
+        .gap-3 { gap: 12px; }
+        .align-items-center { align-items: center; }
+        .justify-content-between { justify-content: space-between; }
+        .justify-content-center { justify-content: center; }
+        .flex-column { flex-direction: column; }
+        .flex-wrap { flex-wrap: wrap; }
+        .w-100 { width: 100%; }
+        .h-100 { height: 100%; }
+        .border-0 { border: 0; }
+        .shadow-sm { box-shadow: 0 2px 8px var(--shadow-color); }
+        .shadow { box-shadow: 0 4px 16px var(--shadow-color); }
+        .rounded { border-radius: 6px; }
+        .bg-white { background: var(--bg-card); }
     </style>
 </head>
 <body>
@@ -460,14 +673,15 @@
 
         <nav class="sidebar-menu">
             <div class="menu-label">Main</div>
-            <a href="@Url.Action("Dashboard", "Home")" class="nav-item">
-                <i class="fas fa-th-large"></i>
-                <span>Dashboard</span>
-            </a>
 
-            <!-- Check if user is in Admin role -->
             @if (User.IsInRole("Admin"))
             {
+                <!-- Admin Menu -->
+                <a href="@Url.Action("Dashboard", "Home")" class="nav-item">
+                    <i class="fas fa-th-large"></i>
+                    <span>Dashboard</span>
+                </a>
+
                 <div class="menu-label">Recruitment</div>
                 <a href="@Url.Action("Index", "JobPost")" class="nav-item">
                     <i class="fas fa-bullhorn"></i>
@@ -550,9 +764,33 @@
                     <span>Project Handover</span>
                 </a>
             }
+            else if (User.IsInRole("Candidate"))
+            {
+                <!-- Candidate Menu - All point to Home/Dashboard which is role-based -->
+                <a href="@Url.Action("Dashboard", "Home")" class="nav-item">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="@Url.Action("BrowseJobs", "Candidate")" class="nav-item">
+                    <i class="fas fa-search"></i>
+                    <span>Browse Jobs</span>
+                </a>
+                <a href="@Url.Action("Dashboard", "Home")" class="nav-item">
+                    <i class="fas fa-file-alt"></i>
+                    <span>My Applications</span>
+                </a>
+                <a href="@Url.Action("Dashboard", "Home")" class="nav-item">
+                    <i class="fas fa-user"></i>
+                    <span>My Profile</span>
+                </a>
+            }
             else
             {
-                // Non-admin users see limited menu
+                <!-- Default Menu for other users -->
+                <a href="@Url.Action("Dashboard", "Home")" class="nav-item">
+                    <i class="fas fa-th-large"></i>
+                    <span>Dashboard</span>
+                </a>
                 <div class="menu-label">My Work</div>
                 <a href="#" class="nav-item" onclick="alert('My Tasks feature coming soon!')">
                     <i class="fas fa-tasks"></i>
@@ -591,6 +829,9 @@
                 <span class="page-title">@ViewBag.Title</span>
             </div>
             <div class="header-right">
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <i class="fas fa-moon"></i>
+                </button>
                 <button class="notification-btn" aria-label="Notifications">
                     <i class="fas fa-bell"></i>
                     <span class="badge-dot"></span>
@@ -655,6 +896,29 @@
                         alert.remove();
                     }, 150);
                 }, 5000);
+            });
+        });
+
+        // Dark/Light Mode Toggle
+        document.addEventListener('DOMContentLoaded', function () {
+            const themeToggle = document.getElementById('themeToggle');
+            const icon = themeToggle.querySelector('i');
+
+            // Check for saved theme preference
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                icon.className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+
+            themeToggle.addEventListener('click', function () {
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+
+                icon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
             });
         });
     </script>

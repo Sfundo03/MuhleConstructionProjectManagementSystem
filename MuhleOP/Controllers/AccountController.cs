@@ -105,6 +105,18 @@ namespace MuhleOP.Controllers
             {
                 return Redirect(returnUrl);
             }
+
+            // Check user role and redirect accordingly
+            var user = UserManager.FindById(User.Identity.GetUserId());
+            if (user != null && UserManager.IsInRole(user.Id, "Admin"))
+            {
+                return RedirectToAction("Dashboard", "Home");
+            }
+            else if (user != null && UserManager.IsInRole(user.Id, "Candidate"))
+            {
+                return RedirectToAction("Dashboard", "Candidate");
+            }
+
             return RedirectToAction("Dashboard", "Home");
         }
 

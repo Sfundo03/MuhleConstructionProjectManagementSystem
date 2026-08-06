@@ -6,14 +6,11 @@ using Microsoft.AspNet.Identity.EntityFramework;
 
 namespace MuhleOP.Models
 {
-    // You can add profile data for the user by adding more properties to your ApplicationUser class, please visit https://go.microsoft.com/fwlink/?LinkID=317594 to learn more.
     public class ApplicationUser : IdentityUser
     {
         public async Task<ClaimsIdentity> GenerateUserIdentityAsync(UserManager<ApplicationUser> manager)
         {
-            // Note the authenticationType must match the one defined in CookieAuthenticationOptions.AuthenticationType
             var userIdentity = await manager.CreateIdentityAsync(this, DefaultAuthenticationTypes.ApplicationCookie);
-            // Add custom user claims here
             return userIdentity;
         }
     }
@@ -23,12 +20,10 @@ namespace MuhleOP.Models
         public ApplicationDbContext()
             : base("DefaultConnection", throwIfV1Schema: false)
         {
-            // Enable debug logging
-            Database.Log = s => System.Diagnostics.Debug.WriteLine(s);
         }
 
-        // DbSets for all entities
         public DbSet<JobPost> JobPosts { get; set; }
+        public DbSet<Candidate> Candidates { get; set; }
         public DbSet<JobApplication> JobApplications { get; set; }
 
         public static ApplicationDbContext Create()

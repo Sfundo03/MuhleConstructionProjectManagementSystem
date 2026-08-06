@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Web.Mvc;
@@ -14,7 +13,6 @@ namespace MuhleOP.Controllers
     {
         private readonly ApplicationDbContext db = new ApplicationDbContext();
 
-        // GET: JobPost
         [Authorize(Roles = "Admin")]
         public ActionResult Index()
         {
@@ -44,7 +42,6 @@ namespace MuhleOP.Controllers
             return View(viewModels);
         }
 
-        // GET: JobPost/Details/5
         [Authorize(Roles = "Admin")]
         public ActionResult Details(int id)
         {
@@ -76,14 +73,12 @@ namespace MuhleOP.Controllers
             return View(viewModel);
         }
 
-        // GET: JobPost/Create
         [Authorize(Roles = "Admin")]
         public ActionResult Create()
         {
             return View();
         }
 
-        // POST: JobPost/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
@@ -118,7 +113,6 @@ namespace MuhleOP.Controllers
             return View(viewModel);
         }
 
-        // GET: JobPost/Edit/5
         [Authorize(Roles = "Admin")]
         public ActionResult Edit(int id)
         {
@@ -149,7 +143,6 @@ namespace MuhleOP.Controllers
             return View(viewModel);
         }
 
-        // POST: JobPost/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
@@ -183,7 +176,6 @@ namespace MuhleOP.Controllers
             return View(viewModel);
         }
 
-        // GET: JobPost/Delete/5
         [Authorize(Roles = "Admin")]
         public ActionResult Delete(int id)
         {
@@ -214,7 +206,6 @@ namespace MuhleOP.Controllers
             return View(viewModel);
         }
 
-        // POST: JobPost/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
@@ -223,7 +214,6 @@ namespace MuhleOP.Controllers
             var jobPost = await db.JobPosts.FindAsync(id);
             if (jobPost != null)
             {
-                // Check if there are any applications for this job post
                 var hasApplications = db.JobApplications.Any(a => a.JobPostId == id);
                 if (hasApplications)
                 {

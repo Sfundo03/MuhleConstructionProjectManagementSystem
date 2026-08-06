@@ -31,10 +31,10 @@ namespace MuhleOP.Models
         public DateTime ClosingDate { get; set; }
 
         [Display(Name = "Job Type")]
-        public string JobType { get; set; } // Full-time, Part-time, Contract, Temporary
+        public string JobType { get; set; }
 
         [Display(Name = "Experience Level")]
-        public string ExperienceLevel { get; set; } // Entry, Junior, Mid, Senior, Lead
+        public string ExperienceLevel { get; set; }
 
         [Display(Name = "Location")]
         [StringLength(100)]
@@ -80,48 +80,32 @@ namespace MuhleOP.Models
         public virtual JobPost JobPost { get; set; }
 
         [Required]
-        [Display(Name = "First Name")]
-        [StringLength(50)]
-        public string FirstName { get; set; }
+        public int CandidateId { get; set; }
 
-        [Required]
-        [Display(Name = "Last Name")]
-        [StringLength(50)]
-        public string LastName { get; set; }
+        [ForeignKey("CandidateId")]
+        public virtual Candidate Candidate { get; set; }
 
-        [Required]
-        [EmailAddress]
-        [Display(Name = "Email")]
-        public string Email { get; set; }
+        [Display(Name = "Application Date")]
+        public DateTime ApplicationDate { get; set; }
 
-        [Required]
-        [Display(Name = "Phone Number")]
-        [Phone]
-        public string PhoneNumber { get; set; }
+        [Display(Name = "Application Status")]
+        public string Status { get; set; }
 
         [Display(Name = "Cover Letter")]
         [DataType(DataType.MultilineText)]
         public string CoverLetter { get; set; }
 
-        [Required]
-        [Display(Name = "CV/Resume Path")]
-        public string CvFilePath { get; set; }
-
-        [Display(Name = "Application Status")]
-        public string Status { get; set; } // Applied, Shortlisted, Interviewed, Hired, Rejected
-
-        [Display(Name = "Date Applied")]
-        public DateTime DateApplied { get; set; }
-
-        [Display(Name = "Notes")]
+        [Display(Name = "Additional Notes")]
         public string Notes { get; set; }
+
+        [Display(Name = "Is Withdrawn")]
+        public bool IsWithdrawn { get; set; }
 
         public JobApplication()
         {
-            DateApplied = DateTime.Now;
-            Status = "Applied";
+            ApplicationDate = DateTime.Now;
+            Status = "Pending";
+            IsWithdrawn = false;
         }
-
-        public string FullName => $"{FirstName} {LastName}";
     }
 }

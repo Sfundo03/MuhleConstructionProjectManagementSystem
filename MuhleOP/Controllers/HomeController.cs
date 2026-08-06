@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Web;
-using System.Web.Mvc;
+﻿using System.Web.Mvc;
 
 namespace MuhleOP.Controllers
 {
@@ -20,6 +16,8 @@ namespace MuhleOP.Controllers
         [Authorize]
         public ActionResult Dashboard()
         {
+            // Both Admin and Candidate can access this dashboard
+            // The view will handle role-based content display
             return View();
         }
 
