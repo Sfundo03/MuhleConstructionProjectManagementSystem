@@ -357,6 +357,25 @@ namespace MuhleOP.Controllers
                         application.IsShortlisted = true;
                         application.Status = "Shortlisted";
                         System.Diagnostics.Debug.WriteLine($"Application {appId} shortlisted");
+
+                        // Create status history
+                        var history = new ApplicationStatusHistory
+                        {
+                            ApplicationId = application.Id,
+                            Status = "Shortlisted",
+                            Notes = "Candidate was shortlisted for interview",
+                            ChangedBy = User.Identity.Name
+                        };
+                        db.ApplicationStatusHistories.Add(history);
+
+                        // Create notification for candidate
+                        await CreateNotificationForCandidate(
+                            application.CandidateId,
+                            "Application Shortlisted",
+                            $"Your application for '{application.JobPost?.JobTitle ?? "the position"}' has been shortlisted!",
+                            "Status",
+                            $"/Candidate/ApplicationStatus/{application.Id}"
+                        );
                     }
                 }
 
@@ -448,8 +467,27 @@ namespace MuhleOP.Controllers
                     application.InterviewScheduled = true;
                     application.Status = "Interviewed";
 
+                    // Create status history
+                    var history = new ApplicationStatusHistory
+                    {
+                        ApplicationId = application.Id,
+                        Status = "Interviewed",
+                        Notes = $"Interview scheduled for {model.InterviewDateTime:yyyy-MM-dd HH:mm}",
+                        ChangedBy = User.Identity.Name
+                    };
+                    db.ApplicationStatusHistories.Add(history);
+
                     await db.SaveChangesAsync();
                     System.Diagnostics.Debug.WriteLine($"Interview scheduled for application {model.ApplicationId}");
+
+                    // Create notification for candidate
+                    await CreateNotificationForCandidate(
+                        application.CandidateId,
+                        "Interview Scheduled",
+                        $"Your interview for '{model.JobTitle}' has been scheduled for {model.InterviewDateTime:dd MMM yyyy HH:mm}",
+                        "Interview",
+                        $"/Candidate/ApplicationStatus/{application.Id}"
+                    );
 
                     // Send interview notification email
                     SendInterviewNotification(application);
@@ -482,6 +520,74 @@ namespace MuhleOP.Controllers
             }
 
             return View(model);
+        }
+
+        // POST: JobPost/UpdateApplicationStatus
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<JsonResult> UpdateApplicationStatus(int applicationId, string status, string notes)
+        {
+            try
+            {
+                var application = await db.JobApplications.FindAsync(applicationId);
+                if (application == null)
+                {
+                    return Json(new { success = false, message = "Application not found" });
+                }
+
+                var oldStatus = application.Status;
+                application.Status = status;
+
+                // Update specific status flags
+                if (status == "Shortlisted")
+                {
+                    application.IsShortlisted = true;
+                }
+                else if (status == "Interviewed")
+                {
+                    application.InterviewScheduled = true;
+                }
+                else if (status == "Hired")
+                {
+                    // Additional logic for hired status
+                }
+                else if (status == "Rejected")
+                {
+                    // Additional logic for rejected status
+                }
+
+                // Create status history
+                var history = new ApplicationStatusHistory
+                {
+                    ApplicationId = applicationId,
+                    Status = status,
+                    Notes = string.IsNullOrEmpty(notes) ? $"Status changed from {oldStatus} to {status}" : notes,
+                    ChangedBy = User.Identity.Name
+                };
+                db.ApplicationStatusHistories.Add(history);
+
+                await db.SaveChangesAsync();
+
+                // Get candidate info
+                var candidate = db.Candidates.Find(application.CandidateId);
+                if (candidate != null)
+                {
+                    // Create notification for candidate
+                    await CreateNotificationForCandidate(
+                        candidate.Id,
+                        $"Application {status}",
+                        $"Your application for '{application.JobPost?.JobTitle ?? "the position"}' has been updated to: {status}",
+                        "Status",
+                        $"/Candidate/ApplicationStatus/{applicationId}"
+                    );
+                }
+
+                return Json(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
         }
 
         // Ranking Method
@@ -1002,6 +1108,34 @@ namespace MuhleOP.Controllers
             return RedirectToAction("Index");
         }
 
+        private async Task CreateNotificationForCandidate(int candidateId, string title, string message, string type, string link)
+        {
+            try
+            {
+                var candidate = db.Candidates.Find(candidateId);
+                if (candidate == null) return;
+
+                var notification = new Notification
+                {
+                    UserId = candidate.UserId,
+                    Title = title,
+                    Message = message,
+                    Type = type,
+                    Link = link,
+                    CreatedDate = DateTime.Now,
+                    IsRead = false
+                };
+
+                db.Notifications.Add(notification);
+                await db.SaveChangesAsync();
+                System.Diagnostics.Debug.WriteLine($"Notification created for candidate {candidate.FullName}: {title}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error creating notification: {ex.Message}");
+            }
+        }
+
         private void SendInterviewNotification(JobApplication application)
         {
             try
@@ -1011,7 +1145,6 @@ namespace MuhleOP.Controllers
 
                 System.Diagnostics.Debug.WriteLine($"Sending interview notification to: {candidate.Email}");
                 // Email implementation would go here
-                // For now, just log it
                 System.Diagnostics.Debug.WriteLine($"Interview scheduled for {candidate.FullName} on {application.InterviewDateTime}");
             }
             catch (Exception ex)

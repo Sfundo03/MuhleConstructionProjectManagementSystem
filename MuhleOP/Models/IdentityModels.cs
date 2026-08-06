@@ -25,6 +25,8 @@ namespace MuhleOP.Models
         public DbSet<JobPost> JobPosts { get; set; }
         public DbSet<Candidate> Candidates { get; set; }
         public DbSet<JobApplication> JobApplications { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<ApplicationStatusHistory> ApplicationStatusHistories { get; set; }
 
         public static ApplicationDbContext Create()
         {
