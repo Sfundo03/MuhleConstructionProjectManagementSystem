@@ -15,6 +15,7 @@ namespace MuhleOP.Controllers
         private readonly ApplicationDbContext db = new ApplicationDbContext();
 
         // GET: JobPost
+        [Authorize(Roles = "Admin")]
         public ActionResult Index()
         {
             var jobPosts = db.JobPosts
@@ -44,6 +45,7 @@ namespace MuhleOP.Controllers
         }
 
         // GET: JobPost/Details/5
+        [Authorize(Roles = "Admin")]
         public ActionResult Details(int id)
         {
             var jobPost = db.JobPosts.Find(id);
@@ -75,6 +77,7 @@ namespace MuhleOP.Controllers
         }
 
         // GET: JobPost/Create
+        [Authorize(Roles = "Admin")]
         public ActionResult Create()
         {
             return View();
@@ -83,6 +86,7 @@ namespace MuhleOP.Controllers
         // POST: JobPost/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult> Create(JobPostViewModel viewModel)
         {
             if (ModelState.IsValid)
@@ -115,6 +119,7 @@ namespace MuhleOP.Controllers
         }
 
         // GET: JobPost/Edit/5
+        [Authorize(Roles = "Admin")]
         public ActionResult Edit(int id)
         {
             var jobPost = db.JobPosts.Find(id);
@@ -147,6 +152,7 @@ namespace MuhleOP.Controllers
         // POST: JobPost/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult> Edit(JobPostViewModel viewModel)
         {
             if (ModelState.IsValid)
@@ -178,6 +184,7 @@ namespace MuhleOP.Controllers
         }
 
         // GET: JobPost/Delete/5
+        [Authorize(Roles = "Admin")]
         public ActionResult Delete(int id)
         {
             var jobPost = db.JobPosts.Find(id);
@@ -210,6 +217,7 @@ namespace MuhleOP.Controllers
         // POST: JobPost/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult> DeleteConfirmed(int id)
         {
             var jobPost = await db.JobPosts.FindAsync(id);

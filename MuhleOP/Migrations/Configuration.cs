@@ -10,7 +10,6 @@
         public Configuration()
         {
             AutomaticMigrationsEnabled = true;
-            ContextKey = "MuhleOP.Models.ApplicationDbContext";
         }
 
         protected override void Seed(MuhleOP.Models.ApplicationDbContext context)

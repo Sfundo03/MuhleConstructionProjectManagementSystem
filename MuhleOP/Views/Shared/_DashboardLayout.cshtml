@@ -317,6 +317,79 @@
             opacity: 1;
         }
 
+        /* Button Styles */
+        .btn {
+            display: inline-block;
+            font-weight: 600;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            user-select: none;
+            border: 1px solid transparent;
+            padding: 0.5rem 1rem;
+            font-size: 14px;
+            line-height: 1.5;
+            border-radius: 4px;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            color: #fff;
+            background-color: #4e73df;
+            border-color: #4e73df;
+        }
+
+        .btn-primary:hover {
+            background-color: #2e59d9;
+            border-color: #2e59d9;
+        }
+
+        .btn-success {
+            color: #fff;
+            background-color: #1cc88a;
+            border-color: #1cc88a;
+        }
+
+        .btn-success:hover {
+            background-color: #17a673;
+            border-color: #17a673;
+        }
+
+        .btn-danger {
+            color: #fff;
+            background-color: #e74a3b;
+            border-color: #e74a3b;
+        }
+
+        .btn-danger:hover {
+            background-color: #be2617;
+            border-color: #be2617;
+        }
+
+        .btn-warning {
+            color: #fff;
+            background-color: #f6c23e;
+            border-color: #f6c23e;
+        }
+
+        .btn-warning:hover {
+            background-color: #dda20a;
+            border-color: #dda20a;
+        }
+
+        .btn-secondary {
+            color: #fff;
+            background-color: #858796;
+            border-color: #858796;
+        }
+
+        .btn-secondary:hover {
+            background-color: #717384;
+            border-color: #717384;
+        }
+
         /* Responsive */
         @@media (max-width: 768px) {
             .sidebar {
@@ -392,7 +465,7 @@
                 <span>Dashboard</span>
             </a>
 
-            <!-- Admin-only sections -->
+            <!-- Check if user is in Admin role -->
             @if (User.IsInRole("Admin"))
             {
                 <div class="menu-label">Recruitment</div>

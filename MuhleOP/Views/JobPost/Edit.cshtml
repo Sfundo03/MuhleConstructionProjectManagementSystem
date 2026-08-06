@@ -81,7 +81,7 @@
                 <div class="col-md-6">
                     <div class="mb-3">
                         @Html.LabelFor(m => m.NumberOfOpenings, new { @class = "form-label fw-bold" })
-                        @Html.NumberBoxFor(m => m.NumberOfOpenings, new { @class = "form-control", min = "1" })
+                        @Html.TextBoxFor(m => m.NumberOfOpenings, new { @class = "form-control", type = "number", min = "1" })
                         @Html.ValidationMessageFor(m => m.NumberOfOpenings, "", new { @class = "text-danger" })
                     </div>
                 </div>

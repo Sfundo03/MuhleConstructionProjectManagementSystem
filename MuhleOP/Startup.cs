@@ -16,10 +16,10 @@ namespace MuhleOP
         public void Configuration(IAppBuilder app)
         {
             ConfigureAuth(app);
-            SeedAdminUser();
+            SeedAdminUserAndRole();
         }
 
-        private void SeedAdminUser()
+        private void SeedAdminUserAndRole()
         {
             try
             {
@@ -27,7 +27,17 @@ namespace MuhleOP
                 {
                     var userStore = new UserStore<ApplicationUser>(context);
                     var userManager = new ApplicationUserManager(userStore);
+                    var roleStore = new RoleStore<IdentityRole>(context);
+                    var roleManager = new RoleManager<IdentityRole>(roleStore);
 
+                    // Create Admin role if it doesn't exist
+                    if (!roleManager.RoleExists("Admin"))
+                    {
+                        var role = new IdentityRole("Admin");
+                        roleManager.Create(role);
+                    }
+
+                    // Create Admin user if it doesn't exist
                     var adminUser = userManager.FindByEmail("admin@gmail.com");
                     if (adminUser == null)
                     {
@@ -38,7 +48,20 @@ namespace MuhleOP
                             EmailConfirmed = true
                         };
 
-                        userManager.Create(user, "Admin123!");
+                        var result = userManager.Create(user, "Admin123!");
+                        if (result.Succeeded)
+                        {
+                            // Assign Admin role to the user
+                            userManager.AddToRole(user.Id, "Admin");
+                        }
+                    }
+                    else
+                    {
+                        // If user exists but doesn't have Admin role, add it
+                        if (!userManager.IsInRole(adminUser.Id, "Admin"))
+                        {
+                            userManager.AddToRole(adminUser.Id, "Admin");
+                        }
                     }
                 }
             }
