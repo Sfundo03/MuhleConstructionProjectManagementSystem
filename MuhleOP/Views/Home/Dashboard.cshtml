@@ -1,0 +1,243 @@
+﻿@{
+    ViewBag.Title = "Dashboard";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="dashboard-content">
+    <div class="row">
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Active Projects</h6>
+                            <h3 class="mb-0">12</h3>
+                        </div>
+                        <div class="icon-circle bg-primary text-white">
+                            <i class="fas fa-project-diagram"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-success"><i class="fas fa-arrow-up"></i> 3 new this month</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Total Staff</h6>
+                            <h3 class="mb-0">48</h3>
+                        </div>
+                        <div class="icon-circle bg-success text-white">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-info"><i class="fas fa-user-plus"></i> 2 new hires</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Equipment Active</h6>
+                            <h3 class="mb-0">36</h3>
+                        </div>
+                        <div class="icon-circle bg-warning text-white">
+                            <i class="fas fa-tools"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-warning"><i class="fas fa-exclamation-triangle"></i> 4 due for maintenance</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Revenue</h6>
+                            <h3 class="mb-0">R2.4M</h3>
+                        </div>
+                        <div class="icon-circle bg-info text-white">
+                            <i class="fas fa-currency-rand"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-success"><i class="fas fa-arrow-up"></i> 12.5% increase</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h6 class="mb-0">Recent Activity</h6>
+                </div>
+                <div class="card-body">
+                    <div class="activity-feed">
+                        <div class="activity-item d-flex align-items-start mb-3">
+                            <div class="activity-badge bg-success text-white me-3">P</div>
+                            <div>
+                                <p class="mb-0"><strong>Project Update:</strong> Riverside Mall phase 2 completed</p>
+                                <small class="text-muted">2 hours ago</small>
+                            </div>
+                        </div>
+                        <div class="activity-item d-flex align-items-start mb-3">
+                            <div class="activity-badge bg-warning text-dark me-3">E</div>
+                            <div>
+                                <p class="mb-0"><strong>Equipment Alert:</strong> Excavator #047 needs maintenance</p>
+                                <small class="text-muted">4 hours ago</small>
+                            </div>
+                        </div>
+                        <div class="activity-item d-flex align-items-start mb-3">
+                            <div class="activity-badge bg-info text-white me-3">S</div>
+                            <div>
+                                <p class="mb-0"><strong>Staff Update:</strong> 3 new employees onboarded</p>
+                                <small class="text-muted">Yesterday</small>
+                            </div>
+                        </div>
+                        <div class="activity-item d-flex align-items-start">
+                            <div class="activity-badge bg-primary text-white me-3">C</div>
+                            <div>
+                                <p class="mb-0"><strong>Client Update:</strong> New contract signed with Vusani Developments</p>
+                                <small class="text-muted">2 days ago</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h6 class="mb-0">Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary text-start">
+                            <i class="fas fa-plus-circle me-2"></i>New Project
+                        </button>
+                        <button class="btn btn-outline-success text-start">
+                            <i class="fas fa-user-plus me-2"></i>Hire Staff
+                        </button>
+                        <button class="btn btn-outline-warning text-start">
+                            <i class="fas fa-file-contract me-2"></i>Create Contract
+                        </button>
+                        <button class="btn btn-outline-info text-start">
+                            <i class="fas fa-upload me-2"></i>Record Timesheet
+                        </button>
+                        <button class="btn btn-outline-secondary text-start">
+                            <i class="fas fa-chart-line me-2"></i>Generate Report
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .icon-circle {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+
+    .bg-primary {
+        background-color: #4e73df;
+    }
+
+    .bg-success {
+        background-color: #1cc88a;
+    }
+
+    .bg-warning {
+        background-color: #f6c23e;
+    }
+
+    .bg-info {
+        background-color: #36b9cc;
+    }
+
+    .activity-badge {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+
+    .activity-item {
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+        .activity-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+    .btn-outline-primary {
+        color: #4e73df;
+        border-color: #4e73df;
+    }
+
+        .btn-outline-primary:hover {
+            background-color: #4e73df;
+            color: #fff;
+        }
+
+    .btn-outline-success {
+        color: #1cc88a;
+        border-color: #1cc88a;
+    }
+
+        .btn-outline-success:hover {
+            background-color: #1cc88a;
+            color: #fff;
+        }
+
+    .btn-outline-warning {
+        color: #f6c23e;
+        border-color: #f6c23e;
+    }
+
+        .btn-outline-warning:hover {
+            background-color: #f6c23e;
+            color: #fff;
+        }
+
+    .btn-outline-info {
+        color: #36b9cc;
+        border-color: #36b9cc;
+    }
+
+        .btn-outline-info:hover {
+            background-color: #36b9cc;
+            color: #fff;
+        }
+</style>
