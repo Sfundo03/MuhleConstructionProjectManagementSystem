@@ -53,7 +53,6 @@ namespace MuhleOP.Controllers
         [AllowAnonymous]
         public ActionResult Login(string returnUrl)
         {
-            System.Diagnostics.Debug.WriteLine("=== LOGIN PAGE LOADED ===");
             ViewBag.ReturnUrl = returnUrl;
             return View();
         }
@@ -63,66 +62,24 @@ namespace MuhleOP.Controllers
         [ValidateAntiForgeryToken]
         public async Task<ActionResult> Login(LoginViewModel model, string returnUrl)
         {
-            System.Diagnostics.Debug.WriteLine("=== LOGIN ATTEMPT STARTED ===");
-            System.Diagnostics.Debug.WriteLine($"Email: {model.Email}");
-            System.Diagnostics.Debug.WriteLine($"RememberMe: {model.RememberMe}");
-
             if (!ModelState.IsValid)
             {
-                System.Diagnostics.Debug.WriteLine("Model State is Invalid");
-                foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
-                {
-                    System.Diagnostics.Debug.WriteLine($"Model Error: {error.ErrorMessage}");
-                }
                 return View(model);
             }
 
-            try
+            var result = await SignInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, shouldLockout: false);
+            switch (result)
             {
-                // First, check if the user exists
-                var user = await UserManager.FindByEmailAsync(model.Email);
-                if (user == null)
-                {
-                    System.Diagnostics.Debug.WriteLine($"User not found with email: {model.Email}");
+                case SignInStatus.Success:
+                    return RedirectToLocal(returnUrl);
+                case SignInStatus.LockedOut:
+                    return View("Lockout");
+                case SignInStatus.RequiresVerification:
+                    return RedirectToAction("SendCode", new { ReturnUrl = returnUrl, RememberMe = model.RememberMe });
+                case SignInStatus.Failure:
+                default:
                     ModelState.AddModelError("", "Invalid login attempt.");
                     return View(model);
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine($"User found: {user.UserName}, ID: {user.Id}");
-                    System.Diagnostics.Debug.WriteLine($"Email confirmed: {user.EmailConfirmed}");
-                }
-
-                // Try to sign in
-                System.Diagnostics.Debug.WriteLine("Attempting password sign in...");
-                var result = await SignInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, shouldLockout: false);
-
-                System.Diagnostics.Debug.WriteLine($"Sign-in result: {result}");
-
-                switch (result)
-                {
-                    case SignInStatus.Success:
-                        System.Diagnostics.Debug.WriteLine("=== LOGIN SUCCESSFUL ===");
-                        return RedirectToLocal(returnUrl);
-                    case SignInStatus.LockedOut:
-                        System.Diagnostics.Debug.WriteLine("Account is locked out");
-                        return View("Lockout");
-                    case SignInStatus.RequiresVerification:
-                        System.Diagnostics.Debug.WriteLine("Requires verification");
-                        return RedirectToAction("SendCode", new { ReturnUrl = returnUrl, RememberMe = model.RememberMe });
-                    case SignInStatus.Failure:
-                    default:
-                        System.Diagnostics.Debug.WriteLine("LOGIN FAILED - Invalid credentials");
-                        ModelState.AddModelError("", "Invalid login attempt.");
-                        return View(model);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"EXCEPTION during login: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-                ModelState.AddModelError("", "An error occurred during login. Please try again.");
-                return View(model);
             }
         }
 
@@ -130,7 +87,6 @@ namespace MuhleOP.Controllers
         [ValidateAntiForgeryToken]
         public ActionResult LogOff()
         {
-            System.Diagnostics.Debug.WriteLine("=== LOGGING OUT ===");
             AuthenticationManager.SignOut(DefaultAuthenticationTypes.ApplicationCookie);
             return RedirectToAction("Index", "Home");
         }
