@@ -27,6 +27,10 @@ namespace MuhleOP.Models
             Database.Log = s => System.Diagnostics.Debug.WriteLine(s);
         }
 
+        // DbSets for all entities
+        public DbSet<JobPost> JobPosts { get; set; }
+        public DbSet<JobApplication> JobApplications { get; set; }
+
         public static ApplicationDbContext Create()
         {
             return new ApplicationDbContext();

@@ -1,0 +1,72 @@
+﻿@model MuhleOP.ViewModels.JobPostViewModel
+@{
+    ViewBag.Title = "Delete Job Post";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Delete Job Post</h2>
+    <a href="@Url.Action("Index")" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to List
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Warning!</strong> Are you sure you want to delete this job post? This action cannot be undone.
+        </div>
+
+        <dl class="row">
+            <dt class="col-sm-3">Job Title</dt>
+            <dd class="col-sm-9">@Model.JobTitle</dd>
+
+            <dt class="col-sm-3">Department</dt>
+            <dd class="col-sm-9">@Model.Department</dd>
+
+            <dt class="col-sm-3">Location</dt>
+            <dd class="col-sm-9">@Model.Location</dd>
+
+            <dt class="col-sm-3">Job Type</dt>
+            <dd class="col-sm-9">@Model.JobType</dd>
+
+            <dt class="col-sm-3">Experience Level</dt>
+            <dd class="col-sm-9">@Model.ExperienceLevel</dd>
+
+            <dt class="col-sm-3">Closing Date</dt>
+            <dd class="col-sm-9">@Model.ClosingDate.ToString("yyyy-MM-dd")</dd>
+
+            <dt class="col-sm-3">Number of Openings</dt>
+            <dd class="col-sm-9">@Model.NumberOfOpenings</dd>
+
+            <dt class="col-sm-3">Status</dt>
+            <dd class="col-sm-9">
+                @if (Model.IsPublished)
+                {
+                    <span class="badge bg-success">Published</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">Draft</span>
+                }
+            </dd>
+
+            <dt class="col-sm-3">Date Posted</dt>
+            <dd class="col-sm-9">@Model.DatePosted.ToString("yyyy-MM-dd HH:mm")</dd>
+        </dl>
+
+        @using (Html.BeginForm())
+        {
+            @Html.AntiForgeryToken()
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Confirm Delete
+                </button>
+                <a href="@Url.Action("Index")" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Cancel
+                </a>
+            </div>
+        }
+    </div>
+</div>
