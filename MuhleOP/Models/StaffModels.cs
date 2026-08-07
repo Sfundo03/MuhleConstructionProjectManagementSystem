@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -26,7 +27,7 @@ namespace MuhleOP.Models
 
         [Required]
         [Display(Name = "Role")]
-        public string Role { get; set; } // Crew Member, Project Manager, Finance Officer, Site Manager
+        public string Role { get; set; } // Crew Member, Project Manager, Finance Officer, Site Manager, Procurement Officer
 
         [Display(Name = "Phone Number")]
         [Phone]
@@ -47,14 +48,27 @@ namespace MuhleOP.Models
         [Display(Name = "User ID")]
         public string UserId { get; set; }
 
+        [ForeignKey("UserId")]
+        public virtual ApplicationUser User { get; set; }
+
         [Display(Name = "Profile Picture")]
         public string ProfilePicturePath { get; set; }
+
+        // Navigation Properties
+        public virtual ICollection<ProjectResourceAllocation> ProjectAllocations { get; set; }
+        public virtual ICollection<DailyTask> AssignedTasks { get; set; }
+        public virtual ICollection<Timesheet> Timesheets { get; set; }
+        public virtual ICollection<SiteInspection> Inspections { get; set; }
 
         public Staff()
         {
             HireDate = DateTime.Now;
             IsActive = true;
             EmployeeId = GenerateEmployeeId();
+            ProjectAllocations = new List<ProjectResourceAllocation>();
+            AssignedTasks = new List<DailyTask>();
+            Timesheets = new List<Timesheet>();
+            Inspections = new List<SiteInspection>();
         }
 
         private string GenerateEmployeeId()

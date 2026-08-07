@@ -47,6 +47,20 @@ namespace MuhleOP.ViewModels
         public DateTime HireDate { get; set; }
         public bool IsActive { get; set; }
         public string ProfilePicturePath { get; set; }
+        public string RoleBadgeColor => GetRoleColor();
+
+        private string GetRoleColor()
+        {
+            switch (Role)
+            {
+                case "Crew Member": return "primary";
+                case "Project Manager": return "success";
+                case "Finance Officer": return "warning";
+                case "Site Manager": return "info";
+                case "Procurement Officer": return "secondary";
+                default: return "secondary";
+            }
+        }
     }
 
     public class StaffListViewModel
@@ -55,5 +69,91 @@ namespace MuhleOP.ViewModels
         public int TotalStaff { get; set; }
         public int ActiveStaff { get; set; }
         public int InactiveStaff { get; set; }
+
+        public StaffListViewModel()
+        {
+            StaffMembers = new List<StaffViewModel>();
+        }
+    }
+
+    public class StaffDetailsViewModel
+    {
+        public int Id { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string FullName { get; set; }
+        public string Email { get; set; }
+        public string Role { get; set; }
+        public string PhoneNumber { get; set; }
+        public string EmployeeId { get; set; }
+        public string Department { get; set; }
+        public DateTime HireDate { get; set; }
+        public bool IsActive { get; set; }
+        public string ProfilePicturePath { get; set; }
+        public string UserId { get; set; }
+
+        // Assigned Projects
+        public List<AssignedProjectViewModel> AssignedProjects { get; set; }
+        public List<AssignedTaskViewModel> CurrentTasks { get; set; }
+        public int TotalProjects { get; set; }
+        public int ActiveProjects { get; set; }
+        public int CompletedTasks { get; set; }
+        public int PendingTasks { get; set; }
+
+        public StaffDetailsViewModel()
+        {
+            AssignedProjects = new List<AssignedProjectViewModel>();
+            CurrentTasks = new List<AssignedTaskViewModel>();
+        }
+    }
+
+    public class AssignedProjectViewModel
+    {
+        public int ProjectId { get; set; }
+        public string ProjectName { get; set; }
+        public string ProjectCode { get; set; }
+        public string Role { get; set; }
+        public string Status { get; set; }
+        public DateTime StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public string StatusBadgeColor => GetStatusColor();
+
+        private string GetStatusColor()
+        {
+            switch (Status)
+            {
+                case "Initiated": return "info";
+                case "In Progress": return "primary";
+                case "On Hold": return "warning";
+                case "Completed": return "success";
+                case "Closed": return "secondary";
+                default: return "secondary";
+            }
+        }
+    }
+
+    public class AssignedTaskViewModel
+    {
+        public int TaskId { get; set; }
+        public string TaskTitle { get; set; }
+        public string TaskDescription { get; set; }
+        public DateTime TaskDate { get; set; }
+        public string Priority { get; set; }
+        public string Status { get; set; }
+        public string ProjectName { get; set; }
+        public bool IsCompleted { get; set; }
+        public string PriorityBadgeColor => GetPriorityColor();
+
+        private string GetPriorityColor()
+        {
+            switch (Priority)
+            {
+                case "Low": return "secondary";
+                case "Medium": return "info";
+                case "High": return "warning";
+                case "Urgent": return "danger";
+                default: return "secondary";
+            }
+        }
     }
 }

@@ -184,16 +184,27 @@
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Models\AccountViewModels.cs" />
     <Compile Include="Models\CandidateModels.cs" />
+    <Compile Include="Models\ClientModels.cs" />
+    <Compile Include="Models\DailyOperationsModels.cs" />
+    <Compile Include="Models\EquipmentModels.cs" />
+    <Compile Include="Models\FinanceModels.cs" />
+    <Compile Include="Models\HandoverModels.cs" />
     <Compile Include="Models\IdentityModels.cs" />
     <Compile Include="Models\JobPostModels.cs" />
     <Compile Include="Models\ManageViewModels.cs" />
     <Compile Include="Models\NotificationModels.cs" />
+    <Compile Include="Models\ProjectModels.cs" />
+    <Compile Include="Models\QualityModels.cs" />
     <Compile Include="Models\StaffModels.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Startup.cs" />
     <Compile Include="ViewModels\CandidateViewModels.cs" />
+    <Compile Include="ViewModels\EquipmentViewModels.cs" />
+    <Compile Include="ViewModels\FinanceViewModels.cs" />
+    <Compile Include="ViewModels\HandoverViewModels.cs" />
     <Compile Include="ViewModels\JobPostViewModels.cs" />
     <Compile Include="ViewModels\NotificationViewModels.cs" />
+    <Compile Include="ViewModels\QualityViewModels.cs" />
     <Compile Include="ViewModels\StaffViewModels.cs" />
   </ItemGroup>
   <ItemGroup>

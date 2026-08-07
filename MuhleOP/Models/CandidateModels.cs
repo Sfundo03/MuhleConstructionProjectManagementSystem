@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -68,10 +69,17 @@ namespace MuhleOP.Models
         [Display(Name = "User ID")]
         public string UserId { get; set; }
 
+        [ForeignKey("UserId")]
+        public virtual ApplicationUser User { get; set; }
+
+        // Navigation Properties
+        public virtual ICollection<JobApplication> JobApplications { get; set; }
+
         public Candidate()
         {
             RegistrationDate = DateTime.Now;
             IsActive = true;
+            JobApplications = new List<JobApplication>();
         }
 
         public string FullName => $"{FirstName} {LastName}";

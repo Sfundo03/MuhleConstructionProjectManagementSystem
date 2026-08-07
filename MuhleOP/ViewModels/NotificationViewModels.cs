@@ -20,6 +20,9 @@ namespace MuhleOP.ViewModels
         public bool IsInterviewCompleted { get; set; }
         public double RankingScore { get; set; }
         public int SkillsMatchPercentage { get; set; }
+        public int? QuizScore { get; set; }
+        public bool? QuizPassed { get; set; }
+        public string QuizResult { get; set; }
         public List<ApplicationStatusHistoryViewModel> StatusHistory { get; set; }
 
         public ApplicationStatusViewModel()
@@ -28,6 +31,7 @@ namespace MuhleOP.ViewModels
             InterviewResult = "Pending";
             IsHired = false;
             IsInterviewCompleted = false;
+            QuizResult = "Not Taken";
         }
     }
 
@@ -49,5 +53,38 @@ namespace MuhleOP.ViewModels
         public string Link { get; set; }
         public DateTime CreatedDate { get; set; }
         public string TimeAgo { get; set; }
+        public string Priority { get; set; }
+        public string IconClass => GetIconClass();
+        public string TypeIcon => GetTypeIcon();
+
+        private string GetIconClass()
+        {
+            switch (Type)
+            {
+                case "Application": return "application";
+                case "Interview": return "interview";
+                case "Status": return "status";
+                case "System": return "system";
+                case "Project": return "project";
+                case "Finance": return "finance";
+                case "Maintenance": return "maintenance";
+                default: return "system";
+            }
+        }
+
+        private string GetTypeIcon()
+        {
+            switch (Type)
+            {
+                case "Application": return "file-alt";
+                case "Interview": return "calendar-check";
+                case "Status": return "clock";
+                case "Project": return "project-diagram";
+                case "Finance": return "coins";
+                case "Maintenance": return "tools";
+                case "System":
+                default: return "bell";
+            }
+        }
     }
 }

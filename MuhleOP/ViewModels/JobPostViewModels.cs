@@ -58,6 +58,9 @@ namespace MuhleOP.ViewModels
         [Display(Name = "Is Closed")]
         public bool IsClosed { get; set; }
 
+        [Display(Name = "Is Auto Closed")]
+        public bool IsAutoClosed { get; set; }
+
         [Display(Name = "Date Posted")]
         public DateTime DatePosted { get; set; }
 
@@ -65,6 +68,9 @@ namespace MuhleOP.ViewModels
         public string PostedBy { get; set; }
 
         public int ApplicationCount { get; set; }
+        public int AcceptedCount { get; set; }
+        public string StatusBadgeColor => IsClosed ? "secondary" : IsPublished ? "success" : "warning";
+        public string StatusText => IsClosed ? "Closed" : IsPublished ? "Published" : "Draft";
     }
 
     public class JobApplicationViewModel
@@ -154,6 +160,11 @@ namespace MuhleOP.ViewModels
         public bool IsHired { get; set; }
         public bool IsInterviewCompleted { get; set; }
 
+        // Quiz Properties
+        public int? QuizScore { get; set; }
+        public bool? QuizPassed { get; set; }
+        public string QuizResult { get; set; }
+
         // Extracted CV Data
         public List<string> ExtractedSkills { get; set; }
         public List<string> ExtractedQualifications { get; set; }
@@ -169,6 +180,7 @@ namespace MuhleOP.ViewModels
             InterviewResult = "Pending";
             IsHired = false;
             IsInterviewCompleted = false;
+            QuizResult = "Not Taken";
         }
     }
 
@@ -292,6 +304,64 @@ namespace MuhleOP.ViewModels
         public int PendingApplications { get; set; }
         public int ShortlistedApplications { get; set; }
         public int InterviewScheduledCount { get; set; }
+        public int InterviewPassedCount { get; set; }
+        public int HiredCount { get; set; }
+        public int RejectedCount { get; set; }
         public double AverageRankingScore { get; set; }
+    }
+
+    public class TakeQuizViewModel
+    {
+        public int ApplicationId { get; set; }
+        public string CandidateName { get; set; }
+        public string JobTitle { get; set; }
+        public int QuizId { get; set; }
+        public List<QuizQuestionViewModel> Questions { get; set; }
+        public TimeSpan TimeLimit { get; set; }
+        public DateTime StartTime { get; set; }
+
+        public TakeQuizViewModel()
+        {
+            Questions = new List<QuizQuestionViewModel>();
+            TimeLimit = TimeSpan.FromMinutes(30);
+            StartTime = DateTime.Now;
+        }
+    }
+
+    public class QuizQuestionViewModel
+    {
+        public int Id { get; set; }
+        public string Question { get; set; }
+        public string QuestionType { get; set; } // MultipleChoice, TrueFalse, ShortAnswer
+        public List<string> Options { get; set; }
+        public string CorrectAnswer { get; set; }
+        public int Points { get; set; }
+
+        public QuizQuestionViewModel()
+        {
+            Options = new List<string>();
+            Points = 1;
+        }
+    }
+
+    public class QuizResultViewModel
+    {
+        public int ApplicationId { get; set; }
+        public string CandidateName { get; set; }
+        public string JobTitle { get; set; }
+        public int Score { get; set; }
+        public int TotalPoints { get; set; }
+        public int Percentage { get; set; }
+        public bool Passed { get; set; }
+        public DateTime CompletedDate { get; set; }
+        public Dictionary<int, string> Answers { get; set; }
+        public Dictionary<int, bool> Results { get; set; }
+
+        public QuizResultViewModel()
+        {
+            Answers = new Dictionary<int, string>();
+            Results = new Dictionary<int, bool>();
+            CompletedDate = DateTime.Now;
+        }
     }
 }

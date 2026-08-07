@@ -12,6 +12,9 @@ namespace MuhleOP.Models
         [Required]
         public string UserId { get; set; }
 
+        [ForeignKey("UserId")]
+        public virtual ApplicationUser User { get; set; }
+
         [Required]
         [Display(Name = "Title")]
         [StringLength(200)]
@@ -23,7 +26,7 @@ namespace MuhleOP.Models
         public string Message { get; set; }
 
         [Display(Name = "Type")]
-        public string Type { get; set; } // Application, Interview, Status, System
+        public string Type { get; set; } // Application, Interview, Status, System, Project, Finance, Maintenance
 
         [Display(Name = "Is Read")]
         public bool IsRead { get; set; }
@@ -41,42 +44,18 @@ namespace MuhleOP.Models
         [Display(Name = "Is Email Sent")]
         public bool IsEmailSent { get; set; }
 
+        [Display(Name = "Email Sent Date")]
+        public DateTime? EmailSentDate { get; set; }
+
+        [Display(Name = "Priority")]
+        public string Priority { get; set; } // Low, Normal, High, Urgent
+
         public Notification()
         {
             CreatedDate = DateTime.Now;
             IsRead = false;
             IsEmailSent = false;
-        }
-    }
-
-    public class ApplicationStatusHistory
-    {
-        [Key]
-        public int Id { get; set; }
-
-        [Required]
-        public int ApplicationId { get; set; }
-
-        [ForeignKey("ApplicationId")]
-        public virtual JobApplication JobApplication { get; set; }
-
-        [Required]
-        [Display(Name = "Status")]
-        public string Status { get; set; }
-
-        [Display(Name = "Notes")]
-        [DataType(DataType.MultilineText)]
-        public string Notes { get; set; }
-
-        [Display(Name = "Changed By")]
-        public string ChangedBy { get; set; }
-
-        [Display(Name = "Change Date")]
-        public DateTime ChangeDate { get; set; }
-
-        public ApplicationStatusHistory()
-        {
-            ChangeDate = DateTime.Now;
+            Priority = "Normal";
         }
     }
 }
