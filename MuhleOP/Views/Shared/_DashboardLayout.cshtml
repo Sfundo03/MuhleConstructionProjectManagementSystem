@@ -1,5 +1,4 @@
-﻿﻿
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -1570,7 +1569,7 @@ else
             });
 
             function loadNotifications() {
-                fetch('/Candidate/GetNotifications')
+                fetch('/Notifications/GetNotifications')
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
@@ -1578,32 +1577,32 @@ else
                             updateBadge(data.unreadCount);
                         } else {
                             notificationList.innerHTML = `
-                                    <div class="notification-empty">
-                                        <i class="fas fa-exclamation-circle"></i>
-                                        <p>Failed to load notifications</p>
-                                    </div>
-                                `;
+                                        <div class="notification-empty">
+                                            <i class="fas fa-exclamation-circle"></i>
+                                            <p>Failed to load notifications</p>
+                                        </div>
+                                    `;
                         }
                     })
                     .catch(error => {
                         console.error('Error loading notifications:', error);
                         notificationList.innerHTML = `
-                                <div class="notification-empty">
-                                    <i class="fas fa-exclamation-circle"></i>
-                                    <p>Error loading notifications</p>
-                                </div>
-                            `;
+                                    <div class="notification-empty">
+                                        <i class="fas fa-exclamation-circle"></i>
+                                        <p>Error loading notifications</p>
+                                    </div>
+                                `;
                     });
             }
 
             function renderNotifications(notifications, unreadCount) {
                 if (!notifications || notifications.length === 0) {
                     notificationList.innerHTML = `
-                            <div class="notification-empty">
-                                <i class="fas fa-bell-slash"></i>
-                                <p>No notifications</p>
-                            </div>
-                        `;
+                                <div class="notification-empty">
+                                    <i class="fas fa-bell-slash"></i>
+                                    <p>No notifications</p>
+                                </div>
+                            `;
                     updateBadge(0);
                     return;
                 }
@@ -1615,17 +1614,17 @@ else
                     const link = notification.link || '#';
 
                     html += `
-                            <div class="notification-item ${unreadClass}" data-id="${notification.id}" data-link="${link}">
-                                <div class="icon ${iconClass}">
-                                    <i class="fas fa-${getIcon(notification.type)}"></i>
+                                <div class="notification-item ${unreadClass}" data-id="${notification.id}" data-link="${link}">
+                                    <div class="icon ${iconClass}">
+                                        <i class="fas fa-${getIcon(notification.type)}"></i>
+                                    </div>
+                                    <div class="content">
+                                        <div class="title">${escapeHtml(notification.title)}</div>
+                                        <div class="message">${escapeHtml(notification.message)}</div>
+                                        <div class="time">${notification.timeAgo}</div>
+                                    </div>
                                 </div>
-                                <div class="content">
-                                    <div class="title">${escapeHtml(notification.title)}</div>
-                                    <div class="message">${escapeHtml(notification.message)}</div>
-                                    <div class="time">${notification.timeAgo}</div>
-                                </div>
-                            </div>
-                        `;
+                            `;
                 });
 
                 notificationList.innerHTML = html;
@@ -1642,7 +1641,7 @@ else
             }
 
             function markAsRead(id, link) {
-                fetch('/Candidate/MarkNotificationRead', {
+                fetch('/Notifications/MarkNotificationRead', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1666,7 +1665,7 @@ else
 
             if (markAllReadBtn) {
                 markAllReadBtn.addEventListener('click', function () {
-                    fetch('/Candidate/MarkAllNotificationsRead', {
+                    fetch('/Notifications/MarkAllNotificationsRead', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

@@ -1,4 +1,4 @@
-﻿﻿@{
+﻿@{
     ViewBag.Title = "Dashboard";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     var userRole = ViewBag.UserRole ?? "User";
@@ -295,547 +295,514 @@
             </div>
         </div>
     }
-
-    <!-- ============================================ -->
-    <!-- CANDIDATE DASHBOARD -->
-    <!-- ============================================ -->
     else if (User.IsInRole("Candidate"))
     {
-    <!-- Stats Cards -->
-    <div class="row">
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Applications</h6>
-                            <h3 class="mb-0">@ViewBag.TotalApplications</h3>
+        <!-- ============================================ -->
+        <!-- CANDIDATE DASHBOARD -->
+        <!-- ============================================ -->
+        <!-- Stats Cards -->
+        <div class="row">
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Applications</h6>
+                                <h3 class="mb-0">@ViewBag.TotalApplications</h3>
+                            </div>
+                            <div class="icon-circle bg-primary text-white">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
                         </div>
-                        <div class="icon-circle bg-primary text-white">
-                            <i class="fas fa-file-alt"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Pending</h6>
+                                <h3 class="mb-0">@ViewBag.PendingApplications</h3>
+                            </div>
+                            <div class="icon-circle bg-warning text-white">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Shortlisted</h6>
+                                <h3 class="mb-0">@ViewBag.ShortlistedApplications</h3>
+                            </div>
+                            <div class="icon-circle bg-success text-white">
+                                <i class="fas fa-star"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Interviews</h6>
+                                <h3 class="mb-0">@ViewBag.InterviewScheduledCount</h3>
+                            </div>
+                            <div class="icon-circle bg-info text-white">
+                                <i class="fas fa-calendar-check"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Pending</h6>
-                            <h3 class="mb-0">@ViewBag.PendingApplications</h3>
-                        </div>
-                        <div class="icon-circle bg-warning text-white">
-                            <i class="fas fa-clock"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Shortlisted</h6>
-                            <h3 class="mb-0">@ViewBag.ShortlistedApplications</h3>
-                        </div>
-                        <div class="icon-circle bg-success text-white">
-                            <i class="fas fa-star"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Interviews</h6>
-                            <h3 class="mb-0">@ViewBag.InterviewScheduledCount</h3>
-                        </div>
-                        <div class="icon-circle bg-info text-white">
-                            <i class="fas fa-calendar-check"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Quick Action Buttons -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0">
-                    <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row g-2">
-                        <div class="col-md-3 col-6">
-                            <a href="@Url.Action("BrowseJobs", "Candidate")" class="btn btn-outline-primary w-100 text-start">
-                                <i class="fas fa-search me-2"></i>Browse Jobs
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <a href="@Url.Action("AllApplications", "Candidate")" class="btn btn-outline-success w-100 text-start">
-                                <i class="fas fa-file-alt me-2"></i>My Applications
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <a href="@Url.Action("ApplicationStatus", "Candidate", new { id = 0 })" class="btn btn-outline-info w-100 text-start">
-                                <i class="fas fa-chart-line me-2"></i>Application Status
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <a href="@Url.Action("Dashboard", "Home")" class="btn btn-outline-secondary w-100 text-start">
-                                <i class="fas fa-user me-2"></i>My Profile
-                            </a>
+        <!-- Quick Action Buttons -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0">
+                        <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("BrowseJobs", "Candidate")" class="btn btn-outline-primary w-100 text-start">
+                                    <i class="fas fa-search me-2"></i>Browse Jobs
+                                </a>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("AllApplications", "Candidate")" class="btn btn-outline-success w-100 text-start">
+                                    <i class="fas fa-file-alt me-2"></i>My Applications
+                                </a>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("ApplicationStatus", "Candidate", new { id = 0 })" class="btn btn-outline-info w-100 text-start">
+                                    <i class="fas fa-chart-line me-2"></i>Application Status
+                                </a>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Dashboard", "Home")" class="btn btn-outline-secondary w-100 text-start">
+                                    <i class="fas fa-user me-2"></i>My Profile
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Recent Applications -->
-    <div class="row">
-        <div class="col-lg-8 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0">
-                    <h6 class="mb-0"><i class="fas fa-clock me-2"></i>My Recent Applications</h6>
-                </div>
-                <div class="card-body">
-                    @if (ViewBag.RecentApplications != null && ((IEnumerable<MuhleOP.Models.JobApplication>)ViewBag.RecentApplications).Any())
-                    {
-                        foreach (var app in (IEnumerable<MuhleOP.Models.JobApplication>)ViewBag.RecentApplications)
+        <!-- Recent Applications -->
+        <div class="row">
+            <div class="col-lg-8 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0">
+                        <h6 class="mb-0"><i class="fas fa-clock me-2"></i>My Recent Applications</h6>
+                    </div>
+                    <div class="card-body">
+                        @if (ViewBag.RecentApplications != null && ((IEnumerable<MuhleOP.Models.JobApplication>)ViewBag.RecentApplications).Any())
                         {
-                            <div class="activity-item d-flex align-items-start mb-3">
-                                <div class="activity-badge bg-@(app.Status == "Pending" ? "warning" : app.Status == "Shortlisted" ? "success" : app.Status == "Hired" ? "info" : "secondary") text-white me-3">
-                                    <i class="fas fa-file-alt"></i>
+                            foreach (var app in (IEnumerable<MuhleOP.Models.JobApplication>)ViewBag.RecentApplications)
+                            {
+                                <div class="activity-item d-flex align-items-start mb-3">
+                                    <div class="activity-badge bg-@(app.Status == "Pending" ? "warning" : app.Status == "Shortlisted" ? "success" : app.Status == "Hired" ? "info" : "secondary") text-white me-3">
+                                        <i class="fas fa-file-alt"></i>
+                                    </div>
+                                    <div>
+                                        <p class="mb-0">
+                                            <strong>@(app.JobPost?.JobTitle ?? "Unknown Position")</strong>
+                                        </p>
+                                        <small class="text-muted">
+                                            <span class="badge bg-@(app.Status == "Pending" ? "warning" : app.Status == "Shortlisted" ? "success" : app.Status == "Hired" ? "info" : "secondary")">
+                                                @app.Status
+                                            </span>
+                                            - @app.ApplicationDate.ToString("dd MMM yyyy")
+                                            @if (app.InterviewScheduled && app.InterviewDateTime.HasValue)
+                                            {
+                                                <span class="ms-2"><i class="fas fa-calendar-alt"></i> @app.InterviewDateTime.Value.ToString("dd MMM HH:mm")</span>
+                                            }
+                                        </small>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p class="mb-0">
-                                        <strong>@(app.JobPost?.JobTitle ?? "Unknown Position")</strong>
-                                    </p>
-                                    <small class="text-muted">
-                                        <span class="badge bg-@(app.Status == "Pending" ? "warning" : app.Status == "Shortlisted" ? "success" : app.Status == "Hired" ? "info" : "secondary")">
-                                            @app.Status
-                                        </span>
-                                        - @app.ApplicationDate.ToString("dd MMM yyyy")
-                                        @if (app.InterviewScheduled && app.InterviewDateTime.HasValue)
-                                        {
-                                            <span class="ms-2"><i class="fas fa-calendar-alt"></i> @app.InterviewDateTime.Value.ToString("dd MMM HH:mm")</span>
-                                        }
-                                    </small>
-                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center py-4">
+                                <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
+                                <p class="text-muted">You haven't applied for any jobs yet.</p>
+                                <a href="@Url.Action("BrowseJobs", "Candidate")" class="btn btn-primary btn-sm">Browse Jobs</a>
                             </div>
                         }
-                    }
-                    else
-                    {
-                        <div class="text-center py-4">
-                            <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
-                            <p class="text-muted">You haven't applied for any jobs yet.</p>
-                            <a href="@Url.Action("BrowseJobs", "Candidate")" class="btn btn-primary btn-sm">Browse Jobs</a>
-                        </div>
-                    }
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="col-lg-4 mb-4">
-            <!-- Available Jobs -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0">
-                    <h6 class="mb-0"><i class="fas fa-briefcase me-2"></i>Available Jobs</h6>
-                </div>
-                <div class="card-body">
-                    @if (ViewBag.AvailableJobs != null && ((IEnumerable<MuhleOP.Models.JobPost>)ViewBag.AvailableJobs).Any())
-                    {
-                        foreach (var job in (IEnumerable<MuhleOP.Models.JobPost>)ViewBag.AvailableJobs)
+            <div class="col-lg-4 mb-4">
+                <!-- Available Jobs -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0">
+                        <h6 class="mb-0"><i class="fas fa-briefcase me-2"></i>Available Jobs</h6>
+                    </div>
+                    <div class="card-body">
+                        @if (ViewBag.AvailableJobs != null && ((IEnumerable<MuhleOP.Models.JobPost>)ViewBag.AvailableJobs).Any())
                         {
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="small">@job.JobTitle</span>
-                                <a href="@Url.Action("Apply", "Candidate", new { id = job.Id })" class="btn btn-sm btn-success">Apply</a>
-                            </div>
+                            foreach (var job in (IEnumerable<MuhleOP.Models.JobPost>)ViewBag.AvailableJobs)
+                            {
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="small">@job.JobTitle</span>
+                                    <a href="@Url.Action("Apply", "Candidate", new { id = job.Id })" class="btn btn-sm btn-success">Apply</a>
+                                </div>
+                            }
                         }
-                    }
-                    else
-                    {
-                        <p class="text-muted text-center">No jobs available</p>
-                    }
+                        else
+                        {
+                            <p class="text-muted text-center">No jobs available</p>
+                        }
+                    </div>
                 </div>
-            </div>
 
-            <!-- Status Legend -->
-            <div class="card border-0 shadow-sm mt-4">
-                <div class="card-header bg-transparent border-0">
-                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Status Legend</h6>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex flex-column gap-1">
-                        <div><span class="badge bg-warning me-1">Pending</span> <small>Awaiting review</small></div>
-                        <div><span class="badge bg-success me-1">Shortlisted</span> <small>Selected for interview</small></div>
-                        <div><span class="badge bg-info me-1">Interview</span> <small>Interview scheduled</small></div>
-                        <div><span class="badge bg-success me-1">Hired</span> <small>Position offered</small></div>
-                        <div><span class="badge bg-danger me-1">Rejected</span> <small>Not selected</small></div>
+                <!-- Status Legend -->
+                <div class="card border-0 shadow-sm mt-4">
+                    <div class="card-header bg-transparent border-0">
+                        <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Status Legend</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex flex-column gap-1">
+                            <div><span class="badge bg-warning me-1">Pending</span> <small>Awaiting review</small></div>
+                            <div><span class="badge bg-success me-1">Shortlisted</span> <small>Selected for interview</small></div>
+                            <div><span class="badge bg-info me-1">Interview</span> <small>Interview scheduled</small></div>
+                            <div><span class="badge bg-success me-1">Hired</span> <small>Position offered</small></div>
+                            <div><span class="badge bg-danger me-1">Rejected</span> <small>Not selected</small></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
     }
-
-    <!-- ============================================ -->
-    <!-- PROJECT MANAGER DASHBOARD -->
-    <!-- ============================================ -->
     else if (User.IsInRole("Project Manager"))
     {
-    <div class="row">
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">My Projects</h6>
-                            <h3 class="mb-0">@(ViewBag.MyProjects != null ? ((IEnumerable<MuhleOP.Models.Project>)ViewBag.MyProjects).Count() : 0)</h3>
-                        </div>
-                        <div class="icon-circle bg-primary text-white">
-                            <i class="fas fa-project-diagram"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">My Tasks</h6>
-                            <h3 class="mb-0">@(ViewBag.MyTasks != null ? ((IEnumerable<MuhleOP.Models.DailyTask>)ViewBag.MyTasks).Count() : 0)</h3>
-                        </div>
-                        <div class="icon-circle bg-warning text-white">
-                            <i class="fas fa-tasks"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Quick Actions -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0">
-                    <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row g-2">
-                        <div class="col-md-3 col-6">
-                            <a href="@Url.Action("Initiate", "Project")" class="btn btn-outline-primary w-100 text-start">
-                                <i class="fas fa-rocket me-2"></i>Initiate Project
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <a href="@Url.Action("Index", "Project")" class="btn btn-outline-success w-100 text-start">
-                                <i class="fas fa-folder-open me-2"></i>My Projects
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <a href="@Url.Action("Index", "Client")" class="btn btn-outline-warning w-100 text-start">
-                                <i class="fas fa-file-contract me-2"></i>Create Contract
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <a href="@Url.Action("Index", "Project")" class="btn btn-outline-info w-100 text-start">
-                                <i class="fas fa-user-friends me-2"></i>Assign Staff
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <a href="@Url.Action("Index", "Project")" class="btn btn-outline-warning w-100 text-start">
-                                <i class="fas fa-tools me-2"></i>Assign Equipment
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- My Projects List -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0">
-                    <h6 class="mb-0"><i class="fas fa-list me-2"></i>My Projects</h6>
-                </div>
-                <div class="card-body">
-                    @if (ViewBag.MyProjects != null && ((IEnumerable<MuhleOP.Models.Project>)ViewBag.MyProjects).Any())
-                    {
-                        foreach (var project in (IEnumerable<MuhleOP.Models.Project>)ViewBag.MyProjects)
-                        {
-                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
-                                <div>
-                                    <strong>@project.ProjectName</strong>
-                                    <br />
-                                    <small class="text-muted">@project.ProjectCode - @project.ProjectLocation</small>
-                                </div>
-                                <div>
-                                    <span class="badge bg-@(project.Status == "In Progress" ? "success" : project.Status == "Initiated" ? "info" : project.Status == "Completed" ? "primary" : "secondary")">
-                                        @project.Status
-                                    </span>
-                                    <a href="@Url.Action("Details", "Project", new { id = project.Id })" class="btn btn-sm btn-outline-primary ms-2">View</a>
-                                </div>
+        <!-- ============================================ -->
+        <!-- PROJECT MANAGER DASHBOARD -->
+        <!-- ============================================ -->
+        <div class="row">
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">My Projects</h6>
+                                <h3 class="mb-0">@(ViewBag.MyProjects != null ? ((IEnumerable<MuhleOP.Models.Project>)ViewBag.MyProjects).Count() : 0)</h3>
                             </div>
-                        }
-                    }
-                    else
-                    {
-                        <p class="text-muted text-center">No projects assigned</p>
-                    }
+                            <div class="icon-circle bg-primary text-white">
+                                <i class="fas fa-project-diagram"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">My Tasks</h6>
+                                <h3 class="mb-0">@(ViewBag.MyTasks != null ? ((IEnumerable<MuhleOP.Models.DailyTask>)ViewBag.MyTasks).Count() : 0)</h3>
+                            </div>
+                            <div class="icon-circle bg-warning text-white">
+                                <i class="fas fa-tasks"></i>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-    }
 
-    <!-- ============================================ -->
-    <!-- SITE MANAGER DASHBOARD -->
-    <!-- ============================================ -->
+        <!-- Quick Actions -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0">
+                        <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Initiate", "Project")" class="btn btn-outline-primary w-100 text-start">
+                                    <i class="fas fa-rocket me-2"></i>Initiate Project
+                                </a>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Index", "Project")" class="btn btn-outline-success w-100 text-start">
+                                    <i class="fas fa-folder-open me-2"></i>My Projects
+                                </a>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Index", "Client")" class="btn btn-outline-warning w-100 text-start">
+                                    <i class="fas fa-file-contract me-2"></i>Create Contract
+                                </a>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Index", "Project")" class="btn btn-outline-info w-100 text-start">
+                                    <i class="fas fa-user-friends me-2"></i>Assign Staff
+                                </a>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Index", "Project")" class="btn btn-outline-warning w-100 text-start">
+                                    <i class="fas fa-tools me-2"></i>Assign Equipment
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Projects List -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0">
+                        <h6 class="mb-0"><i class="fas fa-list me-2"></i>My Projects</h6>
+                    </div>
+                    <div class="card-body">
+                        @if (ViewBag.MyProjects != null && ((IEnumerable<MuhleOP.Models.Project>)ViewBag.MyProjects).Any())
+                        {
+                            foreach (var project in (IEnumerable<MuhleOP.Models.Project>)ViewBag.MyProjects)
+                            {
+                                <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
+                                    <div>
+                                        <strong>@project.ProjectName</strong>
+                                        <br />
+                                        <small class="text-muted">@project.ProjectCode - @project.ProjectLocation</small>
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-@(project.Status == "In Progress" ? "success" : project.Status == "Initiated" ? "info" : project.Status == "Completed" ? "primary" : "secondary")">
+                                            @project.Status
+                                        </span>
+                                        <a href="@Url.Action("Details", "Project", new { id = project.Id })" class="btn btn-sm btn-outline-primary ms-2">View</a>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted text-center">No projects assigned</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
     else if (User.IsInRole("Site Manager"))
     {
-    <div class="row">
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Site Projects</h6>
-                            <h3 class="mb-0">@(ViewBag.MyProjects != null ? ((IEnumerable<MuhleOP.Models.Project>)ViewBag.MyProjects).Count() : 0)</h3>
+        <!-- ============================================ -->
+        <!-- SITE MANAGER DASHBOARD -->
+        <!-- ============================================ -->
+        <div class="row">
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Site Projects</h6>
+                                <h3 class="mb-0">@(ViewBag.MyProjects != null ? ((IEnumerable<MuhleOP.Models.Project>)ViewBag.MyProjects).Count() : 0)</h3>
+                            </div>
+                            <div class="icon-circle bg-info text-white">
+                                <i class="fas fa-hard-hat"></i>
+                            </div>
                         </div>
-                        <div class="icon-circle bg-info text-white">
-                            <i class="fas fa-hard-hat"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Daily Tasks</h6>
+                                <h3 class="mb-0">@(ViewBag.MyTasks != null ? ((IEnumerable<MuhleOP.Models.DailyTask>)ViewBag.MyTasks).Count() : 0)</h3>
+                            </div>
+                            <div class="icon-circle bg-warning text-white">
+                                <i class="fas fa-clipboard-list"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Daily Tasks</h6>
-                            <h3 class="mb-0">@(ViewBag.MyTasks != null ? ((IEnumerable<MuhleOP.Models.DailyTask>)ViewBag.MyTasks).Count() : 0)</h3>
-                        </div>
-                        <div class="icon-circle bg-warning text-white">
-                            <i class="fas fa-clipboard-list"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Quick Actions -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0">
-                    <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row g-2">
-                        <div class="col-md-3 col-6">
-                            <a href="#" class="btn btn-outline-primary w-100 text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-clipboard-list me-2"></i>Daily Tasks
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <a href="#" class="btn btn-outline-success w-100 text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-clock me-2"></i>Timesheet
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <a href="#" class="btn btn-outline-warning w-100 text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-wrench me-2"></i>Maintenance
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <a href="#" class="btn btn-outline-danger w-100 text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-tools me-2"></i>Record Repair
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <a href="#" class="btn btn-outline-info w-100 text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-check-double me-2"></i>Inspection
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <a href="#" class="btn btn-outline-secondary w-100 text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-edit me-2"></i>Update Status
-                            </a>
+        <!-- Quick Actions -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0">
+                        <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-md-3 col-6">
+                                <a href="#" class="btn btn-outline-primary w-100 text-start" onclick="alert('Coming soon!')">
+                                    <i class="fas fa-clipboard-list me-2"></i>Daily Tasks
+                                </a>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <a href="#" class="btn btn-outline-success w-100 text-start" onclick="alert('Coming soon!')">
+                                    <i class="fas fa-clock me-2"></i>Timesheet
+                                </a>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <a href="#" class="btn btn-outline-warning w-100 text-start" onclick="alert('Coming soon!')">
+                                    <i class="fas fa-wrench me-2"></i>Maintenance
+                                </a>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <a href="#" class="btn btn-outline-danger w-100 text-start" onclick="alert('Coming soon!')">
+                                    <i class="fas fa-tools me-2"></i>Record Repair
+                                </a>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <a href="#" class="btn btn-outline-info w-100 text-start" onclick="alert('Coming soon!')">
+                                    <i class="fas fa-check-double me-2"></i>Inspection
+                                </a>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <a href="#" class="btn btn-outline-secondary w-100 text-start" onclick="alert('Coming soon!')">
+                                    <i class="fas fa-edit me-2"></i>Update Status
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
     }
-
-    <!-- ============================================ -->
-    <!-- FINANCE OFFICER DASHBOARD -->
-    <!-- ============================================ -->
     else if (User.IsInRole("Finance Officer"))
     {
-    <div class="row">
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Pending Payroll</h6>
-                            <h3 class="mb-0">0</h3>
+        <!-- ============================================ -->
+        <!-- FINANCE OFFICER DASHBOARD -->
+        <!-- ============================================ -->
+        <div class="row">
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Pending Payroll</h6>
+                                <h3 class="mb-0">0</h3>
+                            </div>
+                            <div class="icon-circle bg-warning text-white">
+                                <i class="fas fa-coins"></i>
+                            </div>
                         </div>
-                        <div class="icon-circle bg-warning text-white">
-                            <i class="fas fa-coins"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Unpaid Invoices</h6>
+                                <h3 class="mb-0">0</h3>
+                            </div>
+                            <div class="icon-circle bg-danger text-white">
+                                <i class="fas fa-file-invoice"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Unpaid Invoices</h6>
-                            <h3 class="mb-0">0</h3>
-                        </div>
-                        <div class="icon-circle bg-danger text-white">
-                            <i class="fas fa-file-invoice"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0">
-                    <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row g-2">
-                        <div class="col-md-4 col-6">
-                            <a href="#" class="btn btn-outline-primary w-100 text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-coins me-2"></i>Process Payroll
-                            </a>
-                        </div>
-                        <div class="col-md-4 col-6">
-                            <a href="#" class="btn btn-outline-success w-100 text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-file-invoice me-2"></i>Generate Invoice
-                            </a>
-                        </div>
-                        <div class="col-md-4 col-6">
-                            <a href="#" class="btn btn-outline-info w-100 text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-check-circle me-2"></i>Approve Timesheets
-                            </a>
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0">
+                        <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-md-4 col-6">
+                                <a href="#" class="btn btn-outline-primary w-100 text-start" onclick="alert('Coming soon!')">
+                                    <i class="fas fa-coins me-2"></i>Process Payroll
+                                </a>
+                            </div>
+                            <div class="col-md-4 col-6">
+                                <a href="#" class="btn btn-outline-success w-100 text-start" onclick="alert('Coming soon!')">
+                                    <i class="fas fa-file-invoice me-2"></i>Generate Invoice
+                                </a>
+                            </div>
+                            <div class="col-md-4 col-6">
+                                <a href="#" class="btn btn-outline-info w-100 text-start" onclick="alert('Coming soon!')">
+                                    <i class="fas fa-check-circle me-2"></i>Approve Timesheets
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
     }
-
-    <!-- ============================================ -->
-    <!-- PROCUREMENT OFFICER DASHBOARD -->
-    <!-- ============================================ -->
     else if (User.IsInRole("Procurement Officer"))
     {
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0">
-                    <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row g-2">
-                        <div class="col-md-4 col-6">
-                            <a href="#" class="btn btn-outline-primary w-100 text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-truck me-2"></i>Manage Suppliers
-                            </a>
-                        </div>
-                        <div class="col-md-4 col-6">
-                            <a href="#" class="btn btn-outline-success w-100 text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-file-signature me-2"></i>Supplier Contracts
-                            </a>
-                        </div>
-                        <div class="col-md-4 col-6">
-                            <a href="#" class="btn btn-outline-warning w-100 text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-tools me-2"></i>Equipment Management
-                            </a>
+        <!-- ============================================ -->
+        <!-- PROCUREMENT OFFICER DASHBOARD -->
+        <!-- ============================================ -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0">
+                        <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-md-4 col-6">
+                                <a href="#" class="btn btn-outline-primary w-100 text-start" onclick="alert('Coming soon!')">
+                                    <i class="fas fa-truck me-2"></i>Manage Suppliers
+                                </a>
+                            </div>
+                            <div class="col-md-4 col-6">
+                                <a href="#" class="btn btn-outline-success w-100 text-start" onclick="alert('Coming soon!')">
+                                    <i class="fas fa-file-signature me-2"></i>Supplier Contracts
+                                </a>
+                            </div>
+                            <div class="col-md-4 col-6">
+                                <a href="#" class="btn btn-outline-warning w-100 text-start" onclick="alert('Coming soon!')">
+                                    <i class="fas fa-tools me-2"></i>Equipment Management
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
     }
-
-    <!-- ============================================ -->
-    <!-- DEFAULT / STAFF DASHBOARD -->
-    <!-- ============================================ -->
     else
     {
-    <div class="row">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body text-center py-5">
-                    <i class="fas fa-user-circle fa-4x text-muted mb-3"></i>
-                    <h4>Welcome to MuhleOps</h4>
-                    <p class="text-muted">Your role-based dashboard will appear here.</p>
-                    <p class="text-muted small">Contact your administrator if you need access to additional features.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    }
-
-    <!-- System Status -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap">
-                        <div>
-                            <small class="text-muted">
-                                <i class="fas fa-check-circle text-success me-1"></i> System Status: Operational
-                            </small>
-                        </div>
-                        <div>
-                            <small class="text-muted">
-                                <i class="fas fa-clock me-1"></i> Last updated: @DateTime.Now.ToString("HH:mm")
-                            </small>
-                        </div>
-                        <div>
-                            <small class="text-muted">
-                                <i class="fas fa-user me-1"></i> Role: @userRole
-                            </small>
-                        </div>
+        <!-- ============================================ -->
+        <!-- DEFAULT / STAFF DASHBOARD -->
+        <!-- ============================================ -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-user-circle fa-4x text-muted mb-3"></i>
+                        <h4>Welcome to MuhleOps</h4>
+                        <p class="text-muted">Your role-based dashboard will appear here.</p>
+                        <p class="text-muted small">Contact your administrator if you need access to additional features.</p>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    }
 </div>
 
 <style>
@@ -916,6 +883,11 @@
         border-bottom: 1px solid var(--border-color) !important;
     }
 
+    .btn-sm {
+        padding: 4px 10px;
+        font-size: 12px;
+    }
+
     [data-theme="dark"] .btn-outline-primary {
         color: #6b8de0;
         border-color: #6b8de0;
@@ -963,6 +935,43 @@
 
         [data-theme="dark"] .btn-outline-danger:hover {
             background-color: #f87171;
+            color: #fff;
+        }
+
+    [data-theme="dark"] .bg-hover {
+        background: var(--bg-hover, #2d3748);
+    }
+
+        [data-theme="dark"] .bg-hover:hover {
+            background: var(--border-color, #2d3748);
+        }
+
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-warning {
+            color: #fff;
+        }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-secondary {
+            color: #fff;
+        }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+
+        .badge.bg-danger {
             color: #fff;
         }
 </style>
