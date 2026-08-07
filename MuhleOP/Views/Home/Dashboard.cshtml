@@ -1,6 +1,7 @@
 ﻿﻿@{
     ViewBag.Title = "Dashboard";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var userRole = ViewBag.UserRole ?? "User";
 }
 
 <div class="dashboard-content">
@@ -15,11 +16,14 @@
                             <i class="fas fa-calendar-alt me-2"></i>
                             @DateTime.Now.ToString("dddd, MMMM dd, yyyy")
                         </p>
+                        <p class="text-muted mb-0 mt-1">
+                            <i class="fas fa-user-tag me-2"></i>
+                            Role: <strong>@userRole</strong>
+                        </p>
                     </div>
                     <div class="d-flex gap-2 mt-2 mt-sm-0">
-                        <span class="badge bg-primary p-2">Admin Access</span>
                         <span class="badge bg-success p-2">
-                            <i class="fas fa-circle me-1" style="font-size:8px;"></i> Online
+                            <i class="fas fa-circle me-1" style="font-size:8px;"></i> System Online
                         </span>
                     </div>
                 </div>
@@ -27,9 +31,12 @@
         </div>
     </div>
 
-    <!-- Stats Cards - Only visible to Admin -->
+    <!-- ============================================ -->
+    <!-- ADMIN DASHBOARD -->
+    <!-- ============================================ -->
     @if (User.IsInRole("Admin"))
     {
+        <!-- Stats Cards -->
         <div class="row">
             <div class="col-lg-3 col-md-6 mb-4">
                 <div class="card border-0 shadow-sm">
@@ -37,14 +44,14 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <h6 class="text-muted mb-2">Active Projects</h6>
-                                <h3 class="mb-0">12</h3>
+                                <h3 class="mb-0">@ViewBag.ActiveProjects</h3>
                             </div>
                             <div class="icon-circle bg-primary text-white">
                                 <i class="fas fa-project-diagram"></i>
                             </div>
                         </div>
                         <div class="mt-3">
-                            <small class="text-success"><i class="fas fa-arrow-up"></i> 3 new this month</small>
+                            <small class="text-success"><i class="fas fa-check-circle"></i> @ViewBag.CompletedProjects completed</small>
                         </div>
                     </div>
                 </div>
@@ -56,14 +63,14 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <h6 class="text-muted mb-2">Total Staff</h6>
-                                <h3 class="mb-0">48</h3>
+                                <h3 class="mb-0">@ViewBag.TotalStaff</h3>
                             </div>
                             <div class="icon-circle bg-success text-white">
                                 <i class="fas fa-users"></i>
                             </div>
                         </div>
                         <div class="mt-3">
-                            <small class="text-info"><i class="fas fa-user-plus"></i> 2 new hires</small>
+                            <small class="text-info"><i class="fas fa-user-plus"></i> Active staff</small>
                         </div>
                     </div>
                 </div>
@@ -74,226 +81,745 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="text-muted mb-2">Equipment Active</h6>
-                                <h3 class="mb-0">36</h3>
-                            </div>
-                            <div class="icon-circle bg-warning text-white">
-                                <i class="fas fa-tools"></i>
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <small class="text-warning"><i class="fas fa-exclamation-triangle"></i> 4 due for maintenance</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-lg-3 col-md-6 mb-4">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-muted mb-2">Revenue</h6>
-                                <h3 class="mb-0">R2.4M</h3>
+                                <h6 class="text-muted mb-2">Total Clients</h6>
+                                <h3 class="mb-0">@ViewBag.TotalClients</h3>
                             </div>
                             <div class="icon-circle bg-info text-white">
-                                <i class="fas fa-currency-rand"></i>
+                                <i class="fas fa-building"></i>
                             </div>
                         </div>
                         <div class="mt-3">
-                            <small class="text-success"><i class="fas fa-arrow-up"></i> 12.5% increase</small>
+                            <small class="text-muted"><i class="fas fa-file-contract"></i> Registered clients</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Job Applications</h6>
+                                <h3 class="mb-0">@ViewBag.TotalApplications</h3>
+                            </div>
+                            <div class="icon-circle bg-warning text-white">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <small class="text-danger"><i class="fas fa-clock"></i> @ViewBag.PendingApplications pending</small>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    }
 
-    <div class="row">
-        <!-- Recent Activity - Visible to Admin only -->
-        @if (User.IsInRole("Admin"))
-        {
-            <div class="col-lg-8 mb-4">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-transparent border-0">
-                        <h6 class="mb-0">Recent Activity</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="activity-feed">
-                            <div class="activity-item d-flex align-items-start mb-3">
-                                <div class="activity-badge bg-success text-white me-3">P</div>
-                                <div>
-                                    <p class="mb-0"><strong>Project Update:</strong> Riverside Mall phase 2 completed</p>
-                                    <small class="text-muted">2 hours ago</small>
-                                </div>
-                            </div>
-                            <div class="activity-item d-flex align-items-start mb-3">
-                                <div class="activity-badge bg-warning text-dark me-3">E</div>
-                                <div>
-                                    <p class="mb-0"><strong>Equipment Alert:</strong> Excavator #047 needs maintenance</p>
-                                    <small class="text-muted">4 hours ago</small>
-                                </div>
-                            </div>
-                            <div class="activity-item d-flex align-items-start mb-3">
-                                <div class="activity-badge bg-info text-white me-3">S</div>
-                                <div>
-                                    <p class="mb-0"><strong>Staff Update:</strong> 3 new employees onboarded</p>
-                                    <small class="text-muted">Yesterday</small>
-                                </div>
-                            </div>
-                            <div class="activity-item d-flex align-items-start">
-                                <div class="activity-badge bg-primary text-white me-3">C</div>
-                                <div>
-                                    <p class="mb-0"><strong>Client Update:</strong> New contract signed with Vusani Developments</p>
-                                    <small class="text-muted">2 days ago</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        }
-        else if (User.IsInRole("Candidate"))
-        {
-            <!-- Candidate Recent Applications -->
-            <div class="col-lg-8 mb-4">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-transparent border-0">
-                        <h6 class="mb-0">My Recent Applications</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="activity-feed">
-                            <div class="activity-item d-flex align-items-start mb-3">
-                                <div class="activity-badge bg-warning text-dark me-3">P</div>
-                                <div>
-                                    <p class="mb-0"><strong>Senior Construction Manager</strong> - Application Pending</p>
-                                    <small class="text-muted">Submitted 2 days ago</small>
-                                </div>
-                            </div>
-                            <div class="activity-item d-flex align-items-start mb-3">
-                                <div class="activity-badge bg-success text-white me-3">S</div>
-                                <div>
-                                    <p class="mb-0"><strong>Site Supervisor</strong> - Shortlisted</p>
-                                    <small class="text-muted">Submitted 1 week ago</small>
-                                </div>
-                            </div>
-                            <div class="activity-item d-flex align-items-start">
-                                <div class="activity-badge bg-danger text-white me-3">R</div>
-                                <div>
-                                    <p class="mb-0"><strong>Project Coordinator</strong> - Application Closed</p>
-                                    <small class="text-muted">Submitted 2 weeks ago</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="text-center mt-3">
-                            <a href="@Url.Action("Dashboard", "Candidate")" class="btn btn-outline-primary btn-sm">
-                                View All Applications
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        }
-
-        <!-- Quick Actions - Role Based -->
-        <div class="@(User.IsInRole("Admin") ? "col-lg-4" : "col-lg-4") mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0">
-                    <h6 class="mb-0">Quick Actions</h6>
-                </div>
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        @if (User.IsInRole("Admin"))
-                        {
-                            <a href="@Url.Action("Create", "JobPost")" class="btn btn-outline-primary text-start">
-                                <i class="fas fa-plus-circle me-2"></i>New Job Post
-                            </a>
-                            <button class="btn btn-outline-success text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-user-plus me-2"></i>Hire Staff
-                            </button>
-                            <button class="btn btn-outline-warning text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-file-contract me-2"></i>Create Contract
-                            </button>
-                            <button class="btn btn-outline-info text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-upload me-2"></i>Record Timesheet
-                            </button>
-                            <button class="btn btn-outline-secondary text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-chart-line me-2"></i>Generate Report
-                            </button>
-                        }
-                        else if (User.IsInRole("Candidate"))
-                        {
-                            <a href="@Url.Action("BrowseJobs", "Candidate")" class="btn btn-outline-primary text-start">
-                                <i class="fas fa-search me-2"></i>Browse Jobs
-                            </a>
-                            <a href="@Url.Action("Dashboard", "Candidate")" class="btn btn-outline-success text-start">
-                                <i class="fas fa-file-alt me-2"></i>My Applications
-                            </a>
-                            <a href="@Url.Action("Dashboard", "Candidate")" class="btn btn-outline-info text-start">
-                                <i class="fas fa-user me-2"></i>Update Profile
-                            </a>
-                            <a href="@Url.Action("Dashboard", "Candidate")" class="btn btn-outline-warning text-start">
-                                <i class="fas fa-file-upload me-2"></i>Upload Documents
-                            </a>
-                        }
-                        else
-                        {
-                            <button class="btn btn-outline-primary text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-tasks me-2"></i>My Tasks
-                            </button>
-                            <button class="btn btn-outline-success text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-clock me-2"></i>Timesheet
-                            </button>
-                            <button class="btn btn-outline-info text-start" onclick="alert('Coming soon!')">
-                                <i class="fas fa-project-diagram me-2"></i>My Projects
-                            </button>
-                        }
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Additional Section for Admin -->
-    @if (User.IsInRole("Admin"))
-    {
-        <div class="row">
+        <!-- Quick Action Buttons - Use Cases 1-11 -->
+        <div class="row mb-4">
             <div class="col-12">
                 <div class="card border-0 shadow-sm">
                     <div class="card-header bg-transparent border-0">
-                        <h6 class="mb-0">Quick Stats</h6>
+                        <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions - Use Cases 1-11</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <!-- UC1: Create Vacancy -->
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Create", "JobPost")" class="btn btn-outline-primary w-100 text-start">
+                                    <i class="fas fa-plus-circle me-2"></i>UC1: Create Vacancy
+                                </a>
+                            </div>
+                            <!-- UC2: Browse & Apply Jobs -->
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("BrowseJobs", "Candidate")" class="btn btn-outline-success w-100 text-start">
+                                    <i class="fas fa-search me-2"></i>UC2: Browse/Apply Jobs
+                                </a>
+                            </div>
+                            <!-- UC3: Review & Shortlist -->
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("AllApplications", "JobPost")" class="btn btn-outline-warning w-100 text-start">
+                                    <i class="fas fa-star me-2"></i>UC3: Review & Shortlist
+                                </a>
+                            </div>
+                            <!-- UC4: Schedule Interview -->
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("AllApplications", "JobPost")" class="btn btn-outline-info w-100 text-start">
+                                    <i class="fas fa-calendar-plus me-2"></i>UC4: Schedule Interview
+                                </a>
+                            </div>
+                            <!-- UC5: Hire Staff -->
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Hire", "Staff")" class="btn btn-outline-success w-100 text-start">
+                                    <i class="fas fa-user-plus me-2"></i>UC5: Hire Staff
+                                </a>
+                            </div>
+                            <!-- UC6: Register Client -->
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Register", "Client")" class="btn btn-outline-primary w-100 text-start">
+                                    <i class="fas fa-building me-2"></i>UC6: Register Client
+                                </a>
+                            </div>
+                            <!-- UC7: Create Contract -->
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Index", "Client")" class="btn btn-outline-warning w-100 text-start">
+                                    <i class="fas fa-file-contract me-2"></i>UC7: Create Contract
+                                </a>
+                            </div>
+                            <!-- UC8: Sign Contract -->
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Index", "Client")" class="btn btn-outline-info w-100 text-start">
+                                    <i class="fas fa-signature me-2"></i>UC8: Sign Contract
+                                </a>
+                            </div>
+                            <!-- UC9: Initiate Project -->
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Initiate", "Project")" class="btn btn-outline-primary w-100 text-start">
+                                    <i class="fas fa-rocket me-2"></i>UC9: Initiate Project
+                                </a>
+                            </div>
+                            <!-- UC10: Assign Staff -->
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Index", "Project")" class="btn btn-outline-success w-100 text-start">
+                                    <i class="fas fa-user-friends me-2"></i>UC10: Assign Staff
+                                </a>
+                            </div>
+                            <!-- UC11: Assign Equipment -->
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Index", "Project")" class="btn btn-outline-warning w-100 text-start">
+                                    <i class="fas fa-tools me-2"></i>UC11: Assign Equipment
+                                </a>
+                            </div>
+                            <!-- View All Projects -->
+                            <div class="col-md-3 col-6">
+                                <a href="@Url.Action("Index", "Project")" class="btn btn-outline-secondary w-100 text-start">
+                                    <i class="fas fa-folder-open me-2"></i>All Projects
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="row">
+            <div class="col-lg-8 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0">
+                        <h6 class="mb-0"><i class="fas fa-clock me-2"></i>Recent Applications</h6>
+                    </div>
+                    <div class="card-body">
+                        @if (ViewBag.RecentApplications != null && ((IEnumerable<MuhleOP.Models.JobApplication>)ViewBag.RecentApplications).Any())
+                        {
+                            foreach (var app in (IEnumerable<MuhleOP.Models.JobApplication>)ViewBag.RecentApplications)
+                            {
+                                <div class="activity-item d-flex align-items-start mb-3">
+                                    <div class="activity-badge bg-primary text-white me-3">
+                                        <i class="fas fa-file-alt"></i>
+                                    </div>
+                                    <div>
+                                        <p class="mb-0">
+                                            <strong>@(app.JobPost?.JobTitle ?? "Unknown Position")</strong>
+                                            - @(app.Candidate?.FullName ?? "Unknown Candidate")
+                                        </p>
+                                        <small class="text-muted">
+                                            <span class="badge bg-@(app.Status == "Pending" ? "warning" : app.Status == "Shortlisted" ? "success" : app.Status == "Hired" ? "info" : "secondary")">
+                                                @app.Status
+                                            </span>
+                                            - @app.ApplicationDate.ToString("dd MMM yyyy HH:mm")
+                                        </small>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center py-4">
+                                <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
+                                <p class="text-muted">No recent applications</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 mb-4">
+                <!-- Quick Stats -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0">
+                        <h6 class="mb-0"><i class="fas fa-chart-simple me-2"></i>Quick Stats</h6>
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-3 col-6 mb-3 mb-md-0">
-                                <div class="text-center">
-                                    <h5>24</h5>
-                                    <small class="text-muted">Total Applications</small>
+                            <div class="col-6 mb-3">
+                                <div class="text-center p-2 bg-hover rounded">
+                                    <h5>@ViewBag.TotalJobPosts</h5>
+                                    <small class="text-muted">Job Posts</small>
                                 </div>
                             </div>
-                            <div class="col-md-3 col-6 mb-3 mb-md-0">
-                                <div class="text-center">
-                                    <h5>8</h5>
-                                    <small class="text-muted">Pending Review</small>
+                            <div class="col-6 mb-3">
+                                <div class="text-center p-2 bg-hover rounded">
+                                    <h5>@ViewBag.TotalCandidates</h5>
+                                    <small class="text-muted">Candidates</small>
                                 </div>
                             </div>
-                            <div class="col-md-3 col-6">
-                                <div class="text-center">
-                                    <h5>4</h5>
+                            <div class="col-6">
+                                <div class="text-center p-2 bg-hover rounded">
+                                    <h5>@ViewBag.ShortlistedCount</h5>
                                     <small class="text-muted">Shortlisted</small>
                                 </div>
                             </div>
-                            <div class="col-md-3 col-6">
-                                <div class="text-center">
-                                    <h5>12</h5>
+                            <div class="col-6">
+                                <div class="text-center p-2 bg-hover rounded">
+                                    <h5>@ViewBag.HiredCount</h5>
                                     <small class="text-muted">Hired</small>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Recent Projects -->
+                <div class="card border-0 shadow-sm mt-4">
+                    <div class="card-header bg-transparent border-0">
+                        <h6 class="mb-0"><i class="fas fa-project-diagram me-2"></i>Recent Projects</h6>
+                    </div>
+                    <div class="card-body">
+                        @if (ViewBag.RecentProjects != null && ((IEnumerable<MuhleOP.Models.Project>)ViewBag.RecentProjects).Any())
+                        {
+                            foreach (var project in (IEnumerable<MuhleOP.Models.Project>)ViewBag.RecentProjects)
+                            {
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="small">@project.ProjectName</span>
+                                    <span class="badge bg-@(project.Status == "In Progress" ? "success" : project.Status == "Initiated" ? "info" : project.Status == "Completed" ? "primary" : "secondary")">
+                                        @project.Status
+                                    </span>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted text-center">No projects</p>
+                        }
+                    </div>
+                </div>
             </div>
         </div>
+    }
+
+    <!-- ============================================ -->
+    <!-- CANDIDATE DASHBOARD -->
+    <!-- ============================================ -->
+    else if (User.IsInRole("Candidate"))
+    {
+    <!-- Stats Cards -->
+    <div class="row">
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Applications</h6>
+                            <h3 class="mb-0">@ViewBag.TotalApplications</h3>
+                        </div>
+                        <div class="icon-circle bg-primary text-white">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Pending</h6>
+                            <h3 class="mb-0">@ViewBag.PendingApplications</h3>
+                        </div>
+                        <div class="icon-circle bg-warning text-white">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Shortlisted</h6>
+                            <h3 class="mb-0">@ViewBag.ShortlistedApplications</h3>
+                        </div>
+                        <div class="icon-circle bg-success text-white">
+                            <i class="fas fa-star"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Interviews</h6>
+                            <h3 class="mb-0">@ViewBag.InterviewScheduledCount</h3>
+                        </div>
+                        <div class="icon-circle bg-info text-white">
+                            <i class="fas fa-calendar-check"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Action Buttons - Use Case 2 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-md-3 col-6">
+                            <a href="@Url.Action("BrowseJobs", "Candidate")" class="btn btn-outline-primary w-100 text-start">
+                                <i class="fas fa-search me-2"></i>Browse Jobs (UC2)
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="@Url.Action("AllApplications", "Candidate")" class="btn btn-outline-success w-100 text-start">
+                                <i class="fas fa-file-alt me-2"></i>My Applications
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="@Url.Action("ApplicationStatus", "Candidate", new { id = 0 })" class="btn btn-outline-info w-100 text-start">
+                                <i class="fas fa-chart-line me-2"></i>Application Status
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="@Url.Action("Dashboard", "Home")" class="btn btn-outline-secondary w-100 text-start">
+                                <i class="fas fa-user me-2"></i>My Profile
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Applications -->
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0"><i class="fas fa-clock me-2"></i>My Recent Applications</h6>
+                </div>
+                <div class="card-body">
+                    @if (ViewBag.RecentApplications != null && ((IEnumerable<MuhleOP.Models.JobApplication>)ViewBag.RecentApplications).Any())
+                    {
+                        foreach (var app in (IEnumerable<MuhleOP.Models.JobApplication>)ViewBag.RecentApplications)
+                        {
+                            <div class="activity-item d-flex align-items-start mb-3">
+                                <div class="activity-badge bg-@(app.Status == "Pending" ? "warning" : app.Status == "Shortlisted" ? "success" : app.Status == "Hired" ? "info" : "secondary") text-white me-3">
+                                    <i class="fas fa-file-alt"></i>
+                                </div>
+                                <div>
+                                    <p class="mb-0">
+                                        <strong>@(app.JobPost?.JobTitle ?? "Unknown Position")</strong>
+                                    </p>
+                                    <small class="text-muted">
+                                        <span class="badge bg-@(app.Status == "Pending" ? "warning" : app.Status == "Shortlisted" ? "success" : app.Status == "Hired" ? "info" : "secondary")">
+                                            @app.Status
+                                        </span>
+                                        - @app.ApplicationDate.ToString("dd MMM yyyy")
+                                        @if (app.InterviewScheduled && app.InterviewDateTime.HasValue)
+                                        {
+                                            <span class="ms-2"><i class="fas fa-calendar-alt"></i> @app.InterviewDateTime.Value.ToString("dd MMM HH:mm")</span>
+                                        }
+                                    </small>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
+                            <p class="text-muted">You haven't applied for any jobs yet.</p>
+                            <a href="@Url.Action("BrowseJobs", "Candidate")" class="btn btn-primary btn-sm">Browse Jobs</a>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <!-- Available Jobs -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0"><i class="fas fa-briefcase me-2"></i>Available Jobs</h6>
+                </div>
+                <div class="card-body">
+                    @if (ViewBag.AvailableJobs != null && ((IEnumerable<MuhleOP.Models.JobPost>)ViewBag.AvailableJobs).Any())
+                    {
+                        foreach (var job in (IEnumerable<MuhleOP.Models.JobPost>)ViewBag.AvailableJobs)
+                        {
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small">@job.JobTitle</span>
+                                <a href="@Url.Action("Apply", "Candidate", new { id = job.Id })" class="btn btn-sm btn-success">Apply</a>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted text-center">No jobs available</p>
+                    }
+                </div>
+            </div>
+
+            <!-- Status Legend -->
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Status Legend</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-column gap-1">
+                        <div><span class="badge bg-warning me-1">Pending</span> <small>Awaiting review</small></div>
+                        <div><span class="badge bg-success me-1">Shortlisted</span> <small>Selected for interview</small></div>
+                        <div><span class="badge bg-info me-1">Interview</span> <small>Interview scheduled</small></div>
+                        <div><span class="badge bg-success me-1">Hired</span> <small>Position offered</small></div>
+                        <div><span class="badge bg-danger me-1">Rejected</span> <small>Not selected</small></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    }
+
+    <!-- ============================================ -->
+    <!-- PROJECT MANAGER DASHBOARD -->
+    <!-- ============================================ -->
+    else if (User.IsInRole("Project Manager"))
+    {
+    <div class="row">
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">My Projects</h6>
+                            <h3 class="mb-0">@(ViewBag.MyProjects != null ? ((IEnumerable<MuhleOP.Models.Project>)ViewBag.MyProjects).Count() : 0)</h3>
+                        </div>
+                        <div class="icon-circle bg-primary text-white">
+                            <i class="fas fa-project-diagram"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">My Tasks</h6>
+                            <h3 class="mb-0">@(ViewBag.MyTasks != null ? ((IEnumerable<MuhleOP.Models.DailyTask>)ViewBag.MyTasks).Count() : 0)</h3>
+                        </div>
+                        <div class="icon-circle bg-warning text-white">
+                            <i class="fas fa-tasks"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions - Use Cases 7, 9, 10, 11 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-md-3 col-6">
+                            <a href="@Url.Action("Initiate", "Project")" class="btn btn-outline-primary w-100 text-start">
+                                <i class="fas fa-rocket me-2"></i>Initiate Project (UC9)
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="@Url.Action("Index", "Project")" class="btn btn-outline-success w-100 text-start">
+                                <i class="fas fa-folder-open me-2"></i>My Projects
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="@Url.Action("Index", "Client")" class="btn btn-outline-warning w-100 text-start">
+                                <i class="fas fa-file-contract me-2"></i>Create Contract (UC7)
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="@Url.Action("Index", "Project")" class="btn btn-outline-info w-100 text-start">
+                                <i class="fas fa-user-friends me-2"></i>Assign Staff (UC10)
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="@Url.Action("Index", "Project")" class="btn btn-outline-warning w-100 text-start">
+                                <i class="fas fa-tools me-2"></i>Assign Equipment (UC11)
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Projects List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0"><i class="fas fa-list me-2"></i>My Projects</h6>
+                </div>
+                <div class="card-body">
+                    @if (ViewBag.MyProjects != null && ((IEnumerable<MuhleOP.Models.Project>)ViewBag.MyProjects).Any())
+                    {
+                        foreach (var project in (IEnumerable<MuhleOP.Models.Project>)ViewBag.MyProjects)
+                        {
+                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
+                                <div>
+                                    <strong>@project.ProjectName</strong>
+                                    <br />
+                                    <small class="text-muted">@project.ProjectCode - @project.ProjectLocation</small>
+                                </div>
+                                <div>
+                                    <span class="badge bg-@(project.Status == "In Progress" ? "success" : project.Status == "Initiated" ? "info" : project.Status == "Completed" ? "primary" : "secondary")">
+                                        @project.Status
+                                    </span>
+                                    <a href="@Url.Action("Details", "Project", new { id = project.Id })" class="btn btn-sm btn-outline-primary ms-2">View</a>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted text-center">No projects assigned</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    }
+
+    <!-- ============================================ -->
+    <!-- SITE MANAGER DASHBOARD -->
+    <!-- ============================================ -->
+    else if (User.IsInRole("Site Manager"))
+    {
+    <div class="row">
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Site Projects</h6>
+                            <h3 class="mb-0">@(ViewBag.MyProjects != null ? ((IEnumerable<MuhleOP.Models.Project>)ViewBag.MyProjects).Count() : 0)</h3>
+                        </div>
+                        <div class="icon-circle bg-info text-white">
+                            <i class="fas fa-hard-hat"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Daily Tasks</h6>
+                            <h3 class="mb-0">@(ViewBag.MyTasks != null ? ((IEnumerable<MuhleOP.Models.DailyTask>)ViewBag.MyTasks).Count() : 0)</h3>
+                        </div>
+                        <div class="icon-circle bg-warning text-white">
+                            <i class="fas fa-clipboard-list"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-md-3 col-6">
+                            <a href="#" class="btn btn-outline-primary w-100 text-start" onclick="alert('Coming soon!')">
+                                <i class="fas fa-clipboard-list me-2"></i>Daily Tasks (UC12)
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="#" class="btn btn-outline-success w-100 text-start" onclick="alert('Coming soon!')">
+                                <i class="fas fa-clock me-2"></i>Timesheet (UC13)
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="#" class="btn btn-outline-warning w-100 text-start" onclick="alert('Coming soon!')">
+                                <i class="fas fa-wrench me-2"></i>Maintenance (UC14)
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="#" class="btn btn-outline-danger w-100 text-start" onclick="alert('Coming soon!')">
+                                <i class="fas fa-tools me-2"></i>Record Repair (UC15)
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="#" class="btn btn-outline-info w-100 text-start" onclick="alert('Coming soon!')">
+                                <i class="fas fa-check-double me-2"></i>Inspection (UC16)
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="#" class="btn btn-outline-secondary w-100 text-start" onclick="alert('Coming soon!')">
+                                <i class="fas fa-edit me-2"></i>Update Status (UC17)
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    }
+
+    <!-- ============================================ -->
+    <!-- FINANCE OFFICER DASHBOARD -->
+    <!-- ============================================ -->
+    else if (User.IsInRole("Finance Officer"))
+    {
+    <div class="row">
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Pending Payroll</h6>
+                            <h3 class="mb-0">0</h3>
+                        </div>
+                        <div class="icon-circle bg-warning text-white">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Unpaid Invoices</h6>
+                            <h3 class="mb-0">0</h3>
+                        </div>
+                        <div class="icon-circle bg-danger text-white">
+                            <i class="fas fa-file-invoice"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-md-4 col-6">
+                            <a href="#" class="btn btn-outline-primary w-100 text-start" onclick="alert('Coming soon!')">
+                                <i class="fas fa-coins me-2"></i>Process Payroll (UC20)
+                            </a>
+                        </div>
+                        <div class="col-md-4 col-6">
+                            <a href="#" class="btn btn-outline-success w-100 text-start" onclick="alert('Coming soon!')">
+                                <i class="fas fa-file-invoice me-2"></i>Generate Invoice (UC21)
+                            </a>
+                        </div>
+                        <div class="col-md-4 col-6">
+                            <a href="#" class="btn btn-outline-info w-100 text-start" onclick="alert('Coming soon!')">
+                                <i class="fas fa-check-circle me-2"></i>Approve Timesheets
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    }
+
+    <!-- ============================================ -->
+    <!-- PROCUREMENT OFFICER DASHBOARD -->
+    <!-- ============================================ -->
+    else if (User.IsInRole("Procurement Officer"))
+    {
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-md-4 col-6">
+                            <a href="#" class="btn btn-outline-primary w-100 text-start" onclick="alert('Coming soon!')">
+                                <i class="fas fa-truck me-2"></i>Manage Suppliers (UC9)
+                            </a>
+                        </div>
+                        <div class="col-md-4 col-6">
+                            <a href="#" class="btn btn-outline-success w-100 text-start" onclick="alert('Coming soon!')">
+                                <i class="fas fa-file-signature me-2"></i>Supplier Contracts
+                            </a>
+                        </div>
+                        <div class="col-md-4 col-6">
+                            <a href="#" class="btn btn-outline-warning w-100 text-start" onclick="alert('Coming soon!')">
+                                <i class="fas fa-tools me-2"></i>Equipment Management
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    }
+
+    <!-- ============================================ -->
+    <!-- DEFAULT / STAFF DASHBOARD -->
+    <!-- ============================================ -->
+    else
+    {
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-user-circle fa-4x text-muted mb-3"></i>
+                    <h4>Welcome to MuhleOps</h4>
+                    <p class="text-muted">Your role-based dashboard will appear here.</p>
+                    <p class="text-muted small">Contact your administrator if you need access to additional features.</p>
+                </div>
+            </div>
+        </div>
+    </div>
     }
 
     <!-- System Status -->
@@ -314,7 +840,7 @@
                         </div>
                         <div>
                             <small class="text-muted">
-                                <i class="fas fa-user me-1"></i> Role: @(User.IsInRole("Admin") ? "Administrator" : User.IsInRole("Candidate") ? "Candidate" : "User")
+                                <i class="fas fa-user me-1"></i> Role: @userRole
                             </small>
                         </div>
                     </div>
@@ -325,57 +851,18 @@
 </div>
 
 <style>
-    .icon-circle {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 20px;
+    .bg-hover {
+        background: var(--bg-hover);
+        transition: background 0.3s ease;
     }
 
-    .bg-primary {
-        background-color: #4e73df;
-    }
-
-    .bg-success {
-        background-color: #1cc88a;
-    }
-
-    .bg-warning {
-        background-color: #f6c23e;
-    }
-
-    .bg-info {
-        background-color: #36b9cc;
-    }
-
-    .bg-danger {
-        background-color: #e74a3b;
-    }
-
-    .activity-badge {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        font-size: 14px;
-        flex-shrink: 0;
-    }
-
-    .activity-item {
-        padding-bottom: 12px;
-        border-bottom: 1px solid var(--border-color, #f0f0f0);
-    }
-
-        .activity-item:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
+        .bg-hover:hover {
+            background: var(--border-color);
         }
+
+    .text-gold {
+        color: var(--primary-gold);
+    }
 
     .btn-outline-primary {
         color: #4e73df;
@@ -417,46 +904,77 @@
             color: #fff;
         }
 
+    .btn-outline-danger {
+        color: #e74a3b;
+        border-color: #e74a3b;
+    }
+
+        .btn-outline-danger:hover {
+            background-color: #e74a3b;
+            color: #fff;
+        }
+
     .btn-outline-secondary {
-        color: var(--text-secondary, #858796);
-        border-color: var(--border-color, #e9ecef);
+        color: var(--text-secondary);
+        border-color: var(--border-color);
     }
 
         .btn-outline-secondary:hover {
-            background: var(--bg-hover, #f3f4f6);
-            color: var(--text-primary, #1a202c);
+            background: var(--bg-hover);
+            color: var(--text-primary);
         }
 
-    /* Dark mode support */
-    [data-theme="dark"] .activity-item {
-        border-bottom-color: var(--border-color, #2d3748);
+    .border-bottom {
+        border-bottom: 1px solid var(--border-color) !important;
     }
 
-    [data-theme="dark"] .card {
-        background: var(--bg-card, #1a202c);
+    [data-theme="dark"] .btn-outline-primary {
+        color: #6b8de0;
+        border-color: #6b8de0;
     }
 
-    [data-theme="dark"] .card-header {
-        background: var(--bg-card, #1a202c);
-        border-bottom-color: var(--border-color, #2d3748);
-    }
-
-    [data-theme="dark"] .text-muted {
-        color: var(--text-secondary, #a0aec0) !important;
-    }
-
-    [data-theme="dark"] .btn-outline-secondary {
-        color: var(--text-secondary, #a0aec0);
-        border-color: var(--border-color, #2d3748);
-    }
-
-        [data-theme="dark"] .btn-outline-secondary:hover {
-            background: var(--bg-hover, #2d3748);
-            color: var(--text-primary, #e2e8f0);
+        [data-theme="dark"] .btn-outline-primary:hover {
+            background-color: #6b8de0;
+            color: #fff;
         }
 
-    [data-theme="dark"] .badge.bg-light {
-        background: var(--bg-hover, #2d3748) !important;
-        color: var(--text-primary, #e2e8f0) !important;
+    [data-theme="dark"] .btn-outline-success {
+        color: #2dd4a8;
+        border-color: #2dd4a8;
     }
+
+        [data-theme="dark"] .btn-outline-success:hover {
+            background-color: #2dd4a8;
+            color: #fff;
+        }
+
+    [data-theme="dark"] .btn-outline-warning {
+        color: #fbbf24;
+        border-color: #fbbf24;
+    }
+
+        [data-theme="dark"] .btn-outline-warning:hover {
+            background-color: #fbbf24;
+            color: #fff;
+        }
+
+    [data-theme="dark"] .btn-outline-info {
+        color: #67e8f9;
+        border-color: #67e8f9;
+    }
+
+        [data-theme="dark"] .btn-outline-info:hover {
+            background-color: #67e8f9;
+            color: #fff;
+        }
+
+    [data-theme="dark"] .btn-outline-danger {
+        color: #f87171;
+        border-color: #f87171;
+    }
+
+        [data-theme="dark"] .btn-outline-danger:hover {
+            background-color: #f87171;
+            color: #fff;
+        }
 </style>
