@@ -38,113 +38,7 @@ namespace MuhleOP.Controllers
             }
         }
 
-        // GET: Staff/Hire
-        [Authorize(Roles = "Admin")]
-        public ActionResult Hire()
-        {
-            System.Diagnostics.Debug.WriteLine("=== HIRE STAFF PAGE LOADED ===");
-            return View();
-        }
-
-        // POST: Staff/Hire
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
-        public async Task<ActionResult> Hire(CreateStaffViewModel model)
-        {
-            System.Diagnostics.Debug.WriteLine("=== HIRE STAFF POST STARTED ===");
-
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    var existingUser = await UserManager.FindByEmailAsync(model.Email);
-                    if (existingUser != null)
-                    {
-                        ModelState.AddModelError("Email", "A user with this email already exists.");
-                        return View(model);
-                    }
-
-                    string password = GenerateRandomPassword();
-
-                    var user = new ApplicationUser
-                    {
-                        UserName = model.Email,
-                        Email = model.Email,
-                        EmailConfirmed = true
-                    };
-
-                    var result = await UserManager.CreateAsync(user, password);
-                    System.Diagnostics.Debug.WriteLine($"User creation result: {result.Succeeded}");
-
-                    if (result.Succeeded)
-                    {
-                        var roleResult = await UserManager.AddToRoleAsync(user.Id, model.Role);
-
-                        var staff = new Staff
-                        {
-                            FirstName = model.FirstName,
-                            LastName = model.LastName,
-                            Email = model.Email,
-                            Role = model.Role,
-                            PhoneNumber = model.PhoneNumber,
-                            Department = model.Department,
-                            UserId = user.Id,
-                            HireDate = DateTime.Now,
-                            IsActive = true
-                        };
-
-                        db.Staff.Add(staff);
-                        await db.SaveChangesAsync();
-
-                        // Check if hiring from candidate
-                        if (!string.IsNullOrEmpty(Request.Form["ApplicationId"]))
-                        {
-                            int applicationId = int.Parse(Request.Form["ApplicationId"]);
-                            var application = await db.JobApplications.FindAsync(applicationId);
-                            if (application != null)
-                            {
-                                application.IsHired = true;
-                                application.Status = "Hired";
-                                await db.SaveChangesAsync();
-
-                                await CreateNotificationForCandidate(
-                                    application.CandidateId,
-                                    "You've Been Hired!",
-                                    $"Congratulations! You have been hired for the position of '{application.JobPost?.JobTitle ?? "the position"}'. Welcome to the team!",
-                                    "System",
-                                    $"/Candidate/ApplicationStatus/{application.Id}"
-                                );
-                            }
-                        }
-
-                        await CreateNotification(
-                            User.Identity.GetUserId(),
-                            "New Staff Member Hired",
-                            $"You have successfully hired {model.FirstName} {model.LastName} as a {model.Role}.",
-                            "System",
-                            "/Staff/Index"
-                        );
-
-                        TempData["SuccessMessage"] = $"{model.FirstName} {model.LastName} has been hired successfully! Login details have been sent to their email.";
-                        return RedirectToAction("Index");
-                    }
-
-                    foreach (var error in result.Errors)
-                    {
-                        ModelState.AddModelError("", error);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    ModelState.AddModelError("", "An error occurred while hiring staff: " + ex.Message);
-                }
-            }
-
-            return View(model);
-        }
-
-        // GET: Staff/Index
+        // GET: Staff/Index - View all staff
         [Authorize(Roles = "Admin")]
         public ActionResult Index()
         {
@@ -208,24 +102,133 @@ namespace MuhleOP.Controllers
             return View(viewModel);
         }
 
-        // POST: Staff/ToggleActive/5
-        [HttpPost]
+        // GET: Staff/Hire - Use Case 5: Hire Staff
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult> ToggleActive(int id)
+        public ActionResult Hire()
         {
-            var staff = db.Staff.Find(id);
-            if (staff == null)
-            {
-                return Json(new { success = false, message = "Staff member not found" });
-            }
-
-            staff.IsActive = !staff.IsActive;
-            await db.SaveChangesAsync();
-
-            return Json(new { success = true, isActive = staff.IsActive });
+            return View();
         }
 
-        // GET: Staff/HireFromCandidate/5
+        // POST: Staff/Hire - Use Case 5: Hire Staff
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> Hire(CreateStaffViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    // Check if user already exists
+                    var existingUser = await UserManager.FindByEmailAsync(model.Email);
+                    if (existingUser != null)
+                    {
+                        ModelState.AddModelError("Email", "A user with this email already exists.");
+                        return View(model);
+                    }
+
+                    // Generate random password
+                    string password = GenerateRandomPassword();
+
+                    // Create user account
+                    var user = new ApplicationUser
+                    {
+                        UserName = model.Email,
+                        Email = model.Email,
+                        EmailConfirmed = true,
+                        FirstName = model.FirstName,
+                        LastName = model.LastName,
+                        CreatedDate = DateTime.Now,
+                        IsActive = true
+                    };
+
+                    var result = await UserManager.CreateAsync(user, password);
+
+                    if (result.Succeeded)
+                    {
+                        // Assign role
+                        var roleResult = await UserManager.AddToRoleAsync(user.Id, model.Role);
+
+                        // Create staff record
+                        var staff = new Staff
+                        {
+                            FirstName = model.FirstName,
+                            LastName = model.LastName,
+                            Email = model.Email,
+                            Role = model.Role,
+                            PhoneNumber = model.PhoneNumber,
+                            Department = model.Department,
+                            UserId = user.Id,
+                            HireDate = DateTime.Now,
+                            IsActive = true
+                        };
+
+                        db.Staff.Add(staff);
+                        await db.SaveChangesAsync();
+
+                        // Check if hiring from candidate
+                        if (!string.IsNullOrEmpty(Request.Form["ApplicationId"]))
+                        {
+                            int applicationId = int.Parse(Request.Form["ApplicationId"]);
+                            var application = await db.JobApplications.FindAsync(applicationId);
+                            if (application != null)
+                            {
+                                application.IsHired = true;
+                                application.Status = "Hired";
+                                application.HireDate = DateTime.Now;
+                                application.HiredBy = User.Identity.Name;
+
+                                // Update status history
+                                var history = new ApplicationStatusHistory
+                                {
+                                    ApplicationId = application.Id,
+                                    Status = "Hired",
+                                    Notes = $"Candidate hired as {model.Role}",
+                                    ChangedBy = User.Identity.Name
+                                };
+                                db.ApplicationStatusHistories.Add(history);
+
+                                await db.SaveChangesAsync();
+
+                                // Notify candidate
+                                await CreateNotificationForCandidate(
+                                    application.CandidateId,
+                                    "You've Been Hired!",
+                                    $"Congratulations! You have been hired for the position of '{application.JobPost?.JobTitle ?? "the position"}' as a {model.Role}. Welcome to the team! Your login credentials have been sent to your email.",
+                                    "System",
+                                    $"/Candidate/ApplicationStatus/{application.Id}"
+                                );
+                            }
+                        }
+
+                        // Notify Admin
+                        await CreateNotification(
+                            User.Identity.GetUserId(),
+                            "New Staff Member Hired",
+                            $"You have successfully hired {model.FirstName} {model.LastName} as a {model.Role}.",
+                            "System",
+                            "/Staff/Index"
+                        );
+
+                        TempData["SuccessMessage"] = $"{model.FirstName} {model.LastName} has been hired successfully! Login details have been sent to their email.";
+                        return RedirectToAction("Index");
+                    }
+
+                    foreach (var error in result.Errors)
+                    {
+                        ModelState.AddModelError("", error);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ModelState.AddModelError("", "An error occurred while hiring staff: " + ex.Message);
+                }
+            }
+
+            return View(model);
+        }
+
+        // GET: Staff/HireFromCandidate/5 - Use Case 5: Hire Candidate
         [Authorize(Roles = "Admin")]
         public ActionResult HireFromCandidate(int id, int? applicationId)
         {
@@ -247,6 +250,41 @@ namespace MuhleOP.Controllers
             ViewBag.CandidateId = id;
             ViewBag.ApplicationId = applicationId;
             return View("Hire", viewModel);
+        }
+
+        // POST: Staff/ToggleActive/5
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> ToggleActive(int id)
+        {
+            var staff = db.Staff.Find(id);
+            if (staff == null)
+            {
+                return Json(new { success = false, message = "Staff member not found" });
+            }
+
+            staff.IsActive = !staff.IsActive;
+
+            // Update user status
+            var user = await UserManager.FindByIdAsync(staff.UserId);
+            if (user != null)
+            {
+                user.IsActive = staff.IsActive;
+                await UserManager.UpdateAsync(user);
+            }
+
+            await db.SaveChangesAsync();
+
+            // Notify Admin
+            await CreateNotification(
+                User.Identity.GetUserId(),
+                $"Staff {(staff.IsActive ? "Activated" : "Deactivated")}",
+                $"{staff.FullName} has been {(staff.IsActive ? "activated" : "deactivated")}.",
+                "System",
+                "/Staff/Index"
+            );
+
+            return Json(new { success = true, isActive = staff.IsActive });
         }
 
         private string GenerateRandomPassword()
@@ -292,23 +330,11 @@ namespace MuhleOP.Controllers
                 var candidate = db.Candidates.Find(candidateId);
                 if (candidate == null) return;
 
-                var notification = new Notification
-                {
-                    UserId = candidate.UserId,
-                    Title = title,
-                    Message = message,
-                    Type = type,
-                    Link = link,
-                    CreatedDate = DateTime.Now,
-                    IsRead = false
-                };
-
-                db.Notifications.Add(notification);
-                await db.SaveChangesAsync();
+                await CreateNotification(candidate.UserId, title, message, type, link);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error creating notification: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error creating notification for candidate: {ex.Message}");
             }
         }
 
