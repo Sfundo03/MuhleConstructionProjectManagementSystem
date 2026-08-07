@@ -1,11 +1,17 @@
-﻿@model MuhleOP.ViewModels.JobPostViewModel
+﻿﻿@model MuhleOP.ViewModels.JobPostViewModel
 @{
     ViewBag.Title = "Edit Job Post";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Edit Job Post</h2>
+    <div>
+        <h2>Edit Job Post</h2>
+        <p class="text-muted">
+            <i class="fas fa-edit me-2"></i>
+            Update job post details and requirements
+        </p>
+    </div>
     <a href="@Url.Action("Index")" class="btn btn-secondary">
         <i class="fas fa-arrow-left"></i> Back to List
     </a>
@@ -15,7 +21,7 @@
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
         <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
     </div>
 }
 
@@ -23,7 +29,7 @@
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
     </div>
 }
 
@@ -124,9 +130,9 @@
             </div>
 
             <div class="mb-3 form-check">
-                @Html.CheckBoxFor(m => m.IsPublished, new { @class = "form-check-input" })
-                @Html.LabelFor(m => m.IsPublished, new { @class = "form-check-label" })
-                <small class="text-muted d-block">Publish or unpublish this job post.</small>
+                @Html.CheckBoxFor(m => m.IsPublished, new { @class = "form-check-input", id = "IsPublished" })
+                @Html.LabelFor(m => m.IsPublished, new { @class = "form-check-label", @for = "IsPublished" })
+                <small class="text-muted d-block mt-1">Publish or unpublish this job post</small>
             </div>
 
             @if (Model.IsClosed)
@@ -137,7 +143,7 @@
                 </div>
             }
 
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 mt-3">
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save"></i> Update Job Post
                 </button>
@@ -148,6 +154,18 @@
         }
     </div>
 </div>
+
+<style>
+    .form-control, .form-select {
+        font-size: 14px;
+        padding: 10px 14px;
+    }
+
+    .form-check-label {
+        font-weight: 600;
+        font-size: 14px;
+    }
+</style>
 
 @section Scripts {
     @Scripts.Render("~/bundles/jqueryval")

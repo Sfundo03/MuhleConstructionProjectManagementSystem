@@ -1,0 +1,275 @@
+﻿﻿@model MuhleOP.ViewModels.ContractViewModel
+@{
+    ViewBag.Title = "Contract Details";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var isClient = ViewBag.IsClient ?? false;
+    var canSign = ViewBag.CanSign ?? false;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Contract Details</h2>
+        <p class="text-muted">
+            <i class="fas fa-file-contract me-2"></i>
+            @Model.ContractNumber - @Model.ProjectName
+        </p>
+    </div>
+    <div>
+        @if (canSign)
+        {
+            <a href="@Url.Action("SignContract", new { id = Model.Id })" class="btn btn-success">
+                <i class="fas fa-signature"></i> Sign Contract
+            </a>
+        }
+        @if (!Model.IsSigned && Model.Status != "Terminated" && !isClient)
+        {
+            <a href="@Url.Action("SendContract", new { id = Model.Id })" class="btn btn-primary">
+                <i class="fas fa-paper-plane"></i> Send for Signature
+            </a>
+        }
+        <a href="@Url.Action("Contracts", new { id = Model.ClientId })" class="btn btn-secondary ms-2">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h4>@Model.ProjectName</h4>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <span class="badge bg-primary">@Model.ContractType</span>
+                            <span class="badge bg-info">@Model.ContractNumber</span>
+                            <span class="badge bg-@(Model.IsSigned ? "success" : Model.Status == "Draft" ? "secondary" : Model.Status == "Sent" ? "info" : Model.Status == "Active" ? "primary" : Model.Status == "Terminated" ? "danger" : "secondary")">
+                                @Model.Status
+                            </span>
+                            @if (Model.IsSigned)
+                            {
+                                <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i> Signed</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <div class="bg-hover p-2 rounded">
+                            <small class="text-muted">Contract Value</small>
+                            <h4 class="mb-0">@Model.ContractValue.ToString("C")</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <dl class="row">
+                    <dt class="col-sm-4">Client</dt>
+                    <dd class="col-sm-8">@Model.ClientName</dd>
+
+                    <dt class="col-sm-4">Contract Type</dt>
+                    <dd class="col-sm-8">@Model.ContractType</dd>
+
+                    <dt class="col-sm-4">Start Date</dt>
+                    <dd class="col-sm-8">@Model.StartDate.ToString("dd MMM yyyy")</dd>
+
+                    <dt class="col-sm-4">End Date</dt>
+                    <dd class="col-sm-8">@Model.EndDate.ToString("dd MMM yyyy")</dd>
+
+                    @if (Model.SignatureDate.HasValue)
+                    {
+                        <dt class="col-sm-4">Signed Date</dt>
+                        <dd class="col-sm-8">@Model.SignatureDate.Value.ToString("dd MMM yyyy HH:mm")</dd>
+                    }
+
+                    <dt class="col-sm-4">Created By</dt>
+                    <dd class="col-sm-8">@Model.CreatedBy</dd>
+
+                    <dt class="col-sm-4">Created Date</dt>
+                    <dd class="col-sm-8">@Model.CreatedDate.ToString("dd MMM yyyy HH:mm")</dd>
+                </dl>
+
+                @if (!string.IsNullOrEmpty(Model.SignedDocumentPath))
+                {
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Signed Document:</strong>
+                        <a href="@Url.Content(Model.SignedDocumentPath)" target="_blank" class="btn btn-sm btn-outline-success ms-2">
+                            <i class="fas fa-file-pdf"></i> View Signed Document
+                        </a>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(Model.ContractFilePath))
+                {
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Contract Document:</strong>
+                        <a href="@Url.Content(Model.ContractFilePath)" target="_blank" class="btn btn-sm btn-outline-info ms-2">
+                            <i class="fas fa-file-pdf"></i> View Contract
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Contract Sections -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0">
+                <h5 class="mb-0"><i class="fas fa-list-check text-gold me-2"></i>Project Scope</h5>
+            </div>
+            <div class="card-body">
+                <p style="white-space: pre-wrap; line-height: 1.8;">@Model.ProjectScope</p>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0">
+                <h5 class="mb-0"><i class="fas fa-boxes text-gold me-2"></i>Deliverables</h5>
+            </div>
+            <div class="card-body">
+                <p style="white-space: pre-wrap; line-height: 1.8;">@Model.Deliverables</p>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0">
+                <h5 class="mb-0"><i class="fas fa-credit-card text-gold me-2"></i>Payment Terms</h5>
+            </div>
+            <div class="card-body">
+                <p style="white-space: pre-wrap; line-height: 1.8;">@Model.PaymentTerms</p>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0">
+                <h5 class="mb-0"><i class="fas fa-calendar-alt text-gold me-2"></i>Milestones & Timeline</h5>
+            </div>
+            <div class="card-body">
+                <h6>Milestones</h6>
+                <p style="white-space: pre-wrap; line-height: 1.8;">@Model.Milestones</p>
+                <h6 class="mt-3">Timeline</h6>
+                <p style="white-space: pre-wrap; line-height: 1.8;">@Model.Timeline</p>
+                <h6 class="mt-3">Payment Schedule</h6>
+                <p style="white-space: pre-wrap; line-height: 1.8;">@Model.PaymentSchedule</p>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0">
+                <h5 class="mb-0"><i class="fas fa-gavel text-gold me-2"></i>Clauses</h5>
+            </div>
+            <div class="card-body">
+                <h6>Penalty Clauses</h6>
+                <p style="white-space: pre-wrap; line-height: 1.8;">@(Model.PenaltyClauses ?? "None specified")</p>
+                <h6 class="mt-3">Termination Conditions</h6>
+                <p style="white-space: pre-wrap; line-height: 1.8;">@(Model.TerminationConditions ?? "None specified")</p>
+                <h6 class="mt-3">Special Conditions</h6>
+                <p style="white-space: pre-wrap; line-height: 1.8;">@(Model.SpecialConditions ?? "None specified")</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h5>
+                <div class="d-grid gap-2">
+                    @if (canSign)
+                    {
+                        <a href="@Url.Action("SignContract", new { id = Model.Id })" class="btn btn-success">
+                            <i class="fas fa-signature"></i> Sign Contract
+                        </a>
+                    }
+                    @if (!Model.IsSigned && Model.Status != "Terminated" && !isClient)
+                    {
+                        <a href="@Url.Action("SendContract", new { id = Model.Id })" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> Send for Signature
+                        </a>
+                    }
+                    <a href="@Url.Action("Contracts", new { id = Model.ClientId })" class="btn btn-outline-secondary">
+                        <i class="fas fa-list"></i> View All Contracts
+                    </a>
+                    <a href="@Url.Action("Details", "Client", new { id = Model.ClientId })" class="btn btn-outline-info">
+                        <i class="fas fa-building"></i> View Client
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-info-circle me-2"></i>Status Information</h6>
+                <div class="d-flex flex-column gap-2">
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Status:</span>
+                        <span class="badge bg-@(Model.IsSigned ? "success" : Model.Status == "Draft" ? "secondary" : Model.Status == "Sent" ? "info" : Model.Status == "Active" ? "primary" : "secondary")">
+                            @Model.Status
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Signed:</span>
+                        <span class="badge bg-@(Model.IsSigned ? "success" : "secondary")">
+                            @(Model.IsSigned ? "Yes" : "No")
+                        </span>
+                    </div>
+                    @if (Model.IsSigned && Model.SignatureDate.HasValue)
+                    {
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Signed Date:</span>
+                            <span class="badge bg-info">@Model.SignatureDate.Value.ToString("dd MMM yyyy")</span>
+                        </div>
+                    }
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Contract Value:</span>
+                        <span class="fw-bold">@Model.ContractValue.ToString("C")</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Duration:</span>
+                        <span class="badge bg-secondary">@((Model.EndDate - Model.StartDate).Days) days</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .text-gold {
+        color: var(--primary-gold, #F5A623);
+    }
+
+    .bg-hover {
+        background: var(--bg-hover, #f8f9fa);
+    }
+
+    [data-theme="dark"] .bg-hover {
+        background: var(--bg-hover, #2d3748);
+    }
+
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-warning {
+            color: #fff;
+        }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-secondary {
+            color: #fff;
+        }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+
+        .badge.bg-danger {
+            color: #fff;
+        }
+</style>

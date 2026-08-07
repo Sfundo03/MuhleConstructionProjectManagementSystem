@@ -1,21 +1,27 @@
-﻿@model MuhleOP.ViewModels.ApplyJobViewModel
+﻿﻿@model MuhleOP.ViewModels.ApplyJobViewModel
 @{
     ViewBag.Title = "Apply for Job";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Apply for: @Model.JobTitle</h2>
-    <a href="@Url.Action("BrowseJobs")" class="btn btn-secondary">
-        <i class="fas fa-arrow-left"></i> Back to Jobs
+    <div>
+        <h2>Apply for: @Model.JobTitle</h2>
+        <p class="text-muted">
+            <i class="fas fa-file-upload me-2"></i>
+            Complete your application for this position
+        </p>
+    </div>
+    <a href="@Url.Action("JobDetails", new { id = Model.JobPostId })" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Job
     </a>
 </div>
 
 @if (TempData["ErrorMessage"] != null)
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        @TempData["ErrorMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
     </div>
 }
 
@@ -30,13 +36,14 @@
                     @Html.HiddenFor(m => m.JobTitle)
 
                     <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i>
-                        <strong>Note:</strong> You can update your documents before submitting the application.
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Note:</strong> You can update your documents before submitting the application. Only PDF and DOC files are accepted for CV and qualifications.
                     </div>
 
-                    <div class="mb-4">
-                        <h5>Job Information</h5>
-                        <dl class="row">
+                    <!-- Job Summary -->
+                    <div class="mb-4 p-3 bg-hover rounded">
+                        <h6 class="mb-2"><i class="fas fa-briefcase text-gold me-2"></i>Job Summary</h6>
+                        <dl class="row small">
                             <dt class="col-sm-4">Position</dt>
                             <dd class="col-sm-8">@Model.JobTitle</dd>
                             <dt class="col-sm-4">Location</dt>
@@ -44,21 +51,29 @@
                             <dt class="col-sm-4">Job Type</dt>
                             <dd class="col-sm-8">@Model.JobType</dd>
                             <dt class="col-sm-4">Closing Date</dt>
-                            <dd class="col-sm-8">@Model.ClosingDate.ToString("yyyy-MM-dd")</dd>
+                            <dd class="col-sm-8">@Model.ClosingDate.ToString("dd MMM yyyy")</dd>
                         </dl>
                     </div>
 
+                    <!-- Cover Letter -->
                     <div class="mb-3">
                         @Html.LabelFor(m => m.CoverLetter, new { @class = "form-label fw-bold" })
-                        @Html.TextAreaFor(m => m.CoverLetter, new { @class = "form-control", rows = "8" })
+                        @Html.TextAreaFor(m => m.CoverLetter, new
+                        {
+                            @class = "form-control",
+                            rows = "8",
+                            placeholder = "Write your cover letter here... Explain why you are the best candidate for this position."
+                        })
                         @Html.ValidationMessageFor(m => m.CoverLetter, "", new { @class = "text-danger" })
+                        <small class="text-muted d-block mt-1">A well-written cover letter increases your chances of being shortlisted.</small>
                     </div>
 
                     <hr />
 
+                    <!-- Document Uploads -->
                     <div class="mb-3">
-                        <h5>Update Your Documents (Optional)</h5>
-                        <p class="text-muted small">Upload new versions of your documents if they have changed.</p>
+                        <h5><i class="fas fa-file-upload text-gold me-2"></i>Update Your Documents</h5>
+                        <p class="text-muted small">Upload new versions of your documents if they have changed. Leave blank to keep existing files.</p>
                     </div>
 
                     <div class="row">
@@ -67,7 +82,7 @@
                                 @Html.LabelFor(m => m.UpdatedCv, new { @class = "form-label fw-bold" })
                                 <input type="file" name="UpdatedCv" class="form-control-file" accept=".pdf,.doc,.docx" />
                                 @Html.ValidationMessageFor(m => m.UpdatedCv, "", new { @class = "text-danger" })
-                                <small class="text-muted" style="display:block;font-size:11px;">PDF, DOC (Max 5MB)</small>
+                                <small class="text-muted d-block mt-1">PDF, DOC (Max 5MB)</small>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -75,7 +90,7 @@
                                 @Html.LabelFor(m => m.UpdatedQualifications, new { @class = "form-label fw-bold" })
                                 <input type="file" name="UpdatedQualifications" class="form-control-file" accept=".pdf,.doc,.docx" />
                                 @Html.ValidationMessageFor(m => m.UpdatedQualifications, "", new { @class = "text-danger" })
-                                <small class="text-muted" style="display:block;font-size:11px;">PDF, DOC (Max 5MB)</small>
+                                <small class="text-muted d-block mt-1">PDF, DOC (Max 5MB)</small>
                             </div>
                         </div>
                     </div>
@@ -86,7 +101,7 @@
                                 @Html.LabelFor(m => m.UpdatedIdDocument, new { @class = "form-label fw-bold" })
                                 <input type="file" name="UpdatedIdDocument" class="form-control-file" accept=".pdf,.doc,.docx,.jpg,.png" />
                                 @Html.ValidationMessageFor(m => m.UpdatedIdDocument, "", new { @class = "text-danger" })
-                                <small class="text-muted" style="display:block;font-size:11px;">PDF, DOC, JPG, PNG (Max 5MB)</small>
+                                <small class="text-muted d-block mt-1">PDF, DOC, JPG, PNG (Max 5MB)</small>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -94,16 +109,17 @@
                                 @Html.LabelFor(m => m.UpdatedLicense, new { @class = "form-label fw-bold" })
                                 <input type="file" name="UpdatedLicense" class="form-control-file" accept=".pdf,.doc,.docx,.jpg,.png" />
                                 @Html.ValidationMessageFor(m => m.UpdatedLicense, "", new { @class = "text-danger" })
-                                <small class="text-muted" style="display:block;font-size:11px;">Optional: PDF, DOC, JPG, PNG (Max 5MB)</small>
+                                <small class="text-muted d-block mt-1">Optional: PDF, DOC, JPG, PNG (Max 5MB)</small>
                             </div>
                         </div>
                     </div>
 
-                    <div class="d-flex gap-2 mt-3">
+                    <!-- Submit Buttons -->
+                    <div class="d-flex gap-2 mt-4">
                         <button type="submit" class="btn btn-success">
                             <i class="fas fa-paper-plane"></i> Submit Application
                         </button>
-                        <a href="@Url.Action("BrowseJobs")" class="btn btn-secondary">
+                        <a href="@Url.Action("JobDetails", new { id = Model.JobPostId })" class="btn btn-secondary">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>
@@ -113,10 +129,12 @@
     </div>
 
     <div class="col-lg-4">
-        <div class="card border-0 shadow-sm">
+        <div class="card border-0 shadow-sm mb-4">
             <div class="card-body">
-                <h5 class="card-title">Application Tips</h5>
-                <ul class="list-unstyled">
+                <h6 class="card-title">
+                    <i class="fas fa-check-circle text-success me-2"></i>Application Tips
+                </h6>
+                <ul class="list-unstyled small">
                     <li class="mb-2">
                         <i class="fas fa-check-circle text-success me-2"></i>
                         Ensure your CV is up to date
@@ -141,9 +159,11 @@
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm mt-4">
+        <div class="card border-0 shadow-sm">
             <div class="card-body">
-                <h6 class="card-title">Job Summary</h6>
+                <h6 class="card-title">
+                    <i class="fas fa-briefcase text-gold me-2"></i>Job Summary
+                </h6>
                 <dl class="row small">
                     <dt class="col-6">Position:</dt>
                     <dd class="col-6">@Model.JobTitle</dd>
@@ -152,12 +172,55 @@
                     <dt class="col-6">Type:</dt>
                     <dd class="col-6">@Model.JobType</dd>
                     <dt class="col-6">Closes:</dt>
-                    <dd class="col-6">@Model.ClosingDate.ToString("yyyy-MM-dd")</dd>
+                    <dd class="col-6">@Model.ClosingDate.ToString("dd MMM yyyy")</dd>
                 </dl>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+    .bg-hover {
+        background: var(--bg-hover, #f8f9fa);
+    }
+
+    .text-gold {
+        color: var(--primary-gold, #F5A623);
+    }
+
+    .form-control-file {
+        padding: 8px 0;
+        font-size: 13px;
+        font-family: 'IBM Plex Sans', sans-serif;
+        color: var(--text-primary);
+        background: transparent;
+        border: none;
+        width: 100%;
+    }
+
+        .form-control-file::-webkit-file-upload-button {
+            background: var(--charcoal, #14181D);
+            color: var(--amber, #FDB813);
+            border: none;
+            padding: 6px 14px;
+            border-radius: 2px;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'IBM Plex Mono', monospace;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+            .form-control-file::-webkit-file-upload-button:hover {
+                background: #05070a;
+                color: #ffffff;
+            }
+
+    [data-theme="dark"] .bg-hover {
+        background: var(--bg-hover, #2d3748);
+    }
+</style>
 
 @section Scripts {
     @Scripts.Render("~/bundles/jqueryval")

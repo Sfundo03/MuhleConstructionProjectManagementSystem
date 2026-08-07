@@ -1,12 +1,17 @@
-﻿
-@model MuhleOP.ViewModels.StaffViewModel
+﻿﻿@model MuhleOP.ViewModels.StaffViewModel
 @{
     ViewBag.Title = "Staff Details";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Staff Details</h2>
+    <div>
+        <h2>Staff Details</h2>
+        <p class="text-muted">
+            <i class="fas fa-user me-2"></i>
+            View staff member information
+        </p>
+    </div>
     <div>
         <a href="@Url.Action("Index")" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Back to Staff
@@ -16,6 +21,7 @@
 
 <div class="row">
     <div class="col-lg-4">
+        <!-- Profile Card -->
         <div class="card border-0 shadow-sm">
             <div class="card-body text-center">
                 <div class="mb-3">
@@ -24,19 +30,23 @@
                     </div>
                 </div>
                 <h4>@Model.FullName</h4>
-                <p class="text-muted">@Model.Role</p>
+                <p class="text-muted">
+                    <span class="badge bg-@GetRoleColor(Model.Role)" style="font-size:14px;padding:6px 14px;">@Model.Role</span>
+                </p>
                 <p class="text-muted"><i class="fas fa-envelope me-2"></i>@Model.Email</p>
                 <p class="text-muted"><i class="fas fa-phone me-2"></i>@Model.PhoneNumber</p>
+
                 <hr />
+
                 <div class="text-start">
-                    <h6 class="mb-3">Employment Details</h6>
+                    <h6 class="mb-3"><i class="fas fa-id-card text-gold me-2"></i>Employment Details</h6>
                     <dl class="row">
                         <dt class="col-6">Employee ID</dt>
                         <dd class="col-6"><code>@Model.EmployeeId</code></dd>
                         <dt class="col-6">Department</dt>
                         <dd class="col-6">@Model.Department</dd>
                         <dt class="col-6">Hire Date</dt>
-                        <dd class="col-6">@Model.HireDate.ToString("yyyy-MM-dd")</dd>
+                        <dd class="col-6">@Model.HireDate.ToString("dd MMM yyyy")</dd>
                         <dt class="col-6">Status</dt>
                         <dd class="col-6">
                             @if (Model.IsActive)
@@ -55,9 +65,10 @@
     </div>
 
     <div class="col-lg-8">
+        <!-- Information Card -->
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-transparent border-0">
-                <h6 class="mb-0">Information</h6>
+                <h6 class="mb-0"><i class="fas fa-info-circle text-gold me-2"></i>Staff Information</h6>
             </div>
             <div class="card-body">
                 <div class="row mb-3">
@@ -95,7 +106,7 @@
                 <div class="row">
                     <div class="col-md-6">
                         <label class="text-muted small">Hire Date</label>
-                        <p class="fw-bold">@Model.HireDate.ToString("yyyy-MM-dd")</p>
+                        <p class="fw-bold">@Model.HireDate.ToString("dd MMM yyyy")</p>
                     </div>
                     <div class="col-md-6">
                         <label class="text-muted small">Status</label>
@@ -113,12 +124,33 @@
                 </div>
             </div>
         </div>
+
+        <!-- Quick Actions -->
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
+                <div class="d-grid gap-2 d-md-flex">
+                    <button onclick="toggleActive(@Model.Id, '@Model.FullName')"
+                            class="btn btn-@(Model.IsActive ? "warning" : "success")">
+                        <i class="fas fa-@(Model.IsActive ? "user-slash" : "user-check") me-2"></i>
+                        @(Model.IsActive ? "Deactivate" : "Activate")
+                    </button>
+                    <a href="@Url.Action("Index")" class="btn btn-secondary">
+                        <i class="fas fa-list me-2"></i> View All Staff
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <style>
     .bg-gold {
-        background-color: var(--primary-gold);
+        background-color: var(--primary-gold, #F5A623);
+    }
+
+    .text-gold {
+        color: var(--primary-gold, #F5A623);
     }
 
     .badge {
@@ -133,6 +165,29 @@
         .badge.bg-info {
             color: #fff;
         }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-secondary {
+            color: #fff;
+        }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+
+    code {
+        background: var(--bg-hover);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+
+    [data-theme="dark"] code {
+        background: var(--bg-hover, #2d3748);
+    }
 </style>
 
 @functions {
@@ -144,7 +199,41 @@
             case "Project Manager": return "success";
             case "Finance Officer": return "warning";
             case "Site Manager": return "info";
+            case "Procurement Officer": return "secondary";
             default: return "secondary";
         }
     }
+}
+
+@section Scripts {
+    <script>
+        function toggleActive(id, fullName) {
+            const status = '@Model.IsActive' === 'True' ? 'Active' : 'Inactive';
+            const action = status === 'Active' ? 'deactivate' : 'activate';
+
+            if (!confirm(`Are you sure you want to ${action} ${fullName}?`)) {
+                return;
+            }
+
+            fetch('@Url.Action("ToggleActive")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ id: id })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            });
+        }
+    </script>
 }

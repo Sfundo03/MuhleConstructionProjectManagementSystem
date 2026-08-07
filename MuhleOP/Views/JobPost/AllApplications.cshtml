@@ -1,4 +1,4 @@
-﻿@model List<MuhleOP.ViewModels.ApplicationReviewViewModel>
+﻿﻿@model List<MuhleOP.ViewModels.ApplicationReviewViewModel>
 @{
     ViewBag.Title = "All Applications";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -10,18 +10,26 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h2>All Applications</h2>
-        <p class="text-muted">All candidate applications across all job posts</p>
+        <p class="text-muted">
+            <i class="fas fa-users me-2"></i>
+            View all candidate applications across all job posts
+        </p>
     </div>
-    <a href="@Url.Action("Index", "JobPost")" class="btn btn-secondary">
-        <i class="fas fa-arrow-left"></i> Back to Job Posts
-    </a>
+    <div>
+        <a href="@Url.Action("Index", "JobPost")" class="btn btn-secondary me-2">
+            <i class="fas fa-arrow-left"></i> Back to Job Posts
+        </a>
+        <a href="@Url.Action("AllApplications", "JobPost")" class="btn btn-primary">
+            <i class="fas fa-sync"></i> Refresh
+        </a>
+    </div>
 </div>
 
 @if (TempData["SuccessMessage"] != null)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
         <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
     </div>
 }
 
@@ -29,7 +37,7 @@
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
     </div>
 }
 
@@ -37,8 +45,8 @@
     <div class="card-body">
         <!-- Summary Stats -->
         <div class="row mb-3">
-            <div class="col-md-6">
-                <h6 class="text-muted">Application Summary</h6>
+            <div class="col-md-8">
+                <h6 class="text-muted"><i class="fas fa-chart-simple me-2"></i>Application Summary</h6>
                 <div class="d-flex gap-4 flex-wrap">
                     <div>
                         <span class="badge bg-primary" style="font-size:16px;padding:8px 16px;">@totalApplications</span>
@@ -64,6 +72,7 @@
                         <th>Job Title</th>
                         <th>Candidate</th>
                         <th>Date Applied</th>
+                        <th>Score</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -73,7 +82,7 @@
                     {
                         foreach (var app in Model)
                         {
-                            <tr class="@(app.IsShortlisted ? "table-success" : "") @(app.InterviewScheduled ? "table-info" : "")">
+                            <tr class="@(app.IsShortlisted ? "table-success" : "") @(app.InterviewScheduled ? "table-info" : "") @(app.IsHired ? "table-hired" : "")">
                                 <td>
                                     <span class="badge bg-secondary" style="font-size:13px;padding:6px 12px;">@app.JobTitle</span>
                                 </td>
@@ -98,15 +107,42 @@
                                         </div>
                                     </div>
                                 </td>
+                                <td>@app.ApplicationDate.ToString("dd MMM yyyy")</td>
                                 <td>
-                                    @app.ApplicationDate.ToString("yyyy-MM-dd")
+                                    @if (app.RankingScore > 0)
+                                    {
+                                        <div class="d-flex align-items-center">
+                                            <span class="fw-bold me-2">@app.RankingScore</span>
+                                            <div class="progress" style="width:50px;height:5px;">
+                                                <div class="progress-bar bg-@(app.RankingScore >= 70 ? "success" : app.RankingScore >= 50 ? "warning" : "danger")"
+                                                     style="width:@(app.RankingScore)%;">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">N/A</span>
+                                    }
                                 </td>
                                 <td>
-                                    @if (app.InterviewScheduled)
+                                    @if (app.IsHired)
+                                    {
+                                        <span class="badge bg-success">Hired</span>
+                                    }
+                                    else if (app.InterviewResult == "Passed")
+                                    {
+                                        <span class="badge bg-success">Passed</span>
+                                    }
+                                    else if (app.InterviewResult == "Failed")
+                                    {
+                                        <span class="badge bg-danger">Failed</span>
+                                    }
+                                    else if (app.InterviewScheduled)
                                     {
                                         <span class="badge bg-info">Interview Scheduled</span>
                                         <br />
-                                        <small class="text-muted">@(app.InterviewDateTime?.ToString("yyyy-MM-dd HH:mm") ?? "N/A")</small>
+                                        <small class="text-muted">@(app.InterviewDateTime?.ToString("dd MMM HH:mm") ?? "N/A")</small>
                                     }
                                     else if (app.IsShortlisted)
                                     {
@@ -125,10 +161,22 @@
                                         <a href="@Url.Action("CandidateDetails", "JobPost", new { id = app.CandidateId })" class="btn btn-outline-secondary" title="View Candidate">
                                             <i class="fas fa-user"></i>
                                         </a>
-                                        @if (app.IsShortlisted && !app.InterviewScheduled)
+                                        @if (app.IsShortlisted && !app.InterviewScheduled && !app.IsHired)
                                         {
                                             <a href="@Url.Action("ScheduleInterview", "JobPost", new { id = app.ApplicationId })" class="btn btn-outline-primary" title="Schedule Interview">
                                                 <i class="fas fa-calendar-plus"></i>
+                                            </a>
+                                        }
+                                        @if (app.InterviewScheduled && app.InterviewResult == "Pending" && !app.IsHired)
+                                        {
+                                            <a href="@Url.Action("AssessInterview", "JobPost", new { id = app.ApplicationId })" class="btn btn-outline-warning" title="Assess Interview">
+                                                <i class="fas fa-clipboard-check"></i>
+                                            </a>
+                                        }
+                                        @if (app.InterviewResult == "Passed" && !app.IsHired)
+                                        {
+                                            <a href="@Url.Action("HireCandidate", "JobPost", new { id = app.ApplicationId })" class="btn btn-outline-success" title="Hire Candidate">
+                                                <i class="fas fa-user-plus"></i>
                                             </a>
                                         }
                                     </div>
@@ -139,8 +187,8 @@
                     else
                     {
                         <tr>
-                            <td colspan="5" class="text-center py-5">
-                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <td colspan="6" class="text-center py-5">
+                                <i class="fas fa-inbox fa-3x text-muted mb-3" style="opacity:0.3;"></i>
                                 <h5>No Applications Yet</h5>
                                 <p class="text-muted">No candidates have applied for any positions yet.</p>
                             </td>
@@ -161,6 +209,10 @@
         background-color: var(--bg-info, rgba(54, 185, 204, 0.1)) !important;
     }
 
+    .table-hired {
+        background-color: rgba(28, 200, 138, 0.2) !important;
+    }
+
     [data-theme="dark"] .table-success {
         background-color: rgba(28, 200, 138, 0.2) !important;
     }
@@ -169,8 +221,45 @@
         background-color: rgba(54, 185, 204, 0.2) !important;
     }
 
+    [data-theme="dark"] .table-hired {
+        background-color: rgba(28, 200, 138, 0.3) !important;
+    }
+
     .bg-gold {
-        background-color: var(--primary-gold);
+        background-color: var(--primary-gold, #F5A623);
+    }
+
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-warning {
+            color: #fff;
+        }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-danger {
+            color: #fff;
+        }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+
+        .badge.bg-secondary {
+            color: #fff;
+        }
+
+    .progress {
+        background-color: var(--bg-hover);
     }
 
     .btn-outline-info {
@@ -193,6 +282,26 @@
             color: #fff;
         }
 
+    .btn-outline-warning {
+        color: #f6c23e;
+        border-color: #f6c23e;
+    }
+
+        .btn-outline-warning:hover {
+            background-color: #f6c23e;
+            color: #fff;
+        }
+
+    .btn-outline-success {
+        color: #1cc88a;
+        border-color: #1cc88a;
+    }
+
+        .btn-outline-success:hover {
+            background-color: #1cc88a;
+            color: #fff;
+        }
+
     .btn-outline-secondary {
         color: #858796;
         border-color: #858796;
@@ -203,28 +312,7 @@
             color: #fff;
         }
 
-    .badge {
-        font-size: 11px;
-        padding: 5px 10px;
+    .btn-group .btn {
+        margin: 1px;
     }
-
-        .badge.bg-warning {
-            color: #fff;
-        }
-
-        .badge.bg-secondary {
-            color: #fff;
-        }
-
-        .badge.bg-info {
-            color: #fff;
-        }
-
-        .badge.bg-success {
-            color: #fff;
-        }
-
-        .badge.bg-primary {
-            color: #fff;
-        }
 </style>

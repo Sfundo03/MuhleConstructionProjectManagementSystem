@@ -1,0 +1,280 @@
+﻿﻿@model IEnumerable<MuhleOP.ViewModels.ProjectViewModel>
+@{
+    ViewBag.Title = "Projects";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Projects</h2>
+        <p class="text-muted">
+            <i class="fas fa-project-diagram me-2"></i>
+            Manage all construction projects
+        </p>
+    </div>
+    <div>
+        @if (User.IsInRole("Admin") || User.IsInRole("Project Manager"))
+        {
+            <a href="@Url.Action("Initiate")" class="btn btn-primary">
+                <i class="fas fa-rocket"></i> Initiate Project
+            </a>
+        }
+        <a href="@Url.Action("Index", "Home")" class="btn btn-secondary ms-2">
+            <i class="fas fa-arrow-left"></i> Dashboard
+        </a>
+    </div>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+    </div>
+}
+
+<div class="row">
+    @if (Model != null && Model.Any())
+    {
+        foreach (var project in Model)
+        {
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <span class="badge bg-primary">@project.ProjectCode</span>
+                        </h6>
+                        <span class="badge bg-@(project.Status == "In Progress" ? "success" : project.Status == "Initiated" ? "info" : project.Status == "On Hold" ? "warning" : project.Status == "Completed" ? "primary" : "secondary")">
+                            @project.Status
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">@project.ProjectName</h5>
+                        <p class="text-muted small">
+                            <i class="fas fa-building me-1"></i> @project.ClientName
+                            <br />
+                            <i class="fas fa-map-marker-alt me-1"></i> @project.ProjectLocation
+                        </p>
+
+                        <div class="row small mb-2">
+                            <div class="col-6">
+                                <span class="text-muted">Start Date</span>
+                                <br />
+                                <strong>@project.StartDate.ToString("dd MMM yyyy")</strong>
+                            </div>
+                            <div class="col-6">
+                                <span class="text-muted">End Date</span>
+                                <br />
+                                <strong>@(project.EstimatedEndDate?.ToString("dd MMM yyyy") ?? "N/A")</strong>
+                            </div>
+                        </div>
+
+                        @if (project.ProgressPercentage.HasValue)
+                        {
+                            <div class="mb-2">
+                                <div class="d-flex justify-content-between small">
+                                    <span class="text-muted">Progress</span>
+                                    <span>@project.ProgressPercentage%</span>
+                                </div>
+                                <div class="progress" style="height:6px;">
+                                    <div class="progress-bar bg-@(project.ProgressPercentage >= 75 ? "success" : project.ProgressPercentage >= 50 ? "warning" : "info")"
+                                         style="width:@(project.ProgressPercentage)%;">
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="d-flex gap-2 mt-2">
+                            <span class="badge bg-secondary">
+                                <i class="fas fa-box me-1"></i> @project.DeliverableCount deliverables
+                            </span>
+                            <span class="badge bg-info">
+                                <i class="fas fa-users me-1"></i> @project.ResourceCount staff
+                            </span>
+                            @if (project.VariationCount > 0)
+                            {
+                                <span class="badge bg-warning">
+                                    <i class="fas fa-exchange-alt me-1"></i> @project.VariationCount
+                                </span>
+                            }
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent border-0">
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a href="@Url.Action("Details", new { id = project.Id })" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-eye"></i> View
+                            </a>
+                            @if (User.IsInRole("Admin") || User.IsInRole("Project Manager"))
+                            {
+                                <a href="@Url.Action("AssignStaff", new { id = project.Id })" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-user-plus"></i> Assign Staff
+                                </a>
+                                <a href="@Url.Action("AssignEquipment", new { id = project.Id })" class="btn btn-sm btn-outline-warning">
+                                    <i class="fas fa-tools"></i> Assign Equipment
+                                </a>
+                            }
+                            @if (User.IsInRole("Admin"))
+                            {
+                                <button onclick="updateStatus(@project.Id, 'In Progress')" class="btn btn-sm btn-outline-success" title="Mark In Progress">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <button onclick="updateStatus(@project.Id, 'Completed')" class="btn btn-sm btn-outline-primary" title="Mark Completed">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button onclick="updateStatus(@project.Id, 'Closed')" class="btn btn-sm btn-outline-secondary" title="Close Project">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-project-diagram fa-4x text-muted mb-3" style="opacity:0.3;"></i>
+                    <h4>No Projects Found</h4>
+                    <p class="text-muted">There are no projects in the system yet.</p>
+                    @if (User.IsInRole("Admin") || User.IsInRole("Project Manager"))
+                    {
+                        <a href="@Url.Action("Initiate")" class="btn btn-primary">
+                            <i class="fas fa-rocket"></i> Initiate Project
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-warning {
+            color: #fff;
+        }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-secondary {
+            color: #fff;
+        }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+
+    .btn-sm {
+        padding: 4px 10px;
+        font-size: 12px;
+    }
+
+    .progress {
+        background-color: var(--bg-hover);
+    }
+
+    .card-footer .btn {
+        margin-bottom: 4px;
+    }
+
+    .btn-outline-info {
+        color: #36b9cc;
+        border-color: #36b9cc;
+    }
+
+        .btn-outline-info:hover {
+            background-color: #36b9cc;
+            color: #fff;
+        }
+
+    .btn-outline-primary {
+        color: #4e73df;
+        border-color: #4e73df;
+    }
+
+        .btn-outline-primary:hover {
+            background-color: #4e73df;
+            color: #fff;
+        }
+
+    .btn-outline-warning {
+        color: #f6c23e;
+        border-color: #f6c23e;
+    }
+
+        .btn-outline-warning:hover {
+            background-color: #f6c23e;
+            color: #fff;
+        }
+
+    .btn-outline-success {
+        color: #1cc88a;
+        border-color: #1cc88a;
+    }
+
+        .btn-outline-success:hover {
+            background-color: #1cc88a;
+            color: #fff;
+        }
+
+    .btn-outline-secondary {
+        color: #858796;
+        border-color: #858796;
+    }
+
+        .btn-outline-secondary:hover {
+            background-color: #858796;
+            color: #fff;
+        }
+</style>
+
+@section Scripts {
+    <script>
+        function updateStatus(id, status) {
+            if (!confirm(`Are you sure you want to update this project to "${status}"?`)) {
+                return;
+            }
+
+            fetch('@Url.Action("UpdateStatus")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ id: id, status: status })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            });
+        }
+    </script>
+}

@@ -1,0 +1,452 @@
+﻿﻿@model MuhleOP.ViewModels.ProjectViewModel
+@{
+    ViewBag.Title = "Project Details";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var resources = ViewBag.Resources as IEnumerable<MuhleOP.Models.ProjectResourceAllocation>;
+    var deliverables = ViewBag.Deliverables as IEnumerable<MuhleOP.Models.ProjectDeliverable>;
+    var variations = ViewBag.Variations as IEnumerable<MuhleOP.Models.ProjectVariation>;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Project Details</h2>
+        <p class="text-muted">
+            <i class="fas fa-project-diagram me-2"></i>
+            @Model.ProjectName (@Model.ProjectCode)
+        </p>
+    </div>
+    <div>
+        @if (User.IsInRole("Admin") || User.IsInRole("Project Manager"))
+        {
+            <a href="@Url.Action("AssignStaff", new { id = Model.Id })" class="btn btn-primary">
+                <i class="fas fa-user-plus"></i> Assign Staff
+            </a>
+            <a href="@Url.Action("AssignEquipment", new { id = Model.Id })" class="btn btn-warning ms-2">
+                <i class="fas fa-tools"></i> Assign Equipment
+            </a>
+        }
+        <a href="@Url.Action("Index")" class="btn btn-secondary ms-2">
+            <i class="fas fa-arrow-left"></i> Back to Projects
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Project Info -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h4>@Model.ProjectName</h4>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <span class="badge bg-primary">@Model.ProjectCode</span>
+                            <span class="badge bg-@(Model.Status == "In Progress" ? "success" : Model.Status == "Initiated" ? "info" : Model.Status == "On Hold" ? "warning" : Model.Status == "Completed" ? "primary" : "secondary")">
+                                @Model.Status
+                            </span>
+                            @if (Model.IsActive)
+                            {
+                                <span class="badge bg-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Inactive</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <div class="bg-hover p-2 rounded">
+                            <small class="text-muted">Estimated Cost</small>
+                            <h5 class="mb-0">@(Model.EstimatedCost?.ToString("C") ?? "N/A")</h5>
+                            @if (Model.ActualCost.HasValue)
+                            {
+                                <small class="text-muted">Actual: @Model.ActualCost.Value.ToString("C")</small>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <dl class="row">
+                    <dt class="col-sm-4">Client</dt>
+                    <dd class="col-sm-8">@Model.ClientName</dd>
+
+                    <dt class="col-sm-4">Contract</dt>
+                    <dd class="col-sm-8">@Model.ContractNumber</dd>
+
+                    <dt class="col-sm-4">Project Manager</dt>
+                    <dd class="col-sm-8">@Model.ProjectManagerName</dd>
+
+                    <dt class="col-sm-4">Site Manager</dt>
+                    <dd class="col-sm-8">@(Model.SiteManagerName ?? "Not Assigned")</dd>
+
+                    <dt class="col-sm-4">Location</dt>
+                    <dd class="col-sm-8">@Model.ProjectLocation</dd>
+
+                    <dt class="col-sm-4">Start Date</dt>
+                    <dd class="col-sm-8">@Model.StartDate.ToString("dd MMM yyyy")</dd>
+
+                    <dt class="col-sm-4">Estimated End Date</dt>
+                    <dd class="col-sm-8">@(Model.EstimatedEndDate?.ToString("dd MMM yyyy") ?? "N/A")</dd>
+
+                    @if (Model.ActualEndDate.HasValue)
+                    {
+                        <dt class="col-sm-4">Actual End Date</dt>
+                        <dd class="col-sm-8">@Model.ActualEndDate.Value.ToString("dd MMM yyyy")</dd>
+                    }
+
+                    <dt class="col-sm-4">Created By</dt>
+                    <dd class="col-sm-8">@Model.CreatedBy</dd>
+
+                    <dt class="col-sm-4">Created Date</dt>
+                    <dd class="col-sm-8">@Model.CreatedDate.ToString("dd MMM yyyy HH:mm")</dd>
+                </dl>
+
+                @if (Model.ProgressPercentage.HasValue)
+                {
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between small">
+                            <span class="text-muted">Overall Progress</span>
+                            <span>@Model.ProgressPercentage%</span>
+                        </div>
+                        <div class="progress" style="height:8px;">
+                            <div class="progress-bar bg-@(Model.ProgressPercentage >= 75 ? "success" : Model.ProgressPercentage >= 50 ? "warning" : "info")"
+                                 style="width:@(Model.ProgressPercentage)%;">
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Deliverables -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="fas fa-box text-gold me-2"></i>Deliverables (@(deliverables?.Count() ?? 0))</h6>
+                <span class="badge bg-success">@Model.CompletedDeliverableCount completed</span>
+            </div>
+            <div class="card-body">
+                @if (deliverables != null && deliverables.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Due Date</th>
+                                    <th>Status</th>
+                                    <th>Priority</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var deliverable in deliverables)
+                                {
+                                    <tr>
+                                        <td>@deliverable.DeliverableName</td>
+                                        <td>@deliverable.DueDate.ToString("dd MMM yyyy")</td>
+                                        <td>
+                                            <span class="badge bg-@(deliverable.Status == "Completed" ? "success" : deliverable.Status == "In Progress" ? "info" : deliverable.Status == "Approved" ? "primary" : "secondary")">
+                                                @deliverable.Status
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-@(deliverable.Priority == "High" ? "danger" : deliverable.Priority == "Medium" ? "warning" : "secondary")">
+                                                @deliverable.Priority
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-3">
+                        <i class="fas fa-box fa-2x text-muted mb-2" style="opacity:0.3;"></i>
+                        <p class="text-muted">No deliverables defined</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Variations -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="mb-0"><i class="fas fa-exchange-alt text-gold me-2"></i>Variations (@(variations?.Count() ?? 0))</h6>
+            </div>
+            <div class="card-body">
+                @if (variations != null && variations.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Number</th>
+                                    <th>Type</th>
+                                    <th>Cost Impact</th>
+                                    <th>Status</th>
+                                    <th>Request Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var variation in variations)
+                                {
+                                    <tr>
+                                        <td><code>@variation.VariationNumber</code></td>
+                                        <td>@variation.VariationType</td>
+                                        <td>@(variation.ImpactOnCost?.ToString("C") ?? "N/A")</td>
+                                        <td>
+                                            <span class="badge bg-@(variation.Status == "Approved" ? "success" : variation.Status == "Requested" ? "warning" : variation.Status == "Rejected" ? "danger" : "info")">
+                                                @variation.Status
+                                            </span>
+                                        </td>
+                                        <td>@variation.RequestDate.ToString("dd MMM yyyy")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-3">
+                        <i class="fas fa-exchange-alt fa-2x text-muted mb-2" style="opacity:0.3;"></i>
+                        <p class="text-muted">No variations</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Quick Stats -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-chart-simple me-2"></i>Quick Stats</h6>
+                <div class="row">
+                    <div class="col-6 mb-2">
+                        <div class="text-center p-2 bg-hover rounded">
+                            <h5>@(resources?.Count() ?? 0)</h5>
+                            <small class="text-muted">Staff Assigned</small>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <div class="text-center p-2 bg-hover rounded">
+                            <h5>@Model.DeliverableCount</h5>
+                            <small class="text-muted">Deliverables</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center p-2 bg-hover rounded">
+                            <h5>@Model.CompletedDeliverableCount</h5>
+                            <small class="text-muted">Completed</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center p-2 bg-hover rounded">
+                            <h5>@Model.VariationCount</h5>
+                            <small class="text-muted">Variations</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assigned Staff -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="mb-0"><i class="fas fa-users text-gold me-2"></i>Assigned Staff</h6>
+            </div>
+            <div class="card-body">
+                @if (resources != null && resources.Any())
+                {
+                    @foreach (var resource in resources)
+                    {
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <span class="fw-bold">@(resource.Staff?.FullName ?? "Unknown")</span>
+                                <br />
+                                <small class="text-muted">@resource.Role</small>
+                            </div>
+                            <span class="badge bg-info">@resource.AllocationPercentage%</span>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p class="text-muted text-center">No staff assigned</p>
+                }
+                @if (User.IsInRole("Admin") || User.IsInRole("Project Manager"))
+                {
+                    <a href="@Url.Action("AssignStaff", new { id = Model.Id })" class="btn btn-sm btn-primary mt-2 w-100">
+                        <i class="fas fa-user-plus"></i> Assign Staff
+                    </a>
+                }
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
+                <div class="d-grid gap-2">
+                    @if (User.IsInRole("Admin") || User.IsInRole("Project Manager"))
+                    {
+                        <a href="@Url.Action("AssignStaff", new { id = Model.Id })" class="btn btn-outline-primary">
+                            <i class="fas fa-user-plus"></i> Assign Staff (UC10)
+                        </a>
+                        <a href="@Url.Action("AssignEquipment", new { id = Model.Id })" class="btn btn-outline-warning">
+                            <i class="fas fa-tools"></i> Assign Equipment (UC11)
+                        </a>
+                    }
+                    <button onclick="updateStatus(@Model.Id, 'In Progress')" class="btn btn-outline-success">
+                        <i class="fas fa-play"></i> Start Project
+                    </button>
+                    <button onclick="updateStatus(@Model.Id, 'Completed')" class="btn btn-outline-primary">
+                        <i class="fas fa-check"></i> Complete Project
+                    </button>
+                    <button onclick="updateStatus(@Model.Id, 'Closed')" class="btn btn-outline-secondary">
+                        <i class="fas fa-times"></i> Close Project
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .text-gold {
+        color: var(--primary-gold, #F5A623);
+    }
+
+    .bg-hover {
+        background: var(--bg-hover, #f8f9fa);
+    }
+
+    [data-theme="dark"] .bg-hover {
+        background: var(--bg-hover, #2d3748);
+    }
+
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-warning {
+            color: #fff;
+        }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-secondary {
+            color: #fff;
+        }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+
+        .badge.bg-danger {
+            color: #fff;
+        }
+
+    .btn-sm {
+        padding: 4px 10px;
+        font-size: 12px;
+    }
+
+    .progress {
+        background-color: var(--bg-hover);
+    }
+
+    .table-sm th, .table-sm td {
+        padding: 8px;
+    }
+
+    .btn-outline-primary {
+        color: #4e73df;
+        border-color: #4e73df;
+    }
+
+        .btn-outline-primary:hover {
+            background-color: #4e73df;
+            color: #fff;
+        }
+
+    .btn-outline-warning {
+        color: #f6c23e;
+        border-color: #f6c23e;
+    }
+
+        .btn-outline-warning:hover {
+            background-color: #f6c23e;
+            color: #fff;
+        }
+
+    .btn-outline-success {
+        color: #1cc88a;
+        border-color: #1cc88a;
+    }
+
+        .btn-outline-success:hover {
+            background-color: #1cc88a;
+            color: #fff;
+        }
+
+    .btn-outline-secondary {
+        color: #858796;
+        border-color: #858796;
+    }
+
+        .btn-outline-secondary:hover {
+            background-color: #858796;
+            color: #fff;
+        }
+
+    code {
+        background: var(--bg-hover);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+
+    [data-theme="dark"] code {
+        background: var(--bg-hover, #2d3748);
+    }
+</style>
+
+@section Scripts {
+    <script>
+        function updateStatus(id, status) {
+            if (!confirm(`Are you sure you want to update this project to "${status}"?`)) {
+                return;
+            }
+
+            fetch('@Url.Action("UpdateStatus")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ id: id, status: status })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            });
+        }
+    </script>
+}

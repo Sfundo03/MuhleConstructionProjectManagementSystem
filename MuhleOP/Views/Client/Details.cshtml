@@ -1,0 +1,276 @@
+﻿﻿@model MuhleOP.ViewModels.ClientViewModel
+@{
+    ViewBag.Title = "Client Details";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var contracts = ViewBag.Contracts as IEnumerable<MuhleOP.Models.Contract>;
+    var projects = ViewBag.Projects as IEnumerable<MuhleOP.Models.Project>;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Client Details</h2>
+        <p class="text-muted">
+            <i class="fas fa-building me-2"></i>
+            View and manage client information
+        </p>
+    </div>
+    <div>
+        <a href="@Url.Action("CreateContract", new { clientId = Model.Id })" class="btn btn-success">
+            <i class="fas fa-file-contract"></i> Create Contract
+        </a>
+        <a href="@Url.Action("Index")" class="btn btn-secondary ms-2">
+            <i class="fas fa-arrow-left"></i> Back to Clients
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4">
+        <!-- Client Profile Card -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <div class="rounded-circle bg-gold d-flex align-items-center justify-content-center mx-auto" style="width:100px;height:100px;font-size:40px;color:#fff;font-weight:700;">
+                        @(Model.CompanyName?.Substring(0, 1).ToUpper() ?? "C")
+                    </div>
+                </div>
+                <h4>@Model.CompanyName</h4>
+                <p class="text-muted">@Model.RegistrationNumber</p>
+
+                <hr />
+
+                <div class="text-start">
+                    <h6 class="mb-3"><i class="fas fa-address-card text-gold me-2"></i>Contact Information</h6>
+                    <dl class="row">
+                        <dt class="col-5">Contact Person</dt>
+                        <dd class="col-7">@Model.PrimaryContactName</dd>
+                        <dt class="col-5">Email</dt>
+                        <dd class="col-7">@Model.ContactEmail</dd>
+                        <dt class="col-5">Phone</dt>
+                        <dd class="col-7">@Model.ContactPhone</dd>
+                        <dt class="col-5">Alternative</dt>
+                        <dd class="col-7">@(Model.AlternativePhone ?? "N/A")</dd>
+                    </dl>
+                </div>
+
+                <hr />
+
+                <div class="text-start">
+                    <h6 class="mb-3"><i class="fas fa-chart-simple text-gold me-2"></i>Statistics</h6>
+                    <dl class="row">
+                        <dt class="col-6">Contracts</dt>
+                        <dd class="col-6"><span class="badge bg-info">@Model.ContractCount</span></dd>
+                        <dt class="col-6">Projects</dt>
+                        <dd class="col-6"><span class="badge bg-primary">@Model.ProjectCount</span></dd>
+                        <dt class="col-6">Status</dt>
+                        <dd class="col-6">
+                            @if (Model.IsActive)
+                            {
+                                <span class="badge bg-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Inactive</span>
+                            }
+                        </dd>
+                        <dt class="col-6">Registered</dt>
+                        <dd class="col-6">@Model.RegistrationDate.ToString("dd MMM yyyy")</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Address Card -->
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="mb-0"><i class="fas fa-map-pin text-gold me-2"></i>Address</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-0"><strong>Physical Address</strong></p>
+                <p class="text-muted">@Model.PhysicalAddress</p>
+                @if (!string.IsNullOrEmpty(Model.PostalAddress))
+                {
+                    <p class="mb-0"><strong>Postal Address</strong></p>
+                    <p class="text-muted">@Model.PostalAddress</p>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <!-- Contracts -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="fas fa-file-contract text-gold me-2"></i>Contracts</h6>
+                <a href="@Url.Action("CreateContract", new { clientId = Model.Id })" class="btn btn-sm btn-primary">
+                    <i class="fas fa-plus"></i> New Contract
+                </a>
+            </div>
+            <div class="card-body">
+                @if (contracts != null && contracts.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Contract Number</th>
+                                    <th>Project</th>
+                                    <th>Value</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var contract in contracts)
+                                {
+                                    <tr>
+                                        <td><code>@contract.ContractNumber</code></td>
+                                        <td>@contract.ProjectName</td>
+                                        <td>@contract.ContractValue.ToString("C")</td>
+                                        <td>
+                                            <span class="badge bg-@(contract.IsSigned ? "success" : contract.Status == "Draft" ? "secondary" : "warning")">
+                                                @contract.Status
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <a href="@Url.Action("ContractDetails", new { id = contract.Id })" class="btn btn-sm btn-outline-info">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-3">
+                        <i class="fas fa-file-contract fa-2x text-muted mb-2" style="opacity:0.3;"></i>
+                        <p class="text-muted">No contracts yet</p>
+                        <a href="@Url.Action("CreateContract", new { clientId = Model.Id })" class="btn btn-sm btn-primary">
+                            <i class="fas fa-plus"></i> Create Contract
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Projects -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="mb-0"><i class="fas fa-project-diagram text-gold me-2"></i>Projects</h6>
+            </div>
+            <div class="card-body">
+                @if (projects != null && projects.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Project Name</th>
+                                    <th>Code</th>
+                                    <th>Status</th>
+                                    <th>Start Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var project in projects)
+                                {
+                                    <tr>
+                                        <td>@project.ProjectName</td>
+                                        <td><code>@project.ProjectCode</code></td>
+                                        <td>
+                                            <span class="badge bg-@(project.Status == "In Progress" ? "success" : project.Status == "Initiated" ? "info" : project.Status == "Completed" ? "primary" : "secondary")">
+                                                @project.Status
+                                            </span>
+                                        </td>
+                                        <td>@project.StartDate.ToString("dd MMM yyyy")</td>
+                                        <td>
+                                            <a href="@Url.Action("Details", "Project", new { id = project.Id })" class="btn btn-sm btn-outline-info">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-3">
+                        <i class="fas fa-project-diagram fa-2x text-muted mb-2" style="opacity:0.3;"></i>
+                        <p class="text-muted">No projects yet</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-gold {
+        background-color: var(--primary-gold, #F5A623);
+    }
+
+    .text-gold {
+        color: var(--primary-gold, #F5A623);
+    }
+
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-warning {
+            color: #fff;
+        }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-secondary {
+            color: #fff;
+        }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+
+    .btn-sm {
+        padding: 4px 10px;
+        font-size: 12px;
+    }
+
+    .btn-outline-info {
+        color: #36b9cc;
+        border-color: #36b9cc;
+    }
+
+        .btn-outline-info:hover {
+            background-color: #36b9cc;
+            color: #fff;
+        }
+
+    .table-sm th, .table-sm td {
+        padding: 8px;
+    }
+
+    code {
+        background: var(--bg-hover);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+
+    [data-theme="dark"] code {
+        background: var(--bg-hover, #2d3748);
+    }
+</style>

@@ -1,0 +1,163 @@
+﻿﻿@model IEnumerable<MuhleOP.ViewModels.ContractViewModel>
+@{
+    ViewBag.Title = "Client Contracts";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var clientName = ViewBag.ClientName ?? "Client";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Contracts - @clientName</h2>
+        <p class="text-muted">
+            <i class="fas fa-file-contract me-2"></i>
+            View all contracts for this client
+        </p>
+    </div>
+    <div>
+        <a href="@Url.Action("CreateContract", new { clientId = ViewBag.ClientId })" class="btn btn-success">
+            <i class="fas fa-plus"></i> Create Contract
+        </a>
+        <a href="@Url.Action("Index")" class="btn btn-secondary ms-2">
+            <i class="fas fa-arrow-left"></i> Back to Clients
+        </a>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Contract Number</th>
+                        <th>Project Name</th>
+                        <th>Type</th>
+                        <th>Value</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        foreach (var contract in Model)
+                        {
+                            <tr>
+                                <td><code>@contract.ContractNumber</code></td>
+                                <td>@contract.ProjectName</td>
+                                <td>@contract.ContractType</td>
+                                <td>@contract.ContractValue.ToString("C")</td>
+                                <td>@contract.StartDate.ToString("dd MMM yyyy")</td>
+                                <td>@contract.EndDate.ToString("dd MMM yyyy")</td>
+                                <td>
+                                    <span class="badge bg-@(contract.IsSigned ? "success" : contract.Status == "Draft" ? "secondary" : contract.Status == "Sent" ? "info" : contract.Status == "Active" ? "primary" : contract.Status == "Terminated" ? "danger" : "secondary")">
+                                        @contract.Status
+                                    </span>
+                                    @if (contract.IsSigned)
+                                    {
+                                        <br />
+                                        <small class="text-muted">Signed: @contract.SignatureDate?.ToString("dd MMM yyyy")</small>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="@Url.Action("ContractDetails", new { id = contract.Id })" class="btn btn-outline-info" title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        @if (!contract.IsSigned && contract.Status != "Terminated")
+                                        {
+                                            <a href="@Url.Action("SendContract", new { id = contract.Id })" class="btn btn-outline-primary" title="Send for Signature">
+                                                <i class="fas fa-paper-plane"></i>
+                                            </a>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-4">
+                                <i class="fas fa-file-contract fa-3x text-muted mb-3" style="opacity:0.3;"></i>
+                                <h5>No Contracts</h5>
+                                <p class="text-muted">No contracts found for this client.</p>
+                                <a href="@Url.Action("CreateContract", new { clientId = ViewBag.ClientId })" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-plus"></i> Create Contract
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-warning {
+            color: #fff;
+        }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-secondary {
+            color: #fff;
+        }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+
+        .badge.bg-danger {
+            color: #fff;
+        }
+
+    .btn-group .btn {
+        margin: 1px;
+    }
+
+    .btn-outline-info {
+        color: #36b9cc;
+        border-color: #36b9cc;
+    }
+
+        .btn-outline-info:hover {
+            background-color: #36b9cc;
+            color: #fff;
+        }
+
+    .btn-outline-primary {
+        color: #4e73df;
+        border-color: #4e73df;
+    }
+
+        .btn-outline-primary:hover {
+            background-color: #4e73df;
+            color: #fff;
+        }
+
+    code {
+        background: var(--bg-hover);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+
+    [data-theme="dark"] code {
+        background: var(--bg-hover, #2d3748);
+    }
+</style>

@@ -1,12 +1,17 @@
-﻿
-@model MuhleOP.ViewModels.JobPostViewModel
+﻿﻿@model MuhleOP.ViewModels.JobPostViewModel
 @{
     ViewBag.Title = "Job Post Details";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Job Post Details</h2>
+    <div>
+        <h2>Job Post Details</h2>
+        <p class="text-muted">
+            <i class="fas fa-info-circle me-2"></i>
+            View and manage job post information
+        </p>
+    </div>
     <div>
         <a href="@Url.Action("Edit", new { id = Model.Id })" class="btn btn-primary">
             <i class="fas fa-edit"></i> Edit
@@ -21,72 +26,101 @@
     <div class="col-lg-8">
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body">
-                <h3>@Model.JobTitle</h3>
-
-                <div class="d-flex flex-wrap gap-3 mb-3">
-                    <span class="badge bg-primary">@Model.JobType</span>
-                    <span class="badge bg-info">@Model.ExperienceLevel</span>
-                    @if (Model.IsPublished)
-                    {
-                        <span class="badge bg-success">Published</span>
-                    }
-                    else
-                    {
-                        <span class="badge bg-secondary">Draft</span>
-                    }
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h3>@Model.JobTitle</h3>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <span class="badge bg-primary">@Model.JobType</span>
+                            <span class="badge bg-info">@Model.ExperienceLevel</span>
+                            @if (Model.IsPublished)
+                            {
+                                <span class="badge bg-success">Published</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Draft</span>
+                            }
+                            @if (Model.IsClosed)
+                            {
+                                <span class="badge bg-danger">Closed</span>
+                            }
+                            @if (Model.IsAutoClosed)
+                            {
+                                <span class="badge bg-info">Auto-Closed</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <div class="bg-hover p-2 rounded">
+                            <small class="text-muted">Applications</small>
+                            <h4 class="mb-0">@Model.ApplicationCount</h4>
+                        </div>
+                    </div>
                 </div>
 
                 <dl class="row">
-                    <dt class="col-sm-3">Department</dt>
-                    <dd class="col-sm-9">@Model.Department</dd>
+                    <dt class="col-sm-4">Department</dt>
+                    <dd class="col-sm-8">@Model.Department</dd>
 
-                    <dt class="col-sm-3">Location</dt>
-                    <dd class="col-sm-9">@Model.Location</dd>
+                    <dt class="col-sm-4">Location</dt>
+                    <dd class="col-sm-8">@Model.Location</dd>
 
-                    <dt class="col-sm-3">Salary Range</dt>
-                    <dd class="col-sm-9">@Model.SalaryRange</dd>
+                    <dt class="col-sm-4">Salary Range</dt>
+                    <dd class="col-sm-8">@Model.SalaryRange</dd>
 
-                    <dt class="col-sm-3">Number of Openings</dt>
-                    <dd class="col-sm-9">@Model.NumberOfOpenings</dd>
+                    <dt class="col-sm-4">Number of Openings</dt>
+                    <dd class="col-sm-8">@Model.NumberOfOpenings</dd>
 
-                    <dt class="col-sm-3">Applications Received</dt>
-                    <dd class="col-sm-9"><span class="badge bg-info">@Model.ApplicationCount</span></dd>
+                    <dt class="col-sm-4">Applications Received</dt>
+                    <dd class="col-sm-8"><span class="badge bg-info">@Model.ApplicationCount</span></dd>
 
-                    <dt class="col-sm-3">Closing Date</dt>
-                    <dd class="col-sm-9">@Model.ClosingDate.ToString("yyyy-MM-dd")</dd>
+                    @if (Model.AcceptedCount > 0)
+                    {
+                        <dt class="col-sm-4">Accepted Applicants</dt>
+                        <dd class="col-sm-8"><span class="badge bg-success">@Model.AcceptedCount</span></dd>
+                    }
 
-                    <dt class="col-sm-3">Date Posted</dt>
-                    <dd class="col-sm-9">@Model.DatePosted.ToString("yyyy-MM-dd HH:mm")</dd>
+                    <dt class="col-sm-4">Closing Date</dt>
+                    <dd class="col-sm-8">@Model.ClosingDate.ToString("dd MMM yyyy")</dd>
 
-                    <dt class="col-sm-3">Posted By</dt>
-                    <dd class="col-sm-9">@Model.PostedBy</dd>
+                    <dt class="col-sm-4">Date Posted</dt>
+                    <dd class="col-sm-8">@Model.DatePosted.ToString("dd MMM yyyy HH:mm")</dd>
+
+                    <dt class="col-sm-4">Posted By</dt>
+                    <dd class="col-sm-8">@Model.PostedBy</dd>
+
+                    @if (Model.IsAutoClosed && Model.AutoCloseDate.HasValue)
+                    {
+                        <dt class="col-sm-4">Auto-Closed On</dt>
+                        <dd class="col-sm-8">@Model.AutoCloseDate.Value.ToString("dd MMM yyyy HH:mm")</dd>
+                    }
                 </dl>
             </div>
         </div>
 
         <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-0">
-                <h5 class="mb-0">Job Description</h5>
+            <div class="card-header bg-transparent border-0">
+                <h5 class="mb-0"><i class="fas fa-file-alt text-gold me-2"></i>Job Description</h5>
             </div>
             <div class="card-body">
-                <p style="white-space: pre-wrap;">@Model.JobDescription</p>
+                <p style="white-space: pre-wrap; line-height: 1.8;">@Model.JobDescription</p>
             </div>
         </div>
 
         <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white border-0">
-                <h5 class="mb-0">Requirements</h5>
+            <div class="card-header bg-transparent border-0">
+                <h5 class="mb-0"><i class="fas fa-list-check text-gold me-2"></i>Requirements</h5>
             </div>
             <div class="card-body">
-                <p style="white-space: pre-wrap;">@Model.Requirements</p>
+                <p style="white-space: pre-wrap; line-height: 1.8;">@Model.Requirements</p>
             </div>
         </div>
     </div>
 
     <div class="col-lg-4">
-        <div class="card border-0 shadow-sm">
+        <div class="card border-0 shadow-sm mb-4">
             <div class="card-body">
-                <h5 class="card-title">Quick Actions</h5>
+                <h5 class="card-title"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h5>
                 <div class="d-grid gap-2">
                     <a href="@Url.Action("Edit", new { id = Model.Id })" class="btn btn-outline-primary">
                         <i class="fas fa-edit"></i> Edit Job Post
@@ -94,11 +128,140 @@
                     <a href="@Url.Action("Delete", new { id = Model.Id })" class="btn btn-outline-danger">
                         <i class="fas fa-trash"></i> Delete Job Post
                     </a>
+                    @if (Model.ApplicationCount > 0)
+                    {
+                        <a href="@Url.Action("ReviewApplications", new { id = Model.Id })" class="btn btn-outline-success">
+                            <i class="fas fa-users"></i> Review Applications (@Model.ApplicationCount)
+                        </a>
+                    }
                     <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
                         <i class="fas fa-list"></i> View All Posts
                     </a>
                 </div>
             </div>
         </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-info-circle me-2"></i>Status Information</h6>
+                <div class="d-flex flex-column gap-2">
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Status:</span>
+                        @if (Model.IsClosed)
+                        {
+                            <span class="badge bg-danger">Closed</span>
+                        }
+                        else if (Model.IsPublished)
+                        {
+                            <span class="badge bg-success">Published</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Draft</span>
+                        }
+                    </div>
+                    @if (Model.IsPublished && !Model.IsClosed)
+                    {
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Visibility:</span>
+                            <span class="badge bg-success"><i class="fas fa-globe me-1"></i> Public</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Days Left:</span>
+                            <span class="badge @((Model.ClosingDate - DateTime.Now).Days > 7 ? "bg-success" : (Model.ClosingDate - DateTime.Now).Days > 3 ? "bg-warning" : "bg-danger")">
+                                @((Model.ClosingDate - DateTime.Now).Days) days
+                            </span>
+                        </div>
+                    }
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Applications:</span>
+                        <span class="badge bg-primary">@Model.ApplicationCount</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<style>
+    .text-gold {
+        color: var(--primary-gold, #F5A623);
+    }
+
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-warning {
+            color: #fff;
+        }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-danger {
+            color: #fff;
+        }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+
+        .badge.bg-secondary {
+            color: #fff;
+        }
+
+    .bg-hover {
+        background: var(--bg-hover, #f8f9fa);
+    }
+
+    [data-theme="dark"] .bg-hover {
+        background: var(--bg-hover, #2d3748);
+    }
+
+    .btn-outline-primary {
+        color: #4e73df;
+        border-color: #4e73df;
+    }
+
+        .btn-outline-primary:hover {
+            background-color: #4e73df;
+            color: #fff;
+        }
+
+    .btn-outline-danger {
+        color: #e74a3b;
+        border-color: #e74a3b;
+    }
+
+        .btn-outline-danger:hover {
+            background-color: #e74a3b;
+            color: #fff;
+        }
+
+    .btn-outline-success {
+        color: #1cc88a;
+        border-color: #1cc88a;
+    }
+
+        .btn-outline-success:hover {
+            background-color: #1cc88a;
+            color: #fff;
+        }
+
+    .btn-outline-secondary {
+        color: #858796;
+        border-color: #858796;
+    }
+
+        .btn-outline-secondary:hover {
+            background-color: #858796;
+            color: #fff;
+        }
+</style>

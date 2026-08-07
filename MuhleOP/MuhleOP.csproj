@@ -284,12 +284,28 @@
     <Content Include="Views\Staff\Details.cshtml" />
     <Content Include="Views\JobPost\AssessInterview.cshtml" />
     <Content Include="Views\JobPost\CloseJobPostView.cshtml" />
+    <Content Include="Views\Client\ContractDetails.cshtml" />
+    <Content Include="Views\Client\Contracts.cshtml" />
+    <Content Include="Views\Client\Details.cshtml" />
+    <Content Include="Views\Client\Register.cshtml" />
+    <Content Include="Views\Client\Index.cshtml" />
+    <Content Include="Views\Client\SignContract.cshtml" />
+    <Content Include="Views\Project\AssignEquipment.cshtml" />
+    <Content Include="Views\Project\AssignStaff.cshtml" />
+    <Content Include="Views\Project\Initiate.cshtml" />
+    <Content Include="Views\Project\Details.cshtml" />
+    <Content Include="Views\Project\Index.cshtml" />
+    <Content Include="Views\Staff\HireFromCandidate.cshtml" />
+    <Content Include="Views\Staff\Delete.cshtml" />
+    <Content Include="Views\Staff\Edit.cshtml" />
+    <Content Include="Views\Client\SendContract.cshtml" />
+    <Content Include="Views\Home\Contact.cshtml" />
+    <Content Include="Views\Account\Lockout.cshtml" />
+    <Content Include="Views\Account\ForgotPassword.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
-    <Folder Include="Views\Client\" />
     <Folder Include="Views\Manage\" />
-    <Folder Include="Views\Project\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Content\bootstrap.rtl.min.css.map" />

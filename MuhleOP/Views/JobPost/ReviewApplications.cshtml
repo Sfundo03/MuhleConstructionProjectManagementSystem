@@ -1,26 +1,37 @@
-﻿@model List<MuhleOP.ViewModels.ApplicationReviewViewModel>
+﻿﻿@model List<MuhleOP.ViewModels.ApplicationReviewViewModel>
 @{
     ViewBag.Title = "Review Applications";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     var jobTitle = ViewBag.JobTitle ?? "Job";
     var jobPostId = ViewBag.JobPostId ?? 0;
+    var totalApplications = ViewBag.TotalApplications ?? 0;
+    var shortlistedCount = ViewBag.ShortlistedCount ?? 0;
+    var interviewScheduledCount = ViewBag.InterviewScheduledCount ?? 0;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h2>Review Applications</h2>
-        <p class="text-muted">@jobTitle - Ranked candidates by potential</p>
+        <p class="text-muted">
+            <i class="fas fa-users me-2"></i>
+            @jobTitle - Review and shortlist candidates based on AI ranking
+        </p>
     </div>
-    <a href="@Url.Action("Index")" class="btn btn-secondary">
-        <i class="fas fa-arrow-left"></i> Back to Job Posts
-    </a>
+    <div>
+        <a href="@Url.Action("Index")" class="btn btn-secondary me-2">
+            <i class="fas fa-arrow-left"></i> Back to Job Posts
+        </a>
+        <a href="@Url.Action("AllApplications", "JobPost")" class="btn btn-outline-info">
+            <i class="fas fa-list"></i> All Applications
+        </a>
+    </div>
 </div>
 
 @if (TempData["SuccessMessage"] != null)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
         <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
     </div>
 }
 
@@ -28,36 +39,39 @@
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
     </div>
 }
 
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
+        <!-- Summary Stats -->
         <div class="row mb-3">
-            <div class="col-md-6">
-                <h6 class="text-muted">Ranking Summary</h6>
-                <div class="d-flex gap-4">
+            <div class="col-md-8">
+                <h6 class="text-muted"><i class="fas fa-chart-simple me-2"></i>Ranking Summary</h6>
+                <div class="d-flex gap-4 flex-wrap">
                     <div>
-                        <span class="badge bg-primary">@Model.Count(a => a.IsShortlisted)</span>
-                        <small class="text-muted">Shortlisted</small>
+                        <span class="badge bg-primary" style="font-size:16px;padding:8px 16px;">@totalApplications</span>
+                        <small class="text-muted d-block mt-1">Total Applications</small>
                     </div>
                     <div>
-                        <span class="badge bg-warning">@Model.Count(a => a.InterviewScheduled)</span>
-                        <small class="text-muted">Interviews Scheduled</small>
+                        <span class="badge bg-success" style="font-size:16px;padding:8px 16px;">@shortlistedCount</span>
+                        <small class="text-muted d-block mt-1">Shortlisted</small>
                     </div>
                     <div>
-                        <span class="badge bg-info">@Model.Count</span>
-                        <small class="text-muted">Total Applications</small>
+                        <span class="badge bg-info" style="font-size:16px;padding:8px 16px;">@interviewScheduledCount</span>
+                        <small class="text-muted d-block mt-1">Interviews Scheduled</small>
                     </div>
                     <div>
-                        <span class="badge bg-success">@Model.Count(a => a.IsHired)</span>
-                        <small class="text-muted">Hired</small>
+                        <span class="badge bg-warning" style="font-size:16px;padding:8px 16px;">@Model.Count(a => a.IsHired)</span>
+                        <small class="text-muted d-block mt-1">Hired</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6 text-end">
-                <span class="badge bg-success">Ranked by AI Analysis</span>
+            <div class="col-md-4 text-end">
+                <span class="badge bg-success" style="font-size:14px;padding:8px 16px;">
+                    <i class="fas fa-robot me-2"></i> AI Ranked
+                </span>
             </div>
         </div>
 
@@ -84,7 +98,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @if (Model.Any())
+                        @if (Model != null && Model.Any())
                         {
                             int rank = 1;
                             foreach (var app in Model)
@@ -94,10 +108,6 @@
                                         @if (!app.IsShortlisted && !app.IsHired)
                                         {
                                             <input type="checkbox" name="ApplicationIds" value="@app.ApplicationId" class="application-checkbox" />
-                                        }
-                                        else if (app.IsHired)
-                                        {
-                                            <span class="badge bg-success"><i class="fas fa-check"></i></span>
                                         }
                                         else
                                         {
@@ -134,10 +144,7 @@
                                             <div class="progress" style="width:60px;height:6px;">
                                                 <div class="progress-bar bg-@(app.RankingScore >= 70 ? "success" : app.RankingScore >= 50 ? "warning" : "danger")"
                                                      style="width:@(app.RankingScore)%;"
-                                                     role="progressbar"
-                                                     aria-valuenow="@app.RankingScore"
-                                                     aria-valuemin="0"
-                                                     aria-valuemax="100">
+                                                     role="progressbar">
                                                 </div>
                                             </div>
                                         </div>
@@ -188,7 +195,7 @@
                                         {
                                             <span class="badge bg-info">Interview Scheduled</span>
                                             <br />
-                                            <small class="text-muted">@(app.InterviewDateTime?.ToString("yyyy-MM-dd HH:mm") ?? "N/A")</small>
+                                            <small class="text-muted">@(app.InterviewDateTime?.ToString("dd MMM HH:mm") ?? "N/A")</small>
                                         }
                                         else if (app.IsShortlisted)
                                         {
@@ -201,7 +208,7 @@
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
-                                            <a href="@Url.Action("CandidateDetails", new { id = app.CandidateId })" class="btn btn-outline-info" title="View Details">
+                                            <a href="@Url.Action("CandidateDetails", "JobPost", new { id = app.CandidateId })" class="btn btn-outline-info" title="View Details">
                                                 <i class="fas fa-user"></i>
                                             </a>
                                             @if (app.InterviewScheduled && app.InterviewResult == "Pending" && !app.IsHired)
@@ -218,7 +225,7 @@
                                             }
                                             @if (app.IsShortlisted && !app.InterviewScheduled && !app.IsHired)
                                             {
-                                                <a href="@Url.Action("ScheduleInterview", new { id = app.ApplicationId })" class="btn btn-outline-primary" title="Schedule Interview">
+                                                <a href="@Url.Action("ScheduleInterview", "JobPost", new { id = app.ApplicationId })" class="btn btn-outline-primary" title="Schedule Interview">
                                                     <i class="fas fa-calendar-plus"></i>
                                                 </a>
                                             }
@@ -232,7 +239,7 @@
                         {
                             <tr>
                                 <td colspan="9" class="text-center py-5">
-                                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                    <i class="fas fa-inbox fa-3x text-muted mb-3" style="opacity:0.3;"></i>
                                     <h5>No Applications Yet</h5>
                                     <p class="text-muted">No candidates have applied for this position yet.</p>
                                 </td>
@@ -242,13 +249,13 @@
                 </table>
             </div>
 
-            if (Model.Any(a => !a.IsShortlisted && !a.IsHired))
+            if (Model != null && Model.Any(a => !a.IsShortlisted && !a.IsHired))
             {
-                <div class="mt-3 d-flex gap-2">
+                <div class="mt-3 d-flex gap-2 align-items-center">
                     <button type="submit" class="btn btn-success" id="shortlistBtn">
                         <i class="fas fa-star"></i> Shortlist Selected Candidates
                     </button>
-                    <span class="text-muted align-self-center" id="selectedCount">0 selected</span>
+                    <span class="text-muted" id="selectedCount">0 selected</span>
                 </div>
             }
         }
@@ -280,12 +287,41 @@
         background-color: rgba(28, 200, 138, 0.3) !important;
     }
 
-    .progress {
-        background-color: var(--bg-hover);
+    .bg-gold {
+        background-color: var(--primary-gold, #F5A623);
     }
 
-    .bg-gold {
-        background-color: var(--primary-gold);
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-warning {
+            color: #fff;
+        }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-danger {
+            color: #fff;
+        }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+
+        .badge.bg-secondary {
+            color: #fff;
+        }
+
+    .progress {
+        background-color: var(--bg-hover);
     }
 
     .btn-outline-info {
@@ -328,32 +364,31 @@
             color: #fff;
         }
 
-    .badge {
-        font-size: 11px;
-        padding: 5px 10px;
+    .btn-group .btn {
+        margin: 1px;
     }
 </style>
 
 @section Scripts {
     <script>
-        // Select All functionality
         document.getElementById('selectAll')?.addEventListener('change', function () {
             const checkboxes = document.querySelectorAll('.application-checkbox');
             checkboxes.forEach(cb => cb.checked = this.checked);
             updateSelectedCount();
         });
 
-        // Update selected count
         document.querySelectorAll('.application-checkbox').forEach(cb => {
             cb.addEventListener('change', updateSelectedCount);
         });
 
         function updateSelectedCount() {
             const checked = document.querySelectorAll('.application-checkbox:checked').length;
-            document.getElementById('selectedCount').textContent = checked + ' selected';
+            const countEl = document.getElementById('selectedCount');
+            if (countEl) {
+                countEl.textContent = checked + ' selected';
+            }
         }
 
-        // Confirm shortlist
         document.getElementById('shortlistBtn')?.addEventListener('click', function (e) {
             const checked = document.querySelectorAll('.application-checkbox:checked').length;
             if (checked === 0) {

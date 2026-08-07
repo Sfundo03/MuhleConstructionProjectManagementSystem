@@ -1,4 +1,4 @@
-﻿@{
+﻿﻿@{
     ViewBag.Title = "Application Submitted";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
 }
@@ -219,7 +219,6 @@
         }
     }
 
-    /* Dark mode adjustments */
     [data-theme="dark"] .btn-view-applications {
         color: #fff;
     }
@@ -233,7 +232,6 @@
         border-color: var(--border-color);
     }
 
-    /* Responsive */
     @@media (max-width: 768px) {
         .success-card {
             padding: 30px 20px;
@@ -259,7 +257,7 @@
         </div>
 
         <h2>Application Submitted!</h2>
-        <p class="subtitle">Your application has been successfully submitted to the hiring team.</p>
+        <p class="subtitle">Your application has been successfully submitted to the hiring team at Muhle Building.</p>
 
         <!-- Application Details -->
         <div class="application-details">
@@ -277,7 +275,7 @@
             </p>
             <p>
                 <span class="label">Status</span>
-                <span class="value"><span class="badge badge-warning">Pending Review</span></span>
+                <span class="value"><span class="badge bg-warning" style="font-size:14px;padding:6px 14px;">Pending Review</span></span>
             </p>
         </div>
 
@@ -297,7 +295,7 @@
 
         <!-- Action Buttons -->
         <div>
-            <a href="@Url.Action("Dashboard", "Home")" class="btn-view-applications pulse">
+            <a href="@Url.Action("AllApplications", "Candidate")" class="btn-view-applications pulse">
                 <i class="fas fa-file-alt"></i> View My Applications
             </a>
             <br />
@@ -314,13 +312,11 @@
 @section Scripts {
     <script>
         (function() {
-            // Countdown timer
             let seconds = 10;
             const countdownNumber = document.getElementById('countdownNumber');
             const countdownText = document.getElementById('countdownText');
             const progressBar = document.getElementById('progressBar');
 
-            // Create confetti
             function createConfetti() {
                 const container = document.getElementById('confettiContainer');
                 const colors = ['#F5A623', '#1cc88a', '#4e73df', '#e74a3b', '#36b9cc', '#f6c23e', '#858796'];
@@ -339,10 +335,8 @@
                 }
             }
 
-            // Start confetti
             createConfetti();
 
-            // Countdown function
             function updateCountdown() {
                 seconds--;
                 if (seconds >= 0) {
@@ -351,30 +345,18 @@
                 }
 
                 if (seconds <= 0) {
-                    // Redirect to dashboard
-                    window.location.href = '@Url.Action("Dashboard", "Home")';
+                    window.location.href = '@Url.Action("AllApplications", "Candidate")';
                 }
             }
 
-            // Start countdown
             const interval = setInterval(updateCountdown, 1000);
 
-            // Pause countdown if user interacts with the page
             document.addEventListener('click', function() {
-                // User can manually click the button to redirect
                 clearInterval(interval);
             });
 
-            // Allow manual redirect via button click
             document.querySelector('.btn-view-applications').addEventListener('click', function(e) {
                 clearInterval(interval);
-                // Let the default action happen
-            });
-
-            // If the user wants to browse more jobs, redirect immediately
-            document.querySelector('.btn-outline-primary')?.addEventListener('click', function(e) {
-                clearInterval(interval);
-                // Let the default action happen
             });
         })();
     </script>

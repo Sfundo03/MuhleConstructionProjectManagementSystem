@@ -1,4 +1,4 @@
-﻿@model MuhleOP.ViewModels.CandidateRegisterViewModel
+﻿﻿@model MuhleOP.ViewModels.CandidateRegisterViewModel
 @{
     ViewBag.Title = "Candidate Registration";
     Layout = null;
@@ -11,165 +11,412 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewBag.Title - MuhleOps</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
+        :root {
+            --charcoal: #14181D;
+            --slate-panel: #1B222B;
+            --steel-line: #3A4756;
+            --amber: #FDB813;
+            --amber-deep: #D99A00;
+            --concrete: #F1EFEA;
+            --concrete-line: #DBD8CF;
+            --ink: #14181D;
+            --steel-gray: #69727C;
+            --danger: #C0392B;
+            --success: #27AE60;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: #f4f6f9;
+
+        html, body {
+            margin: 0;
+            padding: 0;
             min-height: 100vh;
+            font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--charcoal);
         }
+
         .register-hero {
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 40px 20px;
-            background: linear-gradient(135deg, #16202C 0%, #1a2634 100%);
+            background: linear-gradient(135deg, var(--charcoal) 0%, var(--slate-panel) 100%);
+            position: relative;
+            overflow: hidden;
         }
+
+            .register-hero::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background-image: linear-gradient(rgba(253,184,19,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(253,184,19,0.03) 1px, transparent 1px);
+                background-size: 48px 48px;
+                pointer-events: none;
+            }
+
+            .register-hero::after {
+                content: "";
+                position: absolute;
+                left: 0;
+                bottom: 0;
+                width: 60%;
+                height: 60%;
+                background: radial-gradient(ellipse at bottom left, rgba(253,184,19,0.08) 0%, rgba(253,184,19,0) 70%);
+                pointer-events: none;
+            }
+
         .register-card {
             max-width: 900px;
             width: 100%;
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            padding: 40px;
+            background: var(--concrete);
+            border-radius: 2px;
+            box-shadow: 0 30px 70px rgba(0,0,0,0.5);
+            padding: 50px 48px 40px;
+            position: relative;
+            z-index: 2;
         }
+
+            /* Registration marks */
+            .register-card::before {
+                content: "";
+                position: absolute;
+                top: -11px;
+                left: -11px;
+                width: 22px;
+                height: 22px;
+                border-top: 2px solid var(--amber);
+                border-left: 2px solid var(--amber);
+            }
+
+            .register-card::after {
+                content: "";
+                position: absolute;
+                bottom: -11px;
+                right: -11px;
+                width: 22px;
+                height: 22px;
+                border-bottom: 2px solid var(--amber);
+                border-right: 2px solid var(--amber);
+            }
+
         .register-header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 32px;
         }
-        .register-header h1 {
-            color: #16202C;
-            font-size: 28px;
-            font-weight: 800;
-        }
-        .register-header .subtitle {
-            color: #6b7280;
-            font-size: 14px;
-        }
-        .register-header .brand {
-            color: #F5A623;
-            font-weight: 900;
-            font-size: 24px;
-        }
+
+            .register-header .brand {
+                font-family: 'Barlow Condensed', sans-serif;
+                font-weight: 900;
+                font-size: 28px;
+                letter-spacing: 0.5px;
+                color: var(--charcoal);
+                text-transform: uppercase;
+            }
+
+                .register-header .brand span {
+                    color: var(--amber);
+                }
+
+            .register-header h1 {
+                font-family: 'Barlow Condensed', sans-serif;
+                font-size: 32px;
+                font-weight: 800;
+                text-transform: uppercase;
+                color: var(--ink);
+                margin-top: 8px;
+                letter-spacing: 0.3px;
+            }
+
+            .register-header .subtitle {
+                color: var(--steel-gray);
+                font-size: 14px;
+                font-family: 'IBM Plex Mono', monospace;
+                margin-top: 4px;
+            }
+
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
-        .form-group label {
-            display: block;
-            font-weight: 600;
-            font-size: 13px;
-            color: #374151;
-            margin-bottom: 6px;
-        }
-        .form-group .form-control {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.15s ease;
-            font-family: 'Inter', sans-serif;
-        }
-        .form-group .form-control:focus {
-            outline: none;
-            border-color: #F5A623;
-            box-shadow: 0 0 0 3px rgba(245,166,35,0.1);
-        }
-        .form-group .form-control-file {
-            padding: 8px 0;
-        }
-        .form-group .text-danger {
-            color: #dc3545;
-            font-size: 12px;
-            margin-top: 4px;
-            display: block;
-        }
+
+            .form-group label {
+                display: block;
+                font-size: 10.5px;
+                font-weight: 600;
+                letter-spacing: 1.3px;
+                text-transform: uppercase;
+                color: var(--ink);
+                margin-bottom: 6px;
+                font-family: 'IBM Plex Mono', monospace;
+            }
+
+            .form-group .form-control {
+                width: 100%;
+                padding: 10px 14px;
+                border: 1px solid var(--concrete-line);
+                border-radius: 2px;
+                font-size: 14px;
+                font-family: 'IBM Plex Sans', sans-serif;
+                color: var(--ink);
+                background: #ffffff;
+                transition: border-color 0.15s ease;
+            }
+
+                .form-group .form-control:focus {
+                    outline: none;
+                    border-color: var(--amber);
+                    box-shadow: 0 0 0 3px rgba(253,184,19,0.1);
+                }
+
+            .form-group .form-control-file {
+                padding: 8px 0;
+                font-size: 13px;
+                font-family: 'IBM Plex Sans', sans-serif;
+                color: var(--ink);
+                background: transparent;
+                border: none;
+                width: 100%;
+            }
+
+                .form-group .form-control-file::-webkit-file-upload-button {
+                    background: var(--charcoal);
+                    color: var(--amber);
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 2px;
+                    font-size: 11px;
+                    font-weight: 600;
+                    font-family: 'IBM Plex Mono', monospace;
+                    cursor: pointer;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+
+                    .form-group .form-control-file::-webkit-file-upload-button:hover {
+                        background: #05070a;
+                        color: #ffffff;
+                    }
+
+            .form-group .text-danger {
+                color: var(--danger);
+                font-size: 12px;
+                margin-top: 4px;
+                display: block;
+                font-family: 'IBM Plex Mono', monospace;
+            }
+
+            .form-group .text-muted {
+                display: block;
+                font-size: 11px;
+                color: var(--steel-gray);
+                margin-top: 4px;
+                font-family: 'IBM Plex Mono', monospace;
+            }
+
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
         }
+
         .form-row-3 {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             gap: 20px;
         }
-        .btn-register {
-            width: 100%;
-            padding: 14px;
-            background: #16202C;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: background 0.15s ease;
-            font-family: 'Inter', sans-serif;
-        }
-        .btn-register:hover {
-            background: #0e1620;
-        }
-        .btn-register i {
-            margin-right: 8px;
-        }
-        .login-link {
-            text-align: center;
-            margin-top: 16px;
-            color: #6b7280;
-            font-size: 14px;
-        }
-        .login-link a {
-            color: #F5A623;
-            text-decoration: none;
-            font-weight: 600;
-        }
-        .login-link a:hover {
-            text-decoration: underline;
-        }
-        .validation-summary {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 12px 16px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            border: 1px solid #f5c6cb;
-        }
-        .validation-summary ul {
-            margin: 0;
-            padding-left: 20px;
-        }
+
         .required-star {
-            color: #dc3545;
+            color: var(--danger);
             margin-left: 2px;
         }
+
+        .btn-register {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 15px;
+            background: var(--charcoal);
+            color: var(--amber);
+            border: none;
+            border-radius: 2px;
+            font-size: 12.5px;
+            font-weight: 700;
+            letter-spacing: 1.8px;
+            text-transform: uppercase;
+            cursor: pointer;
+            font-family: 'IBM Plex Mono', monospace;
+            transition: background 0.15s ease, color 0.15s ease;
+            margin-top: 8px;
+        }
+
+            .btn-register:hover {
+                background: #05070a;
+                color: #ffffff;
+            }
+
+        .login-link {
+            text-align: center;
+            margin-top: 18px;
+            color: var(--steel-gray);
+            font-size: 13px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+            .login-link a {
+                color: var(--amber);
+                text-decoration: none;
+                font-weight: 600;
+                transition: color 0.15s ease;
+            }
+
+                .login-link a:hover {
+                    color: var(--amber-deep);
+                    text-decoration: underline;
+                }
+
+        .validation-summary {
+            background: rgba(192, 57, 43, 0.1);
+            color: var(--danger);
+            padding: 12px 16px;
+            border-radius: 2px;
+            margin-bottom: 20px;
+            border-left: 3px solid var(--danger);
+            font-size: 13px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+            .validation-summary ul {
+                margin: 0;
+                padding-left: 20px;
+            }
+
+        .site-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 3;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 26px 40px 0 40px;
+        }
+
+        .site-mark {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-weight: 800;
+            font-size: 20px;
+            letter-spacing: 0.5px;
+            color: #ffffff;
+            text-transform: uppercase;
+        }
+
+            .site-mark span {
+                color: var(--amber);
+            }
+
+        .site-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.65);
+        }
+
+            .site-status .dot {
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                background: #3FCB6C;
+                box-shadow: 0 0 0 0 rgba(63,203,108,0.6);
+                animation: pulse 2.2s infinite;
+            }
+
+        @@keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(63,203,108,0.55);
+            }
+
+            70% {
+                box-shadow: 0 0 0 8px rgba(63,203,108,0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(63,203,108,0);
+            }
+        }
+
+        /* Dark mode support */
+        .dark-theme {
+            --concrete: #1B222B;
+            --concrete-line: #3A4756;
+            --ink: #F1EFEA;
+            --steel-gray: #A9A49A;
+        }
+
         @@media (max-width: 768px) {
             .register-card {
-                padding: 24px;
+                padding: 30px 20px;
+                margin-top: 60px;
             }
+
+                .register-card::before,
+                .register-card::after {
+                    display: none;
+                }
+
             .form-row {
                 grid-template-columns: 1fr;
+                gap: 0;
             }
+
             .form-row-3 {
                 grid-template-columns: 1fr;
+                gap: 0;
+            }
+
+            .site-bar {
+                padding: 18px 20px 0 20px;
+            }
+
+            .site-mark {
+                font-size: 16px;
+            }
+
+            .register-header h1 {
+                font-size: 24px;
             }
         }
     </style>
 </head>
 <body>
     <div class="register-hero">
+        <!-- Top Status Bar -->
+        <div class="site-bar">
+            <div class="site-mark">MUHLE<span>OPS</span></div>
+            <div class="site-status"><span class="dot"></span> Secure Registration</div>
+        </div>
+
         <div class="register-card">
             <div class="register-header">
-                <div class="brand">Muhle<span style="color:#16202C;">Ops</span></div>
+                <div class="brand">Muhle<span>Ops</span></div>
                 <h1>Candidate Registration</h1>
-                <p class="subtitle">Create your account to apply for construction jobs</p>
+                <p class="subtitle">// CREATE YOUR ACCOUNT TO APPLY FOR CONSTRUCTION JOBS</p>
             </div>
 
             @if (!ViewData.ModelState.IsValid && ViewData.ModelState.Values.SelectMany(v => v.Errors).Any())
@@ -257,21 +504,21 @@
                         <span class="required-star">*</span>
                         <input type="file" name="IdDocument" class="form-control-file" accept=".pdf,.doc,.docx,.jpg,.png" required />
                         @Html.ValidationMessageFor(m => m.IdDocument)
-                        <small class="text-muted" style="display:block;font-size:11px;">PDF, DOC, JPG, PNG (Max 5MB)</small>
+                        <span class="text-muted">PDF, DOC, JPG, PNG (Max 5MB)</span>
                     </div>
                     <div class="form-group">
                         @Html.LabelFor(m => m.Qualifications)
                         <span class="required-star">*</span>
                         <input type="file" name="Qualifications" class="form-control-file" accept=".pdf,.doc,.docx" required />
                         @Html.ValidationMessageFor(m => m.Qualifications)
-                        <small class="text-muted" style="display:block;font-size:11px;">PDF, DOC (Max 5MB)</small>
+                        <span class="text-muted">PDF, DOC (Max 5MB)</span>
                     </div>
                     <div class="form-group">
                         @Html.LabelFor(m => m.Cv)
                         <span class="required-star">*</span>
                         <input type="file" name="Cv" class="form-control-file" accept=".pdf,.doc,.docx" required />
                         @Html.ValidationMessageFor(m => m.Cv)
-                        <small class="text-muted" style="display:block;font-size:11px;">PDF, DOC (Max 5MB)</small>
+                        <span class="text-muted">PDF, DOC (Max 5MB)</span>
                     </div>
                 </div>
 
@@ -280,18 +527,23 @@
                         @Html.LabelFor(m => m.License)
                         <input type="file" name="License" class="form-control-file" accept=".pdf,.doc,.docx,.jpg,.png" />
                         @Html.ValidationMessageFor(m => m.License)
-                        <small class="text-muted" style="display:block;font-size:11px;">Optional: Driver's License (PDF, DOC, JPG, PNG)</small>
+                        <span class="text-muted">Optional: Driver's License (PDF, DOC, JPG, PNG)</span>
                     </div>
                     <div class="form-group">
                         @Html.LabelFor(m => m.ProfilePicture)
                         <input type="file" name="ProfilePicture" class="form-control-file" accept=".jpg,.png" />
                         @Html.ValidationMessageFor(m => m.ProfilePicture)
-                        <small class="text-muted" style="display:block;font-size:11px;">Optional: Profile Picture (JPG, PNG)</small>
+                        <span class="text-muted">Optional: Profile Picture (JPG, PNG)</span>
                     </div>
                 </div>
 
                 <button type="submit" class="btn-register">
-                    <i class="fas fa-user-plus"></i> Register as Candidate
+                    <i class="fas fa-user-plus"></i>
+                    Register as Candidate
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                        <polyline points="12 5 19 12 12 19" />
+                    </svg>
                 </button>
             }
 

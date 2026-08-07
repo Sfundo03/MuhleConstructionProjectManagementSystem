@@ -1,0 +1,204 @@
+﻿﻿@model MuhleOP.ViewModels.AssignStaffViewModel
+@{
+    ViewBag.Title = "Assign Staff";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Assign Staff to Project</h2>
+        <p class="text-muted">
+            <i class="fas fa-user-plus me-2"></i>
+            @Model.ProjectName - Assign staff members to the project
+        </p>
+    </div>
+    <div>
+        <a href="@Url.Action("Details", new { id = Model.ProjectId })" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Project
+        </a>
+        <a href="@Url.Action("Index")" class="btn btn-outline-secondary ms-2">
+            <i class="fas fa-list"></i> All Projects
+        </a>
+    </div>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-lg-7">
+        <!-- Assign New Staff -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="mb-0"><i class="fas fa-user-plus text-gold me-2"></i>Assign New Staff Member</h6>
+            </div>
+            <div class="card-body">
+                @using (Html.BeginForm())
+                {
+                    @Html.AntiForgeryToken()
+                    @Html.HiddenFor(m => m.ProjectId)
+                    @Html.HiddenFor(m => m.ProjectName)
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                @Html.LabelFor(m => m.StaffId, new { @class = "form-label fw-bold" })
+                                @Html.DropDownListFor(m => m.StaffId, Model.AvailableStaff, "-- Select Staff --", new { @class = "form-select" })
+                                @Html.ValidationMessageFor(m => m.StaffId, "", new { @class = "text-danger" })
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                @Html.LabelFor(m => m.Role, new { @class = "form-label fw-bold" })
+                                @Html.DropDownListFor(m => m.Role, Model.AvailableRoles, "-- Select Role --", new { @class = "form-select" })
+                                @Html.ValidationMessageFor(m => m.Role, "", new { @class = "text-danger" })
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                @Html.LabelFor(m => m.AllocationPercentage, new { @class = "form-label fw-bold" })
+                                @Html.TextBoxFor(m => m.AllocationPercentage, new { @class = "form-control", type = "number", min = "0", max = "100" })
+                                @Html.ValidationMessageFor(m => m.AllocationPercentage, "", new { @class = "text-danger" })
+                                <small class="text-muted d-block mt-1">% of time allocated</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                @Html.LabelFor(m => m.StartDate, new { @class = "form-label fw-bold" })
+                                @Html.TextBoxFor(m => m.StartDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                                @Html.ValidationMessageFor(m => m.StartDate, "", new { @class = "text-danger" })
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                @Html.LabelFor(m => m.EndDate, new { @class = "form-label fw-bold" })
+                                @Html.TextBoxFor(m => m.EndDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                                @Html.ValidationMessageFor(m => m.EndDate, "", new { @class = "text-danger" })
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.Notes, new { @class = "form-label fw-bold" })
+                        @Html.TextAreaFor(m => m.Notes, new { @class = "form-control", rows = "3", placeholder = "Any notes about this assignment..." })
+                        @Html.ValidationMessageFor(m => m.Notes, "", new { @class = "text-danger" })
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i> Assign Staff
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <!-- Current Assignments -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="mb-0"><i class="fas fa-users text-gold me-2"></i>Currently Assigned (@(Model.CurrentAssignments?.Count ?? 0))</h6>
+            </div>
+            <div class="card-body">
+                @if (Model.CurrentAssignments != null && Model.CurrentAssignments.Any())
+                {
+                    @foreach (var assignment in Model.CurrentAssignments)
+                    {
+                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
+                            <div>
+                                <span class="fw-bold">@assignment.StaffName</span>
+                                <br />
+                                <small class="text-muted">@assignment.Role</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-info">@assignment.AllocationPercentage%</span>
+                                <br />
+                                <small class="text-muted">@assignment.StartDate.ToString("dd MMM") - @(assignment.EndDate?.ToString("dd MMM yyyy") ?? "Ongoing")</small>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="text-center py-3">
+                        <i class="fas fa-users fa-2x text-muted mb-2" style="opacity:0.3;"></i>
+                        <p class="text-muted">No staff assigned yet</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-info-circle me-2"></i>Assignment Tips</h6>
+                <ul class="list-unstyled small">
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Assign appropriate roles
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Set realistic allocation percentages
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Ensure staff availability
+                    </li>
+                    <li>
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Review assignments regularly
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .text-gold {
+        color: var(--primary-gold, #F5A623);
+    }
+
+    .form-control, .form-select {
+        font-size: 14px;
+        padding: 10px 14px;
+    }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-gold, #F5A623);
+            box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.1);
+        }
+
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+    .border-bottom {
+        border-bottom: 1px solid var(--border-color) !important;
+    }
+</style>
+
+@section Scripts {
+    @Scripts.Render("~/bundles/jqueryval")
+}

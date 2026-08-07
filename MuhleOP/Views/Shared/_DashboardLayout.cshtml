@@ -1120,7 +1120,6 @@
                     <span>Dashboard</span>
                 </a>
 
-                <!-- Use Case 1: Create Vacancy -->
                 <div class="menu-label">Recruitment</div>
                 <a href="@Url.Action("Index", "JobPost")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "JobPost" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")">
                     <i class="fas fa-bullhorn"></i>
@@ -1128,36 +1127,31 @@
                 </a>
                 <a href="@Url.Action("Create", "JobPost")" class="nav-item">
                     <i class="fas fa-plus-circle"></i>
-                    <span>Create Vacancy (UC1)</span>
+                    <span>Create Vacancy</span>
                 </a>
                 <a href="@Url.Action("AllApplications", "JobPost")" class="nav-item">
                     <i class="fas fa-users"></i>
                     <span>All Applications</span>
                 </a>
-
-                <!-- Use Case 3: Review & Shortlist Applications -->
                 <a href="@Url.Action("AllApplications", "JobPost")" class="nav-item">
                     <i class="fas fa-star"></i>
-                    <span>Review & Shortlist (UC3)</span>
+                    <span>Review & Shortlist</span>
                 </a>
-
-                <!-- Use Case 4: Schedule Interview -->
                 <a href="@Url.Action("AllApplications", "JobPost")" class="nav-item">
                     <i class="fas fa-calendar-plus"></i>
-                    <span>Schedule Interview (UC4)</span>
+                    <span>Schedule Interview</span>
                 </a>
 
-                <!-- Use Case 5: Hire Staff -->
+                <div class="menu-label">Staff</div>
                 <a href="@Url.Action("Index", "Staff")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Staff" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")">
                     <i class="fas fa-user-check"></i>
                     <span>Staff Management</span>
                 </a>
                 <a href="@Url.Action("Hire", "Staff")" class="nav-item">
                     <i class="fas fa-user-plus"></i>
-                    <span>Hire Staff (UC5)</span>
+                    <span>Hire Staff</span>
                 </a>
 
-                <!-- Use Case 6: Register Client -->
                 <div class="menu-label">Clients</div>
                 <a href="@Url.Action("Index", "Client")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Client" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")">
                     <i class="fas fa-building"></i>
@@ -1165,22 +1159,17 @@
                 </a>
                 <a href="@Url.Action("Register", "Client")" class="nav-item">
                     <i class="fas fa-user-plus"></i>
-                    <span>Register Client (UC6)</span>
+                    <span>Register Client</span>
                 </a>
-
-                <!-- Use Case 7: Create Contract -->
                 <a href="@Url.Action("Index", "Client")" class="nav-item">
                     <i class="fas fa-file-contract"></i>
-                    <span>Create Contract (UC7)</span>
+                    <span>Create Contract</span>
                 </a>
-
-                <!-- Use Case 8: Sign Contract -->
                 <a href="@Url.Action("Index", "Client")" class="nav-item">
                     <i class="fas fa-signature"></i>
-                    <span>Sign Contract (UC8)</span>
+                    <span>Sign Contract</span>
                 </a>
 
-                <!-- Use Case 9: Initiate Project -->
                 <div class="menu-label">Projects</div>
                 <a href="@Url.Action("Index", "Project")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Project" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")">
                     <i class="fas fa-folder-open"></i>
@@ -1188,61 +1177,53 @@
                 </a>
                 <a href="@Url.Action("Initiate", "Project")" class="nav-item">
                     <i class="fas fa-rocket"></i>
-                    <span>Initiate Project (UC9)</span>
+                    <span>Initiate Project</span>
                 </a>
-
-                <!-- Use Case 10: Assign Staff -->
                 <a href="@Url.Action("Index", "Project")" class="nav-item">
                     <i class="fas fa-user-friends"></i>
-                    <span>Assign Staff (UC10)</span>
+                    <span>Assign Staff</span>
                 </a>
-
-                <!-- Use Case 11: Assign Equipment -->
                 <a href="@Url.Action("Index", "Project")" class="nav-item">
                     <i class="fas fa-tools"></i>
-                    <span>Assign Equipment (UC11)</span>
+                    <span>Assign Equipment</span>
                 </a>
 
-                <!-- Daily Operations -->
                 <div class="menu-label">Operations</div>
-                <a href="#" class="nav-item" onclick="alert('Daily Tasks feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-clipboard-list"></i>
                     <span>Daily Tasks</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Timesheets feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-clock"></i>
                     <span>Timesheets</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Equipment Maintenance feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-wrench"></i>
                     <span>Equipment Maintenance</span>
                 </a>
 
-                <!-- Quality -->
                 <div class="menu-label">Quality</div>
-                <a href="#" class="nav-item" onclick="alert('Inspections feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-check-double"></i>
                     <span>Inspections</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Variations feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-exchange-alt"></i>
                     <span>Variations</span>
                 </a>
 
-                <!-- Finance -->
                 <div class="menu-label">Finance</div>
-                <a href="#" class="nav-item" onclick="alert('Payroll feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-coins"></i>
                     <span>Payroll</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Invoices feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-file-invoice"></i>
                     <span>Invoices</span>
                 </a>
 
-                <!-- Close Out -->
                 <div class="menu-label">Close Out</div>
-                <a href="#" class="nav-item" onclick="alert('Project Handover feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-flag-checkered"></i>
                     <span>Project Handover</span>
                 </a>
@@ -1255,11 +1236,10 @@
                     <span>Dashboard</span>
                 </a>
 
-                <!-- Use Case 2: Browse Jobs & Apply -->
                 <div class="menu-label">Job Search</div>
                 <a href="@Url.Action("BrowseJobs", "Candidate")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Candidate" && ViewContext.RouteData.Values["action"]?.ToString() == "BrowseJobs" ? "active" : "")">
                     <i class="fas fa-search"></i>
-                    <span>Browse Jobs (UC2)</span>
+                    <span>Browse Jobs</span>
                 </a>
                 <a href="@Url.Action("AllApplications", "Candidate")" class="nav-item">
                     <i class="fas fa-file-alt"></i>
@@ -1270,7 +1250,6 @@
                     <span>Application Status</span>
                 </a>
 
-                <!-- Profile -->
                 <div class="menu-label">Profile</div>
                 <a href="@Url.Action("Dashboard", "Home")" class="nav-item">
                     <i class="fas fa-user"></i>
@@ -1289,43 +1268,36 @@
                     <span>Dashboard</span>
                 </a>
 
-                <!-- Use Case 9: Initiate Project -->
                 <div class="menu-label">Projects</div>
                 <a href="@Url.Action("Initiate", "Project")" class="nav-item">
                     <i class="fas fa-rocket"></i>
-                    <span>Initiate Project (UC9)</span>
+                    <span>Initiate Project</span>
                 </a>
                 <a href="@Url.Action("Index", "Project")" class="nav-item">
                     <i class="fas fa-folder-open"></i>
                     <span>My Projects</span>
                 </a>
-
-                <!-- Use Case 10: Assign Staff -->
                 <a href="@Url.Action("Index", "Project")" class="nav-item">
                     <i class="fas fa-user-friends"></i>
-                    <span>Assign Staff (UC10)</span>
+                    <span>Assign Staff</span>
                 </a>
-
-                <!-- Use Case 11: Assign Equipment -->
                 <a href="@Url.Action("Index", "Project")" class="nav-item">
                     <i class="fas fa-tools"></i>
-                    <span>Assign Equipment (UC11)</span>
+                    <span>Assign Equipment</span>
                 </a>
 
-                <!-- Use Case 7: Create Contract -->
                 <div class="menu-label">Clients</div>
                 <a href="@Url.Action("Index", "Client")" class="nav-item">
                     <i class="fas fa-file-contract"></i>
-                    <span>Create Contract (UC7)</span>
+                    <span>Create Contract</span>
                 </a>
 
-                <!-- Daily Operations -->
                 <div class="menu-label">Operations</div>
-                <a href="#" class="nav-item" onclick="alert('Daily Tasks feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-clipboard-list"></i>
                     <span>Daily Tasks</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Quality Inspections feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-check-double"></i>
                     <span>Inspections</span>
                 </a>
@@ -1339,31 +1311,31 @@
                 </a>
 
                 <div class="menu-label">Site Operations</div>
-                <a href="#" class="nav-item" onclick="alert('Daily Tasks feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-clipboard-list"></i>
-                    <span>Daily Tasks (UC12)</span>
+                    <span>Daily Tasks</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Timesheets feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-clock"></i>
-                    <span>Record Timesheet (UC13)</span>
+                    <span>Record Timesheet</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Equipment Maintenance feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-wrench"></i>
-                    <span>Schedule Maintenance (UC14)</span>
+                    <span>Schedule Maintenance</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Equipment Repairs feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-tools"></i>
-                    <span>Record Repairs (UC15)</span>
+                    <span>Record Repairs</span>
                 </a>
 
                 <div class="menu-label">Quality</div>
-                <a href="#" class="nav-item" onclick="alert('Site Inspections feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-check-double"></i>
-                    <span>Conduct Inspection (UC16)</span>
+                    <span>Conduct Inspection</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Update Project Status feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-edit"></i>
-                    <span>Update Project Status (UC17)</span>
+                    <span>Update Project Status</span>
                 </a>
             }
             else if (User.IsInRole("Finance Officer"))
@@ -1375,15 +1347,15 @@
                 </a>
 
                 <div class="menu-label">Finance</div>
-                <a href="#" class="nav-item" onclick="alert('Payroll feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-coins"></i>
-                    <span>Process Payroll (UC20)</span>
+                    <span>Process Payroll</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Invoices feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-file-invoice"></i>
-                    <span>Generate Invoice (UC21)</span>
+                    <span>Generate Invoice</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Timesheet Approval feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-check-circle"></i>
                     <span>Approve Timesheets</span>
                 </a>
@@ -1397,15 +1369,15 @@
                 </a>
 
                 <div class="menu-label">Procurement</div>
-                <a href="#" class="nav-item" onclick="alert('Supplier Management feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-truck"></i>
-                    <span>Manage Suppliers (UC9)</span>
+                    <span>Manage Suppliers</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Supplier Contracts feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-file-signature"></i>
                     <span>Supplier Contracts</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Equipment feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-tools"></i>
                     <span>Equipment Management</span>
                 </a>
@@ -1418,11 +1390,11 @@
                     <span>Dashboard</span>
                 </a>
                 <div class="menu-label">My Work</div>
-                <a href="#" class="nav-item" onclick="alert('My Tasks feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-tasks"></i>
                     <span>My Tasks</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('My Timesheets feature coming soon!')">
+                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-clock"></i>
                     <span>My Timesheets</span>
                 </a>

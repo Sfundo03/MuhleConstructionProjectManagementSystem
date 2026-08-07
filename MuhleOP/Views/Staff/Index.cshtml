@@ -1,5 +1,4 @@
-﻿
-@model MuhleOP.ViewModels.StaffListViewModel
+﻿﻿@model MuhleOP.ViewModels.StaffListViewModel
 @{
     ViewBag.Title = "Staff Management";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -8,21 +7,38 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h2>Staff Management</h2>
-        <p class="text-muted">Manage all staff members and their roles</p>
+        <p class="text-muted">
+            <i class="fas fa-users me-2"></i>
+            Manage all staff members and their roles
+        </p>
     </div>
-    <a href="@Url.Action("Hire")" class="btn btn-success">
-        <i class="fas fa-user-plus"></i> Hire Staff
-    </a>
+    <div>
+        <a href="@Url.Action("Hire")" class="btn btn-success">
+            <i class="fas fa-user-plus"></i> Hire Staff
+        </a>
+        <a href="@Url.Action("Index", "JobPost")" class="btn btn-secondary ms-2">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
 </div>
 
 @if (TempData["SuccessMessage"] != null)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
         <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
     </div>
 }
 
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+    </div>
+}
+
+<!-- Stats Cards -->
 <div class="row mb-4">
     <div class="col-md-4">
         <div class="card border-0 shadow-sm">
@@ -62,7 +78,7 @@
                         <h6 class="text-muted mb-2">Inactive Staff</h6>
                         <h3 class="mb-0">@Model.InactiveStaff</h3>
                     </div>
-                    <div class="icon-circle bg-warning text-white">
+                    <div class="icon-circle bg-secondary text-white">
                         <i class="fas fa-user-slash"></i>
                     </div>
                 </div>
@@ -71,10 +87,11 @@
     </div>
 </div>
 
+<!-- Staff Table -->
 <div class="card border-0 shadow-sm">
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover" id="staffTable">
                 <thead>
                     <tr>
                         <th>Staff Member</th>
@@ -88,7 +105,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @if (Model.StaffMembers.Any())
+                    @if (Model.StaffMembers != null && Model.StaffMembers.Any())
                     {
                         foreach (var staff in Model.StaffMembers)
                         {
@@ -111,7 +128,7 @@
                                 </td>
                                 <td><code>@staff.EmployeeId</code></td>
                                 <td>@staff.Department</td>
-                                <td>@staff.HireDate.ToString("yyyy-MM-dd")</td>
+                                <td>@staff.HireDate.ToString("dd MMM yyyy")</td>
                                 <td>
                                     @if (staff.IsActive)
                                     {
@@ -127,7 +144,9 @@
                                         <a href="@Url.Action("Details", new { id = staff.Id })" class="btn btn-outline-info" title="View Details">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <button onclick="toggleActive(@staff.Id, '@staff.FullName')" class="btn btn-outline-@(staff.IsActive ? "warning" : "success")" title="@(staff.IsActive ? "Deactivate" : "Activate")">
+                                        <button onclick="toggleActive(@staff.Id, '@staff.FullName')"
+                                                class="btn btn-outline-@(staff.IsActive ? "warning" : "success")"
+                                                title="@(staff.IsActive ? "Deactivate" : "Activate")">
                                             <i class="fas fa-@(staff.IsActive ? "user-slash" : "user-check")"></i>
                                         </button>
                                     </div>
@@ -139,7 +158,7 @@
                     {
                         <tr>
                             <td colspan="8" class="text-center py-5">
-                                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                                <i class="fas fa-users fa-3x text-muted mb-3" style="opacity:0.3;"></i>
                                 <h5>No Staff Members</h5>
                                 <p class="text-muted">Hire your first staff member to get started.</p>
                                 <a href="@Url.Action("Hire")" class="btn btn-success">
@@ -173,16 +192,12 @@
         background-color: #1cc88a;
     }
 
-    .bg-warning {
-        background-color: #f6c23e;
-    }
-
-    .bg-info {
-        background-color: #36b9cc;
+    .bg-secondary {
+        background-color: #858796;
     }
 
     .bg-gold {
-        background-color: var(--primary-gold);
+        background-color: var(--primary-gold, #F5A623);
     }
 
     .badge {
@@ -197,6 +212,67 @@
         .badge.bg-info {
             color: #fff;
         }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-secondary {
+            color: #fff;
+        }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+
+        .badge.bg-danger {
+            color: #fff;
+        }
+
+    .btn-group .btn {
+        margin: 1px;
+    }
+
+    .btn-outline-info {
+        color: #36b9cc;
+        border-color: #36b9cc;
+    }
+
+        .btn-outline-info:hover {
+            background-color: #36b9cc;
+            color: #fff;
+        }
+
+    .btn-outline-warning {
+        color: #f6c23e;
+        border-color: #f6c23e;
+    }
+
+        .btn-outline-warning:hover {
+            background-color: #f6c23e;
+            color: #fff;
+        }
+
+    .btn-outline-success {
+        color: #1cc88a;
+        border-color: #1cc88a;
+    }
+
+        .btn-outline-success:hover {
+            background-color: #1cc88a;
+            color: #fff;
+        }
+
+    code {
+        background: var(--bg-hover);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+
+    [data-theme="dark"] code {
+        background: var(--bg-hover, #2d3748);
+    }
 </style>
 
 @functions {
@@ -208,6 +284,7 @@
             case "Project Manager": return "success";
             case "Finance Officer": return "warning";
             case "Site Manager": return "info";
+            case "Procurement Officer": return "secondary";
             default: return "secondary";
         }
     }

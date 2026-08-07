@@ -1,0 +1,200 @@
+﻿﻿@model MuhleOP.ViewModels.ContractViewModel
+@{
+    ViewBag.Title = "Send Contract";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Send Contract for Signature</h2>
+        <p class="text-muted">
+            <i class="fas fa-paper-plane me-2"></i>
+            @Model.ContractNumber - @Model.ProjectName
+        </p>
+    </div>
+    <a href="@Url.Action("ContractDetails", new { id = Model.Id })" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Contract
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Ready to send:</strong> This contract will be sent to <strong>@Model.ClientName</strong> for electronic signature.
+                </div>
+
+                <!-- Contract Summary -->
+                <div class="mb-4">
+                    <h5><i class="fas fa-file-contract text-gold me-2"></i>Contract Summary</h5>
+                    <div class="bg-hover p-3 rounded">
+                        <dl class="row">
+                            <dt class="col-sm-4">Contract Number</dt>
+                            <dd class="col-sm-8"><code>@Model.ContractNumber</code></dd>
+                            <dt class="col-sm-4">Project Name</dt>
+                            <dd class="col-sm-8">@Model.ProjectName</dd>
+                            <dt class="col-sm-4">Client</dt>
+                            <dd class="col-sm-8">@Model.ClientName</dd>
+                            <dt class="col-sm-4">Contract Value</dt>
+                            <dd class="col-sm-8">@Model.ContractValue.ToString("C")</dd>
+                            <dt class="col-sm-4">Contract Type</dt>
+                            <dd class="col-sm-8">@Model.ContractType</dd>
+                            <dt class="col-sm-4">Start Date</dt>
+                            <dd class="col-sm-8">@Model.StartDate.ToString("dd MMM yyyy")</dd>
+                            <dt class="col-sm-4">End Date</dt>
+                            <dd class="col-sm-8">@Model.EndDate.ToString("dd MMM yyyy")</dd>
+                            <dt class="col-sm-4">Current Status</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge bg-@(Model.IsSigned ? "success" : Model.Status == "Draft" ? "secondary" : "info")">
+                                    @Model.Status
+                                </span>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <!-- Scope Preview -->
+                <div class="mb-4">
+                    <h5><i class="fas fa-list-check text-gold me-2"></i>Project Scope</h5>
+                    <div class="bg-hover p-3 rounded" style="max-height:150px;overflow-y:auto;">
+                        <p style="white-space: pre-wrap; line-height: 1.8;">@Model.ProjectScope</p>
+                    </div>
+                </div>
+
+                @if (!Model.IsSigned)
+                {
+                    using (Html.BeginForm("SendContract", "Client", FormMethod.Post))
+                    {
+                        @Html.AntiForgeryToken()
+                        @Html.Hidden("id", Model.Id)
+
+                        <div class="alert alert-warning mt-3">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Confirm:</strong> This will send the contract to the client for signature. The client will receive an email notification.
+                        </div>
+
+                        <div class="d-flex gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> Send for Signature
+                            </button>
+                            <a href="@Url.Action("ContractDetails", new { id = Model.Id })" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Already Signed:</strong> This contract has already been signed by the client.
+                    </div>
+                    <a href="@Url.Action("ContractDetails", new { id = Model.Id })" class="btn btn-primary">
+                        <i class="fas fa-eye"></i> View Contract
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-lightbulb text-gold me-2"></i>Before You Send</h6>
+                <ul class="list-unstyled small">
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Review all contract details
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Ensure scope is accurate
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Verify payment terms
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Confirm client email is correct
+                    </li>
+                    <li>
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Client will receive email notification
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-info-circle me-2"></i>Contract Status</h6>
+                <div class="d-flex flex-column gap-2">
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Status</span>
+                        <span class="badge bg-@(Model.IsSigned ? "success" : Model.Status == "Draft" ? "secondary" : "info")">
+                            @Model.Status
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Signed</span>
+                        <span class="badge bg-@(Model.IsSigned ? "success" : "secondary")">
+                            @(Model.IsSigned ? "Yes" : "No")
+                        </span>
+                    </div>
+                    @if (Model.SignatureDate.HasValue)
+                    {
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Signed Date</span>
+                            <span>@Model.SignatureDate.Value.ToString("dd MMM yyyy")</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .text-gold {
+        color: var(--primary-gold, #F5A623);
+    }
+
+    .bg-hover {
+        background: var(--bg-hover, #f8f9fa);
+    }
+
+    [data-theme="dark"] .bg-hover {
+        background: var(--bg-hover, #2d3748);
+    }
+
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-secondary {
+            color: #fff;
+        }
+
+    code {
+        background: var(--bg-hover);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+
+    [data-theme="dark"] code {
+        background: var(--bg-hover, #2d3748);
+    }
+</style>

@@ -1,11 +1,17 @@
-﻿@model MuhleOP.ViewModels.AssessInterviewViewModel
+﻿﻿@model MuhleOP.ViewModels.AssessInterviewViewModel
 @{
     ViewBag.Title = "Assess Interview";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Assess Interview</h2>
+    <div>
+        <h2>Assess Interview</h2>
+        <p class="text-muted">
+            <i class="fas fa-clipboard-check me-2"></i>
+            Evaluate the candidate's interview performance
+        </p>
+    </div>
     <a href="javascript:history.back()" class="btn btn-secondary">
         <i class="fas fa-arrow-left"></i> Back
     </a>
@@ -15,7 +21,7 @@
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
         <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
     </div>
 }
 
@@ -23,7 +29,7 @@
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
     </div>
 }
 
@@ -48,9 +54,9 @@
                     @Html.HiddenFor(m => m.ApplicationId)
                     @Html.HiddenFor(m => m.CandidateId)
 
-                    <div class="mb-3">
+                    <div class="mb-4">
                         @Html.LabelFor(m => m.InterviewResult, new { @class = "form-label fw-bold" })
-                        <div class="d-flex gap-3">
+                        <div class="d-flex gap-4">
                             <div class="form-check">
                                 @Html.RadioButtonFor(m => m.InterviewResult, "Passed", new { @class = "form-check-input", id = "resultPassed" })
                                 <label class="form-check-label text-success fw-bold" for="resultPassed">
@@ -69,8 +75,9 @@
 
                     <div class="mb-3">
                         @Html.LabelFor(m => m.InterviewFeedback, new { @class = "form-label fw-bold" })
-                        @Html.TextAreaFor(m => m.InterviewFeedback, new { @class = "form-control", rows = "6", placeholder = "Provide detailed feedback about the candidate's interview performance..." })
+                        @Html.TextAreaFor(m => m.InterviewFeedback, new { @class = "form-control", rows = "8", placeholder = "Provide detailed feedback about the candidate's interview performance..." })
                         @Html.ValidationMessageFor(m => m.InterviewFeedback, "", new { @class = "text-danger" })
+                        <small class="text-muted d-block mt-1">Include strengths, areas for improvement, and overall assessment</small>
                     </div>
 
                     <div class="d-flex gap-2">
@@ -87,10 +94,10 @@
     </div>
 
     <div class="col-lg-4">
-        <div class="card border-0 shadow-sm">
+        <div class="card border-0 shadow-sm mb-4">
             <div class="card-body">
-                <h6 class="card-title">Assessment Tips</h6>
-                <ul class="list-unstyled">
+                <h6 class="card-title"><i class="fas fa-lightbulb text-gold me-2"></i>Assessment Tips</h6>
+                <ul class="list-unstyled small">
                     <li class="mb-2">
                         <i class="fas fa-check-circle text-success me-2"></i>
                         Be objective in your assessment
@@ -115,9 +122,9 @@
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm mt-4">
+        <div class="card border-0 shadow-sm">
             <div class="card-body">
-                <h6 class="card-title">Candidate Summary</h6>
+                <h6 class="card-title"><i class="fas fa-user me-2"></i>Candidate Summary</h6>
                 <dl class="row small">
                     <dt class="col-5">Name:</dt>
                     <dd class="col-7">@Model.CandidateFullName</dd>
@@ -137,6 +144,29 @@
         </div>
     </div>
 </div>
+
+<style>
+    .text-gold {
+        color: var(--primary-gold, #F5A623);
+    }
+
+    .form-control {
+        font-size: 14px;
+        padding: 10px 14px;
+    }
+
+    .form-check-input:checked + .form-check-label {
+        font-weight: 700;
+    }
+
+    .form-check-input:checked[value="Passed"] + .form-check-label {
+        color: #1cc88a !important;
+    }
+
+    .form-check-input:checked[value="Failed"] + .form-check-label {
+        color: #e74a3b !important;
+    }
+</style>
 
 @section Scripts {
     @Scripts.Render("~/bundles/jqueryval")

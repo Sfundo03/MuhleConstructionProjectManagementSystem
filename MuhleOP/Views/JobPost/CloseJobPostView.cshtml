@@ -1,4 +1,4 @@
-﻿@{
+﻿﻿@{
     ViewBag.Title = (ViewBag.IsClosed ? "Reopen" : "Close") + " Job Post";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     var jobTitle = ViewBag.JobTitle ?? "Unknown";
@@ -7,7 +7,13 @@
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>@(isClosed ? "Reopen" : "Close") Job Post</h2>
+    <div>
+        <h2>@(isClosed ? "Reopen" : "Close") Job Post</h2>
+        <p class="text-muted">
+            <i class="fas fa-@(isClosed ? "folder-open" : "folder") me-2"></i>
+            @(isClosed ? "Reopen this job post for applications" : "Close this job post to stop new applications")
+        </p>
+    </div>
     <a href="@Url.Action("Index")" class="btn btn-secondary">
         <i class="fas fa-arrow-left"></i> Back to List
     </a>
@@ -17,7 +23,7 @@
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
     </div>
 }
 
@@ -25,7 +31,7 @@
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
         <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
     </div>
 }
 
@@ -44,23 +50,41 @@
             }
         </div>
 
-        <dl class="row">
-            <dt class="col-sm-3">Job Title</dt>
-            <dd class="col-sm-9">@jobTitle</dd>
-            <dt class="col-sm-3">Current Status</dt>
-            <dd class="col-sm-9">
-                @if (isClosed)
-                {
-                    <span class="badge bg-secondary">Closed</span>
-                }
-                else
-                {
-                    <span class="badge bg-success">Open</span>
-                }
-            </dd>
-        </dl>
+        <div class="row">
+            <div class="col-md-6">
+                <dl class="row">
+                    <dt class="col-sm-4">Job Title</dt>
+                    <dd class="col-sm-8"><strong>@jobTitle</strong></dd>
 
-        <div class="d-flex gap-2">
+                    <dt class="col-sm-4">Current Status</dt>
+                    <dd class="col-sm-8">
+                        @if (isClosed)
+                        {
+                            <span class="badge bg-secondary">Closed</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success">Open</span>
+                        }
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="alert alert-info mt-3">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Note:</strong>
+            @if (isClosed)
+            {
+                <text>Reopening will allow candidates to view and apply for this position again.</text>
+            }
+            else
+            {
+                <text>Closing will prevent new applications. Existing applications will still be visible.</text>
+            }
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
             <button onclick="toggleJobPost(@jobId)" class="btn btn-@(isClosed ? "success" : "warning")">
                 <i class="fas fa-@(isClosed ? "folder-open" : "folder") me-2"></i>
                 @(isClosed ? "Reopen Job Post" : "Close Job Post")
@@ -71,6 +95,29 @@
         </div>
     </div>
 </div>
+
+<style>
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-warning {
+            color: #fff;
+        }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-secondary {
+            color: #fff;
+        }
+</style>
 
 @section Scripts {
     <script>
