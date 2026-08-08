@@ -84,11 +84,13 @@ namespace MuhleOP.Models
 
         // Navigation Properties
         public virtual ICollection<JobApplication> JobApplications { get; set; }
+        public virtual ICollection<Quiz> Quizzes { get; set; }
 
         public JobPost()
         {
             DatePosted = DateTime.Now;
             JobApplications = new List<JobApplication>();
+            Quizzes = new List<Quiz>();
         }
     }
 
@@ -187,6 +189,7 @@ namespace MuhleOP.Models
 
         // Navigation Properties
         public virtual ICollection<ApplicationStatusHistory> StatusHistory { get; set; }
+        public virtual ICollection<QuizAttempt> QuizAttempts { get; set; }
 
         public JobApplication()
         {
@@ -199,6 +202,7 @@ namespace MuhleOP.Models
             RankingScore = 0;
             SkillsMatchPercentage = 0;
             StatusHistory = new List<ApplicationStatusHistory>();
+            QuizAttempts = new List<QuizAttempt>();
         }
     }
 
@@ -233,6 +237,8 @@ namespace MuhleOP.Models
         }
     }
 
+    // ===== QUIZ MODELS =====
+
     public class Quiz
     {
         [Key]
@@ -253,11 +259,17 @@ namespace MuhleOP.Models
         [ForeignKey("JobPostId")]
         public virtual JobPost JobPost { get; set; }
 
+        [Display(Name = "System Role")]
+        public string SystemRoleId { get; set; }
+
         [Display(Name = "Time Limit (Minutes)")]
         public int TimeLimitMinutes { get; set; } = 30;
 
         [Display(Name = "Passing Score")]
-        public int PassingScore { get; set; } = 70;
+        public int PassingScore { get; set; } = 60;
+
+        [Display(Name = "Number of Questions")]
+        public int NumberOfQuestions { get; set; } = 10;
 
         [Display(Name = "Is Active")]
         public bool IsActive { get; set; }
@@ -270,12 +282,14 @@ namespace MuhleOP.Models
 
         // Navigation Properties
         public virtual ICollection<QuizQuestion> Questions { get; set; }
+        public virtual ICollection<QuizAttempt> Attempts { get; set; }
 
         public Quiz()
         {
             IsActive = true;
             CreatedDate = DateTime.Now;
             Questions = new List<QuizQuestion>();
+            Attempts = new List<QuizAttempt>();
         }
     }
 
@@ -297,7 +311,7 @@ namespace MuhleOP.Models
 
         [Required]
         [Display(Name = "Question Type")]
-        public string QuestionType { get; set; } // MultipleChoice, TrueFalse, ShortAnswer
+        public string QuestionType { get; set; } = "MultipleChoice";
 
         [Display(Name = "Options (JSON)")]
         public string OptionsJson { get; set; }

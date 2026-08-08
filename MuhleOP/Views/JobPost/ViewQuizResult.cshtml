@@ -1,0 +1,168 @@
+﻿
+@model MuhleOP.ViewModels.QuizResultViewModel
+@{
+    ViewBag.Title = "Candidate Quiz Result";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Quiz Result</h2>
+        <p class="text-muted">
+            <i class="fas fa-brain me-2"></i>
+            @ViewBag.CandidateFullName - @Model.JobTitle
+        </p>
+    </div>
+    <a href="@Url.Action("AssessInterview", new { id = Model.ApplicationId })" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Assessment
+    </a>
+</div>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+    </div>
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="alert alert-info text-start">
+                    <i class="fas fa-user me-2"></i>
+                    <strong>Candidate:</strong> @ViewBag.CandidateFullName
+                    (@ViewBag.CandidateEmail)
+                    <br />
+                    <i class="fas fa-briefcase me-2"></i>
+                    <strong>Position:</strong> @Model.JobTitle
+                    <br />
+                    <i class="fas fa-clipboard-list me-2"></i>
+                    <strong>Quiz:</strong> @Model.QuizTitle
+                </div>
+
+                @if (Model.Passed)
+                {
+                    <div class="mb-4">
+                        <div class="display-1 text-success">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <h2 class="text-success">Passed</h2>
+                        <p class="lead">The candidate passed the quiz.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-4">
+                        <div class="display-1 text-danger">
+                            <i class="fas fa-times-circle"></i>
+                        </div>
+                        <h2 class="text-danger">Not Passed</h2>
+                        <p class="lead">The candidate did not reach the passing score.</p>
+                    </div>
+                }
+
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="bg-hover p-3 rounded">
+                            <small class="text-muted">Score</small>
+                            <h3 class="mb-0">@Model.Score%</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="bg-hover p-3 rounded">
+                            <small class="text-muted">Correct Answers</small>
+                            <h3 class="mb-0">@Model.CorrectAnswers / @Model.TotalQuestions</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="bg-hover p-3 rounded">
+                            <small class="text-muted">Passing Score</small>
+                            <h3 class="mb-0">@Model.PassingScore%</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="bg-hover p-3 rounded">
+                            <small class="text-muted">Time Taken</small>
+                            <h3 class="mb-0">@(Model.TimeTakenSeconds / 60)m @(Model.TimeTakenSeconds % 60)s</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-2">
+                    <div class="col-md-6">
+                        <small class="text-muted">Started:</small>
+                        <strong>@Model.StartTime.ToString("dd MMM yyyy HH:mm")</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted">Submitted:</small>
+                        <strong>@Model.EndTime.ToString("dd MMM yyyy HH:mm")</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Review Answers -->
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="mb-0"><i class="fas fa-list-check me-2"></i>Answer Breakdown</h6>
+            </div>
+            <div class="card-body">
+                @foreach (var question in Model.Questions)
+                {
+                    <div class="question-review mb-4 p-3 rounded @(question.IsCorrect ? "bg-success bg-opacity-10" : "bg-danger bg-opacity-10")">
+                        <div class="d-flex align-items-start">
+                            <span class="badge @(question.IsCorrect ? "bg-success" : "bg-danger") me-2">@(question.IsCorrect ? "✓" : "✗")</span>
+                            <div>
+                                <p class="fw-bold mb-2">@question.Question</p>
+                                <div class="small">
+                                    <div>
+                                        <strong>Candidate's Answer:</strong>
+                                        <span class="@(question.IsCorrect ? "text-success" : "text-danger")">
+                                            @(question.SelectedAnswer ?? "Not answered")
+                                        </span>
+                                    </div>
+                                    @if (!question.IsCorrect)
+                                    {
+                                        <div>
+                                            <strong>Correct Answer:</strong>
+                                            <span class="text-success">@question.CorrectAnswer</span>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-4 mb-4">
+            <a href="@Url.Action("AssessInterview", new { id = Model.ApplicationId })" class="btn btn-primary">
+                <i class="fas fa-clipboard-check me-2"></i> Back to Assessment
+            </a>
+            <a href="@Url.Action("ReviewApplications", new { id = ViewBag.JobPostId })" class="btn btn-secondary">
+                <i class="fas fa-list me-2"></i> All Applications
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-hover {
+        background: var(--bg-hover, #f8f9fa);
+    }
+
+    [data-theme="dark"] .bg-hover {
+        background: var(--bg-hover, #2d3748);
+    }
+
+    .bg-success.bg-opacity-10 {
+        background-color: rgba(28, 200, 138, 0.1) !important;
+    }
+
+    .bg-danger.bg-opacity-10 {
+        background-color: rgba(231, 74, 59, 0.1) !important;
+    }
+</style>

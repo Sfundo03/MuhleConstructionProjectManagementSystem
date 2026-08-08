@@ -73,7 +73,6 @@ namespace MuhleOP.ViewModels
         public int AcceptedCount { get; set; }
         public DateTime? AutoCloseDate { get; set; }
 
-        // NEW: System Role selection
         [Required(ErrorMessage = "Please select a system role")]
         [Display(Name = "System Role")]
         public string SystemRoleId { get; set; }
@@ -83,7 +82,6 @@ namespace MuhleOP.ViewModels
         public string StatusBadgeColor => IsClosed ? "secondary" : IsPublished ? "success" : "warning";
         public string StatusText => IsClosed ? "Closed" : IsPublished ? "Published" : "Draft";
 
-        // List of available roles for dropdown
         public List<SelectListItem> AvailableRoles { get; set; }
 
         public JobPostViewModel()
@@ -91,8 +89,6 @@ namespace MuhleOP.ViewModels
             AvailableRoles = new List<SelectListItem>();
         }
     }
-
-    // ... Rest of the ViewModels remain the same ...
 
     public class ApplicationReviewViewModel
     {
@@ -135,6 +131,13 @@ namespace MuhleOP.ViewModels
         public bool IsInterviewCompleted { get; set; }
 
         public bool IsHired { get; set; }
+
+        // Quiz Properties
+        public bool QuizInvited { get; set; }
+        public bool QuizCompleted { get; set; }
+        public int? QuizScore { get; set; }
+        public bool? QuizPassed { get; set; }
+        public DateTime? QuizCompletedDate { get; set; }
 
         // Ranking helper data (used by RankCandidate)
         public List<string> ExtractedSkills { get; set; }
@@ -194,6 +197,19 @@ namespace MuhleOP.ViewModels
         [Required(ErrorMessage = "Interview type is required")]
         [Display(Name = "Interview Type")]
         public string InterviewType { get; set; }
+
+        // Quiz invitation
+        [Display(Name = "Send Quiz Invitation")]
+        public bool SendQuizInvitation { get; set; } = true;
+
+        [Display(Name = "Quiz Time Limit (Minutes)")]
+        public int QuizTimeLimit { get; set; } = 30;
+
+        [Display(Name = "Quiz Passing Score")]
+        public int QuizPassingScore { get; set; } = 60;
+
+        [Display(Name = "Number of Questions")]
+        public int QuizQuestionCount { get; set; } = 10;
     }
 
     public class AssessInterviewViewModel
@@ -226,6 +242,23 @@ namespace MuhleOP.ViewModels
         [Display(Name = "Interview Feedback")]
         [DataType(DataType.MultilineText)]
         public string InterviewFeedback { get; set; }
+
+        // Quiz Properties - lets the admin see the candidate's autograded quiz result
+        // while assessing the interview
+        [Display(Name = "Quiz Completed")]
+        public bool QuizCompleted { get; set; }
+
+        [Display(Name = "Quiz Score")]
+        public int? QuizScore { get; set; }
+
+        [Display(Name = "Quiz Passed")]
+        public bool? QuizPassed { get; set; }
+
+        [Display(Name = "Quiz Completed Date")]
+        public DateTime? QuizCompletedDate { get; set; }
+
+        [Display(Name = "Quiz Attempt Id")]
+        public int? QuizAttemptId { get; set; }
     }
 
     public class ApplicationHistoryViewModel
@@ -247,6 +280,12 @@ namespace MuhleOP.ViewModels
         public bool IsInterviewCompleted { get; set; }
 
         public bool IsHired { get; set; }
+
+        // Quiz Properties
+        public bool QuizCompleted { get; set; }
+        public int? QuizScore { get; set; }
+        public bool? QuizPassed { get; set; }
+        public DateTime? QuizCompletedDate { get; set; }
     }
 
     public class CandidateDetailsViewModel
@@ -298,6 +337,113 @@ namespace MuhleOP.ViewModels
         public CandidateDetailsViewModel()
         {
             ApplicationHistory = new List<ApplicationHistoryViewModel>();
+        }
+    }
+
+    // ===== QUIZ VIEWMODELS =====
+
+    public class QuizViewModel
+    {
+        public int QuizId { get; set; }
+
+        [Required]
+        [Display(Name = "Quiz Title")]
+        public string Title { get; set; }
+
+        [Display(Name = "Description")]
+        public string Description { get; set; }
+
+        [Required]
+        [Display(Name = "Time Limit (Minutes)")]
+        [Range(1, 120)]
+        public int TimeLimitMinutes { get; set; } = 30;
+
+        [Required]
+        [Display(Name = "Passing Score")]
+        [Range(1, 100)]
+        public int PassingScore { get; set; } = 60;
+
+        [Required]
+        [Display(Name = "Number of Questions")]
+        [Range(1, 20)]
+        public int NumberOfQuestions { get; set; } = 10;
+
+        public int ApplicationId { get; set; }
+        public string JobTitle { get; set; }
+        public string CandidateName { get; set; }
+        public List<QuizQuestionViewModel> Questions { get; set; }
+
+        public QuizViewModel()
+        {
+            Questions = new List<QuizQuestionViewModel>();
+        }
+    }
+
+    public class QuizQuestionViewModel
+    {
+        public int Id { get; set; }
+
+        [Required]
+        public string Question { get; set; }
+
+        public List<string> Options { get; set; }
+        public string SelectedAnswer { get; set; }
+        public string CorrectAnswer { get; set; }
+        public int Points { get; set; } = 1;
+        public int Order { get; set; }
+        public bool IsCorrect { get; set; }
+
+        // For form submission
+        public string OptionsText { get; set; }
+
+        public QuizQuestionViewModel()
+        {
+            Options = new List<string>();
+        }
+    }
+
+    public class QuizResultViewModel
+    {
+        public int QuizId { get; set; }
+        public string QuizTitle { get; set; }
+        public int ApplicationId { get; set; }
+        public string JobTitle { get; set; }
+        public int Score { get; set; }
+        public int TotalQuestions { get; set; }
+        public int CorrectAnswers { get; set; }
+        public bool Passed { get; set; }
+        public int PassingScore { get; set; }
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
+        public int TimeTakenSeconds { get; set; }
+        public List<QuizQuestionViewModel> Questions { get; set; }
+
+        public QuizResultViewModel()
+        {
+            Questions = new List<QuizQuestionViewModel>();
+        }
+    }
+
+    public class QuizSubmissionViewModel
+    {
+        public int AttemptId { get; set; }
+        public Dictionary<int, string> Answers { get; set; }
+
+        public QuizSubmissionViewModel()
+        {
+            Answers = new Dictionary<int, string>();
+        }
+    }
+
+    public class GenerateQuestionsViewModel
+    {
+        public int JobPostId { get; set; }
+        public int Count { get; set; } = 10;
+        public List<QuizQuestionViewModel> Questions { get; set; }
+
+        public GenerateQuestionsViewModel()
+        {
+            Questions = new List<QuizQuestionViewModel>();
         }
     }
 }

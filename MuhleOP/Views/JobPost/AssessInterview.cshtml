@@ -1,4 +1,4 @@
-﻿﻿@model MuhleOP.ViewModels.AssessInterviewViewModel
+﻿@model MuhleOP.ViewModels.AssessInterviewViewModel
 @{
     ViewBag.Title = "Assess Interview";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -140,6 +140,42 @@
                         <dd class="col-7">@Model.InterviewDateTime.Value.ToString("dd MMM HH:mm")</dd>
                     }
                 </dl>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-brain me-2"></i>Quiz Result</h6>
+                @if (Model.QuizCompleted)
+                {
+                    <dl class="row small mb-3">
+                        <dt class="col-6">Status:</dt>
+                        <dd class="col-6">
+                            @if (Model.QuizPassed == true)
+                            {
+                                <span class="badge bg-success">Passed</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger">Failed</span>
+                            }
+                        </dd>
+                        <dt class="col-6">Score:</dt>
+                        <dd class="col-6">@Model.QuizScore%</dd>
+                        <dt class="col-6">Completed:</dt>
+                        <dd class="col-6">@Model.QuizCompletedDate.Value.ToString("dd MMM yyyy HH:mm")</dd>
+                    </dl>
+                    <a href="@Url.Action("ViewQuizResult", new { id = Model.ApplicationId })" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="fas fa-list-check"></i> View Full Quiz Result
+                    </a>
+                }
+                else
+                {
+                    <p class="text-muted small mb-0">
+                        <i class="fas fa-hourglass-half me-1"></i>
+                        The candidate has not completed the quiz yet.
+                    </p>
+                }
             </div>
         </div>
     </div>

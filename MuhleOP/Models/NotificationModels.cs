@@ -26,7 +26,7 @@ namespace MuhleOP.Models
         public string Message { get; set; }
 
         [Display(Name = "Type")]
-        public string Type { get; set; } // Application, Interview, Status, System, Project, Finance, Maintenance
+        public string Type { get; set; } // Application, Interview, Status, System, Project, Finance, Maintenance, Quiz
 
         [Display(Name = "Is Read")]
         public bool IsRead { get; set; }

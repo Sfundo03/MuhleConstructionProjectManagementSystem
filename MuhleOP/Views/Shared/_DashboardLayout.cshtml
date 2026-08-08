@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿﻿
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -431,6 +432,10 @@
                     background: #858796;
                 }
 
+                .notification-item .icon.quiz {
+                    background: #9b59b6;
+                }
+
             .notification-item .content {
                 flex: 1;
                 min-width: 0;
@@ -688,6 +693,17 @@
                 border-color: #717384;
             }
 
+        .btn-info {
+            color: #fff;
+            background-color: #36b9cc;
+            border-color: #36b9cc;
+        }
+
+            .btn-info:hover {
+                background-color: #258391;
+                border-color: #258391;
+            }
+
         .btn-outline-primary {
             color: #4e73df;
             border-color: #4e73df;
@@ -752,6 +768,28 @@
             .btn-outline-danger:hover {
                 background-color: #e74a3b;
                 color: #fff;
+            }
+
+        .btn-outline-gold {
+            color: var(--primary-gold);
+            border-color: var(--primary-gold);
+            background: transparent;
+        }
+
+            .btn-outline-gold:hover {
+                background-color: var(--primary-gold);
+                color: #fff;
+            }
+
+        .btn-gold {
+            color: #fff;
+            background-color: var(--primary-gold);
+            border-color: var(--primary-gold);
+        }
+
+            .btn-gold:hover {
+                background-color: #d4a00e;
+                border-color: #d4a00e;
             }
 
         /* Form Controls */
@@ -854,6 +892,11 @@
 
         .badge-secondary {
             background: #858796;
+            color: #fff;
+        }
+
+        .badge-gold {
+            background: var(--primary-gold);
             color: #fff;
         }
 
@@ -1043,6 +1086,40 @@
             font-size: 12px;
         }
 
+        /* Quiz Card Styles */
+        .quiz-card {
+            background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-hover) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+            .quiz-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 25px var(--shadow-color);
+                border-color: var(--primary-gold);
+            }
+
+            .quiz-card .quiz-icon {
+                font-size: 32px;
+                color: var(--primary-gold);
+                margin-bottom: 12px;
+            }
+
+            .quiz-card .quiz-title {
+                font-weight: 600;
+                font-size: 16px;
+                color: var(--text-primary);
+                margin-bottom: 4px;
+            }
+
+            .quiz-card .quiz-meta {
+                font-size: 13px;
+                color: var(--text-secondary);
+            }
+
         /* Responsive */
         @@media (max-width: 768px) {
             .sidebar {
@@ -1132,13 +1209,11 @@
                     <i class="fas fa-users"></i>
                     <span>All Applications</span>
                 </a>
+
+                <!-- Quiz Management for Admin -->
                 <a href="@Url.Action("AllApplications", "JobPost")" class="nav-item">
-                    <i class="fas fa-star"></i>
-                    <span>Review & Shortlist</span>
-                </a>
-                <a href="@Url.Action("AllApplications", "JobPost")" class="nav-item">
-                    <i class="fas fa-calendar-plus"></i>
-                    <span>Schedule Interview</span>
+                    <i class="fas fa-brain"></i>
+                    <span>Quiz Results</span>
                 </a>
 
                 <div class="menu-label">Staff</div>
@@ -1160,14 +1235,6 @@
                     <i class="fas fa-user-plus"></i>
                     <span>Register Client</span>
                 </a>
-                <a href="@Url.Action("Index", "Client")" class="nav-item">
-                    <i class="fas fa-file-contract"></i>
-                    <span>Create Contract</span>
-                </a>
-                <a href="@Url.Action("Index", "Client")" class="nav-item">
-                    <i class="fas fa-signature"></i>
-                    <span>Sign Contract</span>
-                </a>
 
                 <div class="menu-label">Projects</div>
                 <a href="@Url.Action("Index", "Project")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Project" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")">
@@ -1178,37 +1245,11 @@
                     <i class="fas fa-rocket"></i>
                     <span>Initiate Project</span>
                 </a>
-                <a href="@Url.Action("Index", "Project")" class="nav-item">
-                    <i class="fas fa-user-friends"></i>
-                    <span>Assign Staff</span>
-                </a>
-                <a href="@Url.Action("Index", "Project")" class="nav-item">
-                    <i class="fas fa-tools"></i>
-                    <span>Assign Equipment</span>
-                </a>
 
                 <div class="menu-label">Operations</div>
                 <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-clipboard-list"></i>
                     <span>Daily Tasks</span>
-                </a>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
-                    <i class="fas fa-clock"></i>
-                    <span>Timesheets</span>
-                </a>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
-                    <i class="fas fa-wrench"></i>
-                    <span>Equipment Maintenance</span>
-                </a>
-
-                <div class="menu-label">Quality</div>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
-                    <i class="fas fa-check-double"></i>
-                    <span>Inspections</span>
-                </a>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
-                    <i class="fas fa-exchange-alt"></i>
-                    <span>Variations</span>
                 </a>
 
                 <div class="menu-label">Finance</div>
@@ -1244,9 +1285,11 @@
                     <i class="fas fa-file-alt"></i>
                     <span>My Applications</span>
                 </a>
-                <a href="@Url.Action("ApplicationStatus", "Candidate", new { id = 0 })" class="nav-item">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Application Status</span>
+
+                <!-- Quiz Button for Candidate -->
+                <a href="@Url.Action("MyQuizzes", "Candidate")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Candidate" && ViewContext.RouteData.Values["action"]?.ToString() == "MyQuizzes" ? "active" : "")">
+                    <i class="fas fa-brain"></i>
+                    <span>My Quizzes</span>
                 </a>
 
                 <div class="menu-label">Profile</div>
@@ -1280,10 +1323,6 @@
                     <i class="fas fa-user-friends"></i>
                     <span>Assign Staff</span>
                 </a>
-                <a href="@Url.Action("Index", "Project")" class="nav-item">
-                    <i class="fas fa-tools"></i>
-                    <span>Assign Equipment</span>
-                </a>
 
                 <div class="menu-label">Clients</div>
                 <a href="@Url.Action("Index", "Client")" class="nav-item">
@@ -1295,10 +1334,6 @@
                 <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-clipboard-list"></i>
                     <span>Daily Tasks</span>
-                </a>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
-                    <i class="fas fa-check-double"></i>
-                    <span>Inspections</span>
                 </a>
             }
             else if (User.IsInRole("Site Manager"))
@@ -1318,23 +1353,11 @@
                     <i class="fas fa-clock"></i>
                     <span>Record Timesheet</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
-                    <i class="fas fa-wrench"></i>
-                    <span>Schedule Maintenance</span>
-                </a>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
-                    <i class="fas fa-tools"></i>
-                    <span>Record Repairs</span>
-                </a>
 
                 <div class="menu-label">Quality</div>
                 <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-check-double"></i>
                     <span>Conduct Inspection</span>
-                </a>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
-                    <i class="fas fa-edit"></i>
-                    <span>Update Project Status</span>
                 </a>
             }
             else if (User.IsInRole("Finance Officer"))
@@ -1354,10 +1377,6 @@
                     <i class="fas fa-file-invoice"></i>
                     <span>Generate Invoice</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
-                    <i class="fas fa-check-circle"></i>
-                    <span>Approve Timesheets</span>
-                </a>
             }
             else if (User.IsInRole("Procurement Officer"))
             {
@@ -1376,10 +1395,6 @@
                     <i class="fas fa-file-signature"></i>
                     <span>Supplier Contracts</span>
                 </a>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
-                    <i class="fas fa-tools"></i>
-                    <span>Equipment Management</span>
-                </a>
             }
             else
             {
@@ -1392,10 +1407,6 @@
                 <a href="#" class="nav-item" onclick="alert('Coming soon!')">
                     <i class="fas fa-tasks"></i>
                     <span>My Tasks</span>
-                </a>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
-                    <i class="fas fa-clock"></i>
-                    <span>My Timesheets</span>
                 </a>
             }
         </nav>
@@ -1577,32 +1588,32 @@ else
                             updateBadge(data.unreadCount);
                         } else {
                             notificationList.innerHTML = `
-                                        <div class="notification-empty">
-                                            <i class="fas fa-exclamation-circle"></i>
-                                            <p>Failed to load notifications</p>
-                                        </div>
-                                    `;
+                                            <div class="notification-empty">
+                                                <i class="fas fa-exclamation-circle"></i>
+                                                <p>Failed to load notifications</p>
+                                            </div>
+                                        `;
                         }
                     })
                     .catch(error => {
                         console.error('Error loading notifications:', error);
                         notificationList.innerHTML = `
-                                    <div class="notification-empty">
-                                        <i class="fas fa-exclamation-circle"></i>
-                                        <p>Error loading notifications</p>
-                                    </div>
-                                `;
+                                        <div class="notification-empty">
+                                            <i class="fas fa-exclamation-circle"></i>
+                                            <p>Error loading notifications</p>
+                                        </div>
+                                    `;
                     });
             }
 
             function renderNotifications(notifications, unreadCount) {
                 if (!notifications || notifications.length === 0) {
                     notificationList.innerHTML = `
-                                <div class="notification-empty">
-                                    <i class="fas fa-bell-slash"></i>
-                                    <p>No notifications</p>
-                                </div>
-                            `;
+                                    <div class="notification-empty">
+                                        <i class="fas fa-bell-slash"></i>
+                                        <p>No notifications</p>
+                                    </div>
+                                `;
                     updateBadge(0);
                     return;
                 }
@@ -1614,17 +1625,17 @@ else
                     const link = notification.link || '#';
 
                     html += `
-                                <div class="notification-item ${unreadClass}" data-id="${notification.id}" data-link="${link}">
-                                    <div class="icon ${iconClass}">
-                                        <i class="fas fa-${getIcon(notification.type)}"></i>
+                                    <div class="notification-item ${unreadClass}" data-id="${notification.id}" data-link="${link}">
+                                        <div class="icon ${iconClass}">
+                                            <i class="fas fa-${getIcon(notification.type)}"></i>
+                                        </div>
+                                        <div class="content">
+                                            <div class="title">${escapeHtml(notification.title)}</div>
+                                            <div class="message">${escapeHtml(notification.message)}</div>
+                                            <div class="time">${notification.timeAgo}</div>
+                                        </div>
                                     </div>
-                                    <div class="content">
-                                        <div class="title">${escapeHtml(notification.title)}</div>
-                                        <div class="message">${escapeHtml(notification.message)}</div>
-                                        <div class="time">${notification.timeAgo}</div>
-                                    </div>
-                                </div>
-                            `;
+                                `;
                 });
 
                 notificationList.innerHTML = html;
@@ -1700,7 +1711,8 @@ else
                     'Application': 'application',
                     'Interview': 'interview',
                     'Status': 'status',
-                    'System': 'system'
+                    'System': 'system',
+                    'Quiz': 'quiz'
                 };
                 return types[type] || 'system';
             }
@@ -1710,7 +1722,8 @@ else
                     'Application': 'file-alt',
                     'Interview': 'calendar-check',
                     'Status': 'clock',
-                    'System': 'cog'
+                    'System': 'cog',
+                    'Quiz': 'brain'
                 };
                 return icons[type] || 'bell';
             }

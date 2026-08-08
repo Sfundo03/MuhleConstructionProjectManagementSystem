@@ -1,0 +1,267 @@
+﻿﻿@model MuhleOP.ViewModels.QuizViewModel
+@{
+    ViewBag.Title = "Manage Quiz";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var jobPostId = ViewBag.JobPostId ?? 0;
+    var jobTitle = ViewBag.JobTitle ?? "Unknown";
+    var hasQuiz = ViewBag.HasQuiz ?? false;
+    var applicationCount = ViewBag.ApplicationCount ?? 0;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Manage Quiz</h2>
+        <p class="text-muted">
+            <i class="fas fa-brain me-2"></i>
+            Create and manage quiz for <strong>@jobTitle</strong>
+        </p>
+    </div>
+    <a href="@Url.Action("ReviewApplications", new { id = jobPostId })" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Applications
+    </a>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                @using (Html.BeginForm(hasQuiz ? "UpdateQuiz" : "CreateQuiz", "JobPost", FormMethod.Post))
+                {
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="QuizId" value="@(hasQuiz ? Model.QuizId : jobPostId)" />
+
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.Title, new { @class = "form-label fw-bold" })
+                        @Html.TextBoxFor(m => m.Title, new { @class = "form-control", placeholder = "Quiz Title" })
+                        @Html.ValidationMessageFor(m => m.Title, "", new { @class = "text-danger" })
+                    </div>
+
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.Description, new { @class = "form-label fw-bold" })
+                        @Html.TextAreaFor(m => m.Description, new { @class = "form-control", rows = "2", placeholder = "Quiz Description" })
+                        @Html.ValidationMessageFor(m => m.Description, "", new { @class = "text-danger" })
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                @Html.LabelFor(m => m.TimeLimitMinutes, new { @class = "form-label fw-bold" })
+                                @Html.TextBoxFor(m => m.TimeLimitMinutes, new { @class = "form-control", type = "number", min = "1", max = "120" })
+                                @Html.ValidationMessageFor(m => m.TimeLimitMinutes, "", new { @class = "text-danger" })
+                                <small class="text-muted">Minutes</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                @Html.LabelFor(m => m.PassingScore, new { @class = "form-label fw-bold" })
+                                @Html.TextBoxFor(m => m.PassingScore, new { @class = "form-control", type = "number", min = "1", max = "100" })
+                                @Html.ValidationMessageFor(m => m.PassingScore, "", new { @class = "text-danger" })
+                                <small class="text-muted">%</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                @Html.LabelFor(m => m.NumberOfQuestions, new { @class = "form-label fw-bold" })
+                                @Html.TextBoxFor(m => m.NumberOfQuestions, new { @class = "form-control", type = "number", min = "1", max = "20" })
+                                @Html.ValidationMessageFor(m => m.NumberOfQuestions, "", new { @class = "text-danger" })
+                                <small class="text-muted">Questions</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Note:</strong> Questions are auto-generated based on the job requirements and role. You can edit them below.
+                    </div>
+
+                    <div id="questionsContainer">
+                        @if (hasQuiz && Model.Questions != null && Model.Questions.Any())
+                        {
+                            for (int i = 0; i < Model.Questions.Count; i++)
+                            {
+                                var q = Model.Questions[i];
+                                <div class="question-item mb-4 p-3 border rounded">
+                                    <input type="hidden" name="Questions[@i].Id" value="@q.Id" />
+                                    <input type="hidden" name="Questions[@i].Order" value="@(i + 1)" />
+                                    <div class="mb-2">
+                                        <label class="form-label fw-bold">Question @(i + 1)</label>
+                                        <input type="text" name="Questions[@i].Question" value="@q.Question" class="form-control" />
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-9">
+                                            <label class="form-label small">Options (one per line)</label>
+                                            <textarea name="Questions[@i].OptionsText" class="form-control" rows="4">@string.Join("\n", q.Options)</textarea>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small">Correct Answer</label>
+                                            <input type="text" name="Questions[@i].CorrectAnswer" value="@q.CorrectAnswer" class="form-control" />
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center py-4">
+                                <i class="fas fa-plus-circle fa-3x text-muted mb-3" style="opacity:0.3;"></i>
+                                <p class="text-muted">No questions yet. Click "Generate Questions" to auto-create questions based on the job requirements.</p>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="button" class="btn btn-outline-primary" onclick="generateQuestions()">
+                            <i class="fas fa-magic"></i> Generate Questions
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> @(hasQuiz ? "Update" : "Create") Quiz
+                        </button>
+                        <a href="@Url.Action("ReviewApplications", new { id = jobPostId })" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-info-circle me-2"></i>Quiz Statistics</h6>
+                <dl class="row small">
+                    <dt class="col-6">Job Post</dt>
+                    <dd class="col-6">@jobTitle</dd>
+                    <dt class="col-6">Applications</dt>
+                    <dd class="col-6">@applicationCount</dd>
+                    <dt class="col-6">Quiz Status</dt>
+                    <dd class="col-6">
+                        @if (hasQuiz)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Not Created</span>
+                        }
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-lightbulb me-2"></i>Quiz Tips</h6>
+                <ul class="list-unstyled small">
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Questions are auto-generated from job requirements
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Set appropriate passing score (recommended: 60%)
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Time limit should be adequate for all questions
+                    </li>
+                    <li>
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        You can edit questions after generation
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .question-item {
+        background: var(--bg-hover, #f8f9fa);
+        border-color: #e9ecef !important;
+    }
+
+    [data-theme="dark"] .question-item {
+        background: var(--bg-hover, #2d3748);
+        border-color: #2d3748 !important;
+    }
+
+    .form-control {
+        font-size: 14px;
+    }
+</style>
+
+@section Scripts {
+    <script>
+        function generateQuestions() {
+            if (!confirm('This will generate new questions based on the job requirements. Existing questions will be replaced. Continue?')) {
+                return;
+            }
+
+            const jobPostId = @jobPostId;
+            const count = $('#NumberOfQuestions').val() || 10;
+
+            $('#generateBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i> Generating...');
+
+            $.ajax({
+                url: '@Url.Action("GenerateQuestions", "JobPost")',
+                type: 'POST',
+                data: { jobPostId: jobPostId, count: count },
+                success: function(response) {
+                    if (response.success) {
+                        // Update the questions container
+                        let html = '';
+                        response.questions.forEach((q, index) => {
+                            html += `
+                                <div class="question-item mb-4 p-3 border rounded">
+                                    <input type="hidden" name="Questions[${index}].Id" value="0" />
+                                    <input type="hidden" name="Questions[${index}].Order" value="${index + 1}" />
+                                    <div class="mb-2">
+                                        <label class="form-label fw-bold">Question ${index + 1}</label>
+                                        <input type="text" name="Questions[${index}].Question" value="${q.Question}" class="form-control" />
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-9">
+                                            <label class="form-label small">Options (one per line)</label>
+                                            <textarea name="Questions[${index}].OptionsText" class="form-control" rows="4">${q.Options.join('\n')}</textarea>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small">Correct Answer</label>
+                                            <input type="text" name="Questions[${index}].CorrectAnswer" value="${q.CorrectAnswer}" class="form-control" />
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        $('#questionsContainer').html(html);
+                        $('#NumberOfQuestions').val(response.questions.length);
+                    } else {
+                        alert('Error generating questions: ' + response.message);
+                    }
+                },
+                error: function() {
+                    alert('An error occurred while generating questions.');
+                },
+                complete: function() {
+                    $('#generateBtn').prop('disabled', false).html('<i class="fas fa-magic"></i> Generate Questions');
+                }
+            });
+        }
+    </script>
+}

@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Text;
 using iTextSharp.text.pdf;
 using iTextSharp.text.pdf.parser;
+using Newtonsoft.Json;
 
 namespace MuhleOP.Controllers
 {
@@ -459,7 +460,11 @@ namespace MuhleOP.Controllers
                         YearsOfExperience = rankedData.YearsOfExperience,
                         HighestQualification = rankedData.HighestQualification,
                         HasGrade12 = rankedData.HasGrade12,
-                        HasDriversLicense = rankedData.HasDriversLicense
+                        HasDriversLicense = rankedData.HasDriversLicense,
+                        QuizScore = app.QuizScore,
+                        QuizPassed = app.QuizPassed,
+                        QuizCompleted = app.QuizCompletedDate.HasValue,
+                        QuizCompletedDate = app.QuizCompletedDate
                     };
 
                     viewModels.Add(viewModel);
@@ -597,7 +602,11 @@ namespace MuhleOP.Controllers
                     InterviewDateTime = DateTime.Now.AddDays(3).Date.AddHours(10),
                     InterviewNotes = application.InterviewNotes,
                     InterviewLocation = "Muhle Building Office",
-                    InterviewType = "In-person"
+                    InterviewType = "In-person",
+                    SendQuizInvitation = true,
+                    QuizTimeLimit = 20, // Changed to 20 minutes
+                    QuizPassingScore = 60,
+                    QuizQuestionCount = 10
                 };
 
                 return View(viewModel);
@@ -647,20 +656,68 @@ namespace MuhleOP.Controllers
 
                     await db.SaveChangesAsync();
 
+                    // Send interview notification to candidate
                     await CreateNotificationForCandidate(
                         application.CandidateId,
                         "Interview Scheduled",
-                        $"Your interview for '{model.JobTitle}' has been scheduled for {model.InterviewDateTime:dd MMM yyyy HH:mm} at {model.InterviewLocation}.",
+                        $"Your interview for '{model.JobTitle}' has been scheduled for {model.InterviewDateTime:dd MMM yyyy HH:mm} at {model.InterviewLocation}. Please check your email for details.",
                         "Interview",
                         $"/Candidate/ApplicationStatus/{application.Id}"
                     );
 
-                    TempData["SuccessMessage"] = $"Interview scheduled successfully for {model.CandidateFullName} on {model.InterviewDateTime:yyyy-MM-dd HH:mm}";
+                    // Send quiz invitation if enabled
+                    if (model.SendQuizInvitation)
+                    {
+                        var jobPost = db.JobPosts.Find(application.JobPostId);
+                        var quiz = db.Quizzes.FirstOrDefault(q => q.JobPostId == jobPost.Id && q.IsActive);
+
+                        if (quiz == null)
+                        {
+                            // Auto-generate quiz if none exists - with 20 minute time limit
+                            quiz = await CreateAutoQuiz(jobPost, model.QuizQuestionCount, 20, model.QuizPassingScore);
+                        }
+
+                        if (quiz != null)
+                        {
+                            // Create notification for quiz
+                            await CreateNotificationForCandidate(
+                                application.CandidateId,
+                                "Quiz Invitation",
+                                $"You have been invited to complete a quiz for the '{jobPost.JobTitle}' position. The quiz has {quiz.NumberOfQuestions} questions and you need to score at least {quiz.PassingScore}% to pass. Click the 'Take Quiz' button in your dashboard to start.",
+                                "Quiz",
+                                $"/Candidate/TakeQuiz/{application.Id}"
+                            );
+
+                            // Also create a notification for the admin confirming quiz was sent
+                            await CreateNotification(
+                                User.Identity.GetUserId(),
+                                "Quiz Invitation Sent",
+                                $"Quiz invitation sent to {model.CandidateFullName} for the '{jobPost.JobTitle}' position. Quiz ID: {quiz.Id}, Questions: {quiz.NumberOfQuestions}",
+                                "System",
+                                $"/JobPost/ReviewApplications/{jobPost.Id}"
+                            );
+
+                            TempData["QuizInvited"] = true;
+                            TempData["QuizId"] = quiz.Id;
+                            TempData["QuizQuestions"] = quiz.NumberOfQuestions;
+                        }
+                        else
+                        {
+                            // Log error if quiz creation failed
+                            System.Diagnostics.Debug.WriteLine($"ERROR: Failed to create quiz for JobPostId: {jobPost?.Id}, Title: {jobPost?.JobTitle}");
+                            TempData["QuizCreationError"] = "Failed to create quiz. Please check logs.";
+                        }
+                    }
+
+                    TempData["SuccessMessage"] = $"Interview scheduled successfully for {model.CandidateFullName} on {model.InterviewDateTime:yyyy-MM-dd HH:mm}" +
+                                                 (model.SendQuizInvitation ? " and quiz invitation sent." : ".");
+
                     return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
                 }
                 catch (Exception ex)
                 {
                     ModelState.AddModelError("", "Error scheduling interview: " + ex.Message);
+                    System.Diagnostics.Debug.WriteLine($"EXCEPTION in ScheduleInterview POST: {ex.Message}\n{ex.StackTrace}");
                 }
             }
 
@@ -708,6 +765,11 @@ namespace MuhleOP.Controllers
                     return HttpNotFound();
                 }
 
+                var latestAttempt = db.QuizAttempts
+                    .Where(a => a.ApplicationId == application.Id && a.Status == "Completed")
+                    .OrderByDescending(a => a.EndTime)
+                    .FirstOrDefault();
+
                 var viewModel = new AssessInterviewViewModel
                 {
                     ApplicationId = application.Id,
@@ -718,7 +780,12 @@ namespace MuhleOP.Controllers
                     InterviewDateTime = application.InterviewDateTime,
                     InterviewNotes = application.InterviewNotes,
                     InterviewResult = application.InterviewResult ?? "Pending",
-                    InterviewFeedback = application.InterviewFeedback
+                    InterviewFeedback = application.InterviewFeedback,
+                    QuizCompleted = application.QuizCompletedDate.HasValue,
+                    QuizScore = application.QuizScore,
+                    QuizPassed = application.QuizPassed,
+                    QuizCompletedDate = application.QuizCompletedDate,
+                    QuizAttemptId = latestAttempt?.Id
                 };
 
                 return View(viewModel);
@@ -783,7 +850,8 @@ namespace MuhleOP.Controllers
                     await CreateNotificationForCandidate(
                         application.CandidateId,
                         $"Interview {model.InterviewResult}!",
-                        $"Your interview for '{application.JobPost?.JobTitle ?? "the position"}' has been assessed as: {model.InterviewResult}.",
+                        $"Your interview for '{application.JobPost?.JobTitle ?? "the position"}' has been assessed as: {model.InterviewResult}. " +
+                        (model.InterviewResult == "Passed" ? "Congratulations! You will be hired soon." : "We appreciate your interest."),
                         "Interview",
                         $"/Candidate/ApplicationStatus/{application.Id}"
                     );
@@ -812,6 +880,84 @@ namespace MuhleOP.Controllers
             }
 
             return View(model);
+        }
+
+        // GET: JobPost/ViewQuizResult/5
+        // "id" here is the JobApplication Id - shows the admin the candidate's
+        // autograded quiz result (score, pass/fail, and a per-question breakdown)
+        [Authorize(Roles = "Admin")]
+        public ActionResult ViewQuizResult(int id)
+        {
+            try
+            {
+                var application = db.JobApplications.Find(id);
+                if (application == null)
+                {
+                    TempData["ErrorMessage"] = "Application not found.";
+                    return RedirectToAction("AllApplications");
+                }
+
+                var candidate = db.Candidates.Find(application.CandidateId);
+                var jobPost = db.JobPosts.Find(application.JobPostId);
+
+                var attempt = db.QuizAttempts
+                    .Where(a => a.ApplicationId == application.Id && a.Status == "Completed")
+                    .OrderByDescending(a => a.EndTime)
+                    .FirstOrDefault();
+
+                if (attempt == null)
+                {
+                    TempData["ErrorMessage"] = "This candidate has not completed a quiz yet.";
+                    return RedirectToAction("AssessInterview", new { id = application.Id });
+                }
+
+                var quiz = db.Quizzes.Find(attempt.QuizId);
+                if (quiz == null)
+                {
+                    TempData["ErrorMessage"] = "Quiz not found.";
+                    return RedirectToAction("AssessInterview", new { id = application.Id });
+                }
+
+                // Only show first 10 questions
+                var questions = quiz.Questions.OrderBy(q => q.Order).Take(10).ToList();
+                var answers = JsonConvert.DeserializeObject<Dictionary<int, string>>(attempt.AnswersJson ?? "{}");
+
+                var viewModel = new QuizResultViewModel
+                {
+                    QuizId = quiz.Id,
+                    QuizTitle = quiz.Title,
+                    ApplicationId = application.Id,
+                    JobTitle = jobPost?.JobTitle ?? "Unknown Position",
+                    Score = attempt.Score ?? 0,
+                    TotalQuestions = questions.Count,
+                    CorrectAnswers = questions.Count(q => answers.ContainsKey(q.Id) && answers[q.Id] == q.CorrectAnswer),
+                    Passed = attempt.Passed ?? false,
+                    PassingScore = quiz.PassingScore,
+                    StartTime = attempt.StartTime,
+                    EndTime = attempt.EndTime ?? DateTime.Now,
+                    TimeTakenSeconds = (int)((attempt.EndTime ?? DateTime.Now) - attempt.StartTime).TotalSeconds,
+                    Questions = questions.Select(q => new QuizQuestionViewModel
+                    {
+                        Id = q.Id,
+                        Question = q.Question,
+                        Options = JsonConvert.DeserializeObject<List<string>>(q.OptionsJson ?? "[]"),
+                        SelectedAnswer = answers.ContainsKey(q.Id) ? answers[q.Id] : null,
+                        CorrectAnswer = q.CorrectAnswer,
+                        Points = q.Points,
+                        IsCorrect = answers.ContainsKey(q.Id) && answers[q.Id] == q.CorrectAnswer
+                    }).ToList()
+                };
+
+                ViewBag.CandidateFullName = candidate?.FullName ?? "Unknown Candidate";
+                ViewBag.CandidateEmail = candidate?.Email;
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = "Error loading quiz result: " + ex.Message;
+                return RedirectToAction("AllApplications");
+            }
         }
 
         // GET: JobPost/HireCandidate/5
@@ -889,7 +1035,11 @@ namespace MuhleOP.Controllers
                     InterviewResult = app.InterviewResult ?? "Pending",
                     InterviewFeedback = app.InterviewFeedback,
                     IsHired = app.IsHired,
-                    IsInterviewCompleted = app.InterviewResult != "Pending"
+                    IsInterviewCompleted = app.InterviewResult != "Pending",
+                    QuizCompleted = app.QuizCompletedDate.HasValue,
+                    QuizScore = app.QuizScore,
+                    QuizPassed = app.QuizPassed,
+                    QuizCompletedDate = app.QuizCompletedDate
                 }).ToList();
 
                 var viewModel = new CandidateDetailsViewModel
@@ -981,7 +1131,11 @@ namespace MuhleOP.Controllers
                         YearsOfExperience = 0,
                         HighestQualification = app.QualificationLevel,
                         HasGrade12 = app.HasMatric,
-                        HasDriversLicense = app.HasLicense
+                        HasDriversLicense = app.HasLicense,
+                        QuizScore = app.QuizScore,
+                        QuizPassed = app.QuizPassed,
+                        QuizCompleted = app.QuizCompletedDate.HasValue,
+                        QuizCompletedDate = app.QuizCompletedDate
                     };
 
                     viewModels.Add(viewModel);
@@ -1000,6 +1154,483 @@ namespace MuhleOP.Controllers
                 TempData["ErrorMessage"] = "Error loading applications: " + ex.Message;
                 return View(new List<ApplicationReviewViewModel>());
             }
+        }
+
+        // ===== QUIZ MANAGEMENT =====
+
+        // GET: JobPost/ManageQuiz/5
+        [Authorize(Roles = "Admin")]
+        public ActionResult ManageQuiz(int id)
+        {
+            try
+            {
+                var jobPost = db.JobPosts.Find(id);
+                if (jobPost == null)
+                {
+                    return HttpNotFound();
+                }
+
+                var quiz = db.Quizzes.FirstOrDefault(q => q.JobPostId == id);
+
+                var viewModel = new QuizViewModel();
+                if (quiz != null)
+                {
+                    viewModel.QuizId = quiz.Id;
+                    viewModel.Title = quiz.Title;
+                    viewModel.Description = quiz.Description;
+                    viewModel.TimeLimitMinutes = quiz.TimeLimitMinutes;
+                    viewModel.PassingScore = quiz.PassingScore;
+                    viewModel.NumberOfQuestions = quiz.NumberOfQuestions;
+                    viewModel.JobTitle = jobPost.JobTitle;
+                    viewModel.Questions = quiz.Questions.OrderBy(q => q.Order).Select(q => new QuizQuestionViewModel
+                    {
+                        Id = q.Id,
+                        Question = q.Question,
+                        Options = JsonConvert.DeserializeObject<List<string>>(q.OptionsJson ?? "[]"),
+                        CorrectAnswer = q.CorrectAnswer,
+                        Points = q.Points,
+                        Order = q.Order
+                    }).ToList();
+                }
+
+                ViewBag.JobPostId = id;
+                ViewBag.JobTitle = jobPost.JobTitle;
+                ViewBag.HasQuiz = quiz != null;
+                ViewBag.ApplicationCount = db.JobApplications.Count(a => a.JobPostId == id);
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = "Error loading quiz management: " + ex.Message;
+                return RedirectToAction("Index");
+            }
+        }
+
+        // POST: JobPost/CreateQuiz
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> CreateQuiz(QuizViewModel model)
+        {
+            try
+            {
+                var jobPost = db.JobPosts.Find(model.QuizId); // Using QuizId as JobPostId
+                if (jobPost == null)
+                {
+                    TempData["ErrorMessage"] = "Job post not found.";
+                    return RedirectToAction("Index");
+                }
+
+                // Check if quiz already exists
+                var existingQuiz = db.Quizzes.FirstOrDefault(q => q.JobPostId == jobPost.Id);
+                if (existingQuiz != null)
+                {
+                    TempData["ErrorMessage"] = "A quiz already exists for this job post. Please edit the existing quiz.";
+                    return RedirectToAction("ManageQuiz", new { id = jobPost.Id });
+                }
+
+                var quiz = new Quiz
+                {
+                    Title = model.Title ?? $"Quiz for {jobPost.JobTitle}",
+                    Description = model.Description ?? $"This quiz assesses candidates for the {jobPost.JobTitle} position.",
+                    JobPostId = jobPost.Id,
+                    SystemRoleId = jobPost.SystemRoleId,
+                    TimeLimitMinutes = model.TimeLimitMinutes,
+                    PassingScore = model.PassingScore,
+                    NumberOfQuestions = model.NumberOfQuestions,
+                    IsActive = true,
+                    CreatedDate = DateTime.Now,
+                    CreatedBy = User.Identity.Name
+                };
+
+                db.Quizzes.Add(quiz);
+                await db.SaveChangesAsync();
+
+                // Add questions
+                if (model.Questions != null && model.Questions.Any())
+                {
+                    int order = 1;
+                    foreach (var q in model.Questions)
+                    {
+                        var question = new QuizQuestion
+                        {
+                            QuizId = quiz.Id,
+                            Question = q.Question,
+                            QuestionType = "MultipleChoice",
+                            OptionsJson = JsonConvert.SerializeObject(q.Options ?? new List<string>()),
+                            CorrectAnswer = q.CorrectAnswer,
+                            Points = q.Points > 0 ? q.Points : 1,
+                            Order = order
+                        };
+                        db.QuizQuestions.Add(question);
+                        order++;
+                    }
+                    await db.SaveChangesAsync();
+                }
+                else
+                {
+                    // Generate sample questions if none provided
+                    var sampleQuestions = GenerateSampleQuestions(jobPost.JobTitle, jobPost.Requirements, model.NumberOfQuestions);
+                    foreach (var q in sampleQuestions)
+                    {
+                        var question = new QuizQuestion
+                        {
+                            QuizId = quiz.Id,
+                            Question = q.Question,
+                            QuestionType = "MultipleChoice",
+                            OptionsJson = JsonConvert.SerializeObject(q.Options),
+                            CorrectAnswer = q.CorrectAnswer,
+                            Points = 1,
+                            Order = q.Order
+                        };
+                        db.QuizQuestions.Add(question);
+                    }
+                    await db.SaveChangesAsync();
+                }
+
+                TempData["SuccessMessage"] = "Quiz created successfully!";
+                return RedirectToAction("ManageQuiz", new { id = jobPost.Id });
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = "Error creating quiz: " + ex.Message;
+                return RedirectToAction("ManageQuiz", new { id = model.QuizId });
+            }
+        }
+
+        // POST: JobPost/UpdateQuiz
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> UpdateQuiz(QuizViewModel model)
+        {
+            try
+            {
+                var quiz = await db.Quizzes.FindAsync(model.QuizId);
+                if (quiz == null)
+                {
+                    TempData["ErrorMessage"] = "Quiz not found.";
+                    return RedirectToAction("Index");
+                }
+
+                quiz.Title = model.Title;
+                quiz.Description = model.Description;
+                quiz.TimeLimitMinutes = model.TimeLimitMinutes;
+                quiz.PassingScore = model.PassingScore;
+                quiz.NumberOfQuestions = model.NumberOfQuestions;
+
+                await db.SaveChangesAsync();
+
+                // Update questions
+                if (model.Questions != null && model.Questions.Any())
+                {
+                    // Remove existing questions
+                    var existingQuestions = db.QuizQuestions.Where(q => q.QuizId == quiz.Id).ToList();
+                    db.QuizQuestions.RemoveRange(existingQuestions);
+                    await db.SaveChangesAsync();
+
+                    // Add new questions
+                    int order = 1;
+                    foreach (var q in model.Questions)
+                    {
+                        var question = new QuizQuestion
+                        {
+                            QuizId = quiz.Id,
+                            Question = q.Question,
+                            QuestionType = "MultipleChoice",
+                            OptionsJson = JsonConvert.SerializeObject(q.Options ?? new List<string>()),
+                            CorrectAnswer = q.CorrectAnswer,
+                            Points = q.Points > 0 ? q.Points : 1,
+                            Order = order
+                        };
+                        db.QuizQuestions.Add(question);
+                        order++;
+                    }
+                    await db.SaveChangesAsync();
+                }
+
+                TempData["SuccessMessage"] = "Quiz updated successfully!";
+                return RedirectToAction("ManageQuiz", new { id = quiz.JobPostId });
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = "Error updating quiz: " + ex.Message;
+                return RedirectToAction("ManageQuiz", new { id = model.QuizId });
+            }
+        }
+
+        // POST: JobPost/GenerateQuestions
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<JsonResult> GenerateQuestions(int jobPostId, int count)
+        {
+            try
+            {
+                var jobPost = db.JobPosts.Find(jobPostId);
+                if (jobPost == null)
+                {
+                    return Json(new { success = false, message = "Job post not found" });
+                }
+
+                var questions = GenerateSampleQuestions(jobPost.JobTitle, jobPost.Requirements, count);
+
+                // Get existing quiz to update
+                var quiz = db.Quizzes.FirstOrDefault(q => q.JobPostId == jobPostId);
+                if (quiz != null)
+                {
+                    // Remove existing questions
+                    var existingQuestions = db.QuizQuestions.Where(q => q.QuizId == quiz.Id).ToList();
+                    db.QuizQuestions.RemoveRange(existingQuestions);
+                    await db.SaveChangesAsync();
+
+                    // Add new questions
+                    foreach (var q in questions)
+                    {
+                        var question = new QuizQuestion
+                        {
+                            QuizId = quiz.Id,
+                            Question = q.Question,
+                            QuestionType = "MultipleChoice",
+                            OptionsJson = JsonConvert.SerializeObject(q.Options),
+                            CorrectAnswer = q.CorrectAnswer,
+                            Points = 1,
+                            Order = q.Order
+                        };
+                        db.QuizQuestions.Add(question);
+                    }
+                    await db.SaveChangesAsync();
+                }
+
+                return Json(new
+                {
+                    success = true,
+                    questions = questions.Select(q => new
+                    {
+                        q.Question,
+                        q.Options,
+                        q.CorrectAnswer,
+                        q.Order
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        private async Task<Quiz> CreateAutoQuiz(JobPost jobPost, int questionCount, int timeLimit, int passingScore)
+        {
+            try
+            {
+                // Check if quiz already exists
+                var existingQuiz = db.Quizzes.FirstOrDefault(q => q.JobPostId == jobPost.Id);
+                if (existingQuiz != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Quiz already exists for JobPostId: {jobPost.Id}, QuizId: {existingQuiz.Id}");
+                    return existingQuiz;
+                }
+
+                System.Diagnostics.Debug.WriteLine($"Creating new quiz for JobPostId: {jobPost.Id}, Title: {jobPost.JobTitle}");
+
+                var quiz = new Quiz
+                {
+                    Title = $"Quiz for {jobPost.JobTitle}",
+                    Description = $"This quiz assesses candidates for the {jobPost.JobTitle} position.",
+                    JobPostId = jobPost.Id,
+                    SystemRoleId = jobPost.SystemRoleId,
+                    TimeLimitMinutes = 20, // Changed to 20 minutes
+                    PassingScore = passingScore,
+                    NumberOfQuestions = questionCount,
+                    IsActive = true,
+                    CreatedDate = DateTime.Now,
+                    CreatedBy = "System"
+                };
+
+                db.Quizzes.Add(quiz);
+                await db.SaveChangesAsync();
+                System.Diagnostics.Debug.WriteLine($"Quiz created with ID: {quiz.Id}");
+
+                // Generate questions based on job requirements
+                var questions = GenerateSampleQuestions(jobPost.JobTitle, jobPost.Requirements, questionCount);
+                System.Diagnostics.Debug.WriteLine($"Generated {questions.Count} questions");
+
+                foreach (var q in questions)
+                {
+                    var question = new QuizQuestion
+                    {
+                        QuizId = quiz.Id,
+                        Question = q.Question,
+                        QuestionType = "MultipleChoice",
+                        OptionsJson = JsonConvert.SerializeObject(q.Options),
+                        CorrectAnswer = q.CorrectAnswer,
+                        Points = 1,
+                        Order = q.Order
+                    };
+                    db.QuizQuestions.Add(question);
+                }
+                await db.SaveChangesAsync();
+                System.Diagnostics.Debug.WriteLine($"Added {questions.Count} questions to quiz ID: {quiz.Id}");
+
+                return quiz;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error creating auto quiz: {ex.Message}\n{ex.StackTrace}");
+                return null;
+            }
+        }
+
+        private List<QuizQuestionViewModel> GenerateSampleQuestions(string jobTitle, string requirements, int count = 10)
+        {
+            var questions = new List<QuizQuestionViewModel>();
+            var random = new Random();
+
+            // Generic construction/project management questions
+            var questionBank = new List<Tuple<string, List<string>, string>>
+            {
+                // Safety Questions
+                Tuple.Create("What is the most important safety regulation on a construction site?",
+                    new List<string> { "Wearing hard hats", "Following all safety protocols", "Wearing safety boots", "Using safety harnesses" },
+                    "Following all safety protocols"),
+                Tuple.Create("Which of the following is a critical safety measure in construction?",
+                    new List<string> { "Regular safety inspections", "Emergency response planning", "Personal protective equipment", "All of the above" },
+                    "All of the above"),
+                Tuple.Create("What is the purpose of a risk assessment in construction?",
+                    new List<string> { "To identify potential hazards", "To eliminate all risks", "To increase costs", "To delay the project" },
+                    "To identify potential hazards"),
+                Tuple.Create("Which document outlines safety procedures on a construction site?",
+                    new List<string> { "Site safety plan", "Project charter", "Budget report", "Schedule plan" },
+                    "Site safety plan"),
+                Tuple.Create("What is the primary cause of accidents on construction sites?",
+                    new List<string> { "Human error", "Equipment failure", "Weather conditions", "Poor lighting" },
+                    "Human error"),
+
+                // Construction Management
+                Tuple.Create("What is the critical path method (CPM) used for?",
+                    new List<string> { "Scheduling projects", "Budgeting projects", "Quality control", "Safety management" },
+                    "Scheduling projects"),
+                Tuple.Create("What is a Gantt chart primarily used for?",
+                    new List<string> { "Project scheduling", "Budget tracking", "Risk assessment", "Quality control" },
+                    "Project scheduling"),
+                Tuple.Create("What is the purpose of a project charter?",
+                    new List<string> { "To authorize the project", "To track project costs", "To manage resources", "To evaluate risks" },
+                    "To authorize the project"),
+                Tuple.Create("Which of the following is a project constraint?",
+                    new List<string> { "Scope", "Time", "Cost", "All of the above" },
+                    "All of the above"),
+                Tuple.Create("What does SWOT analysis stand for?",
+                    new List<string> { "Strengths, Weaknesses, Opportunities, Threats", "Strategy, Work, Operations, Time", "Schedule, Work, Outcomes, Targets", "Safety, Welfare, Operations, Training" },
+                    "Strengths, Weaknesses, Opportunities, Threats"),
+
+                // Quality Management
+                Tuple.Create("What is quality assurance (QA) in construction?",
+                    new List<string> { "Process-oriented approach", "Product-oriented approach", "Cost-oriented approach", "Time-oriented approach" },
+                    "Process-oriented approach"),
+                Tuple.Create("What is quality control (QC) in construction?",
+                    new List<string> { "Product-oriented approach", "Process-oriented approach", "Cost-oriented approach", "Time-oriented approach" },
+                    "Product-oriented approach"),
+
+                // Contract Management
+                Tuple.Create("What is the purpose of a construction contract?",
+                    new List<string> { "To formalize the agreement", "To increase costs", "To delay work", "To confuse parties" },
+                    "To formalize the agreement"),
+                Tuple.Create("What is a variation order in construction?",
+                    new List<string> { "Changes to the project scope", "Changes to project costs", "Changes to project schedule", "All of the above" },
+                    "All of the above"),
+
+                // Project Management
+                Tuple.Create("What is the project lifecycle?",
+                    new List<string> { "Initiation, Planning, Execution, Closure", "Start, Middle, End", "Research, Design, Build, Test", "Proposal, Approval, Work, Review" },
+                    "Initiation, Planning, Execution, Closure"),
+                Tuple.Create("What is stakeholder management?",
+                    new List<string> { "Managing project stakeholders", "Managing project costs", "Managing project schedule", "Managing project quality" },
+                    "Managing project stakeholders"),
+                Tuple.Create("What is the triple constraint of project management?",
+                    new List<string> { "Scope, Time, Cost", "Quality, Speed, Price", "People, Process, Technology", "Planning, Execution, Control" },
+                    "Scope, Time, Cost"),
+                Tuple.Create("What is a milestone in project management?",
+                    new List<string> { "A significant event", "A minor task", "A budget item", "A quality check" },
+                    "A significant event"),
+                Tuple.Create("What is resource allocation?",
+                    new List<string> { "Assigning resources to tasks", "Managing project costs", "Creating project schedule", "Defining project scope" },
+                    "Assigning resources to tasks"),
+                Tuple.Create("What is risk management in construction?",
+                    new List<string> { "Identifying and mitigating risks", "Increasing risks", "Ignoring risks", "Transferring all risks" },
+                    "Identifying and mitigating risks"),
+                Tuple.Create("What is the purpose of project documentation?",
+                    new List<string> { "Record keeping and communication", "Increasing costs", "Delaying work", "Creating confusion" },
+                    "Record keeping and communication"),
+                Tuple.Create("What is continuous improvement in construction?",
+                    new List<string> { "Ongoing process improvement", "Making things worse", "Doing nothing", "Working slower" },
+                    "Ongoing process improvement"),
+                Tuple.Create("What is the role of a project manager?",
+                    new List<string> { "Leading the project to completion", "Working on site", "Managing finances", "Designing buildings" },
+                    "Leading the project to completion"),
+                Tuple.Create("What is the purpose of project reporting?",
+                    new List<string> { "Communicating project status", "Creating more work", "Confusing stakeholders", "Increasing costs" },
+                    "Communicating project status"),
+
+                // Industry-Specific Questions based on job title
+                Tuple.Create("What is the most important consideration when managing a construction project?",
+                    new List<string> { "Safety", "Cost", "Schedule", "Quality" },
+                    "Safety"),
+                Tuple.Create("What is the purpose of a site inspection?",
+                    new List<string> { "To check progress and quality", "To delay the project", "To increase costs", "To confuse workers" },
+                    "To check progress and quality"),
+                Tuple.Create("What is the importance of communication in construction?",
+                    new List<string> { "It is essential for success", "It is not important", "It is only for managers", "It is optional" },
+                    "It is essential for success"),
+                Tuple.Create("What is the role of a site manager?",
+                    new List<string> { "Managing daily site operations", "Designing buildings", "Managing finances", "HR management" },
+                    "Managing daily site operations"),
+                Tuple.Create("What is the difference between a project manager and a site manager?",
+                    new List<string> { "Project manager oversees entire project, site manager oversees daily operations", "They are the same role", "Site manager is more senior", "Project manager works on site" },
+                    "Project manager oversees entire project, site manager oversees daily operations"),
+            };
+
+            // Filter questions based on job title keywords
+            var filteredQuestions = questionBank;
+            if (!string.IsNullOrEmpty(jobTitle))
+            {
+                var keywords = jobTitle.ToLower().Split(' ');
+                filteredQuestions = questionBank.Where(q =>
+                    keywords.Any(k => q.Item1.ToLower().Contains(k) || q.Item2.Any(o => o.ToLower().Contains(k)))
+                ).ToList();
+
+                if (filteredQuestions.Count < count)
+                {
+                    filteredQuestions = questionBank;
+                }
+            }
+
+            // Ensure we have enough questions
+            var selectedQuestions = filteredQuestions.OrderBy(x => random.Next()).Take(count).ToList();
+
+            // If not enough questions, add more from the bank
+            if (selectedQuestions.Count < count && questionBank.Count > selectedQuestions.Count)
+            {
+                var additional = questionBank.Except(selectedQuestions).OrderBy(x => random.Next()).Take(count - selectedQuestions.Count);
+                selectedQuestions.AddRange(additional);
+            }
+
+            for (int i = 0; i < selectedQuestions.Count && i < count; i++)
+            {
+                var q = selectedQuestions[i];
+                var options = q.Item2.OrderBy(x => random.Next()).ToList();
+                questions.Add(new QuizQuestionViewModel
+                {
+                    Id = i + 1,
+                    Question = q.Item1,
+                    Options = options,
+                    CorrectAnswer = q.Item3,
+                    Points = 1,
+                    Order = i + 1
+                });
+            }
+
+            return questions;
         }
 
         #region Helper Methods
@@ -1306,7 +1937,6 @@ namespace MuhleOP.Controllers
                 })
                 .ToList();
 
-            // Add a default empty option
             roles.Insert(0, new SelectListItem
             {
                 Value = "",
@@ -1356,6 +1986,264 @@ namespace MuhleOP.Controllers
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error creating notification for candidate: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region Debug Methods
+
+        // GET: JobPost/DebugQuiz
+        [Authorize(Roles = "Admin")]
+        public ActionResult DebugQuiz(int? jobPostId = null)
+        {
+            try
+            {
+                var debugInfo = new
+                {
+                    TotalQuizzes = db.Quizzes.Count(),
+                    TotalQuestions = db.QuizQuestions.Count(),
+                    TotalAttempts = db.QuizAttempts.Count(),
+                    TotalApplications = db.JobApplications.Count(),
+                    TotalCandidates = db.Candidates.Count()
+                };
+
+                // Get all job posts with quiz status
+                var jobPosts = db.JobPosts
+                    .Where(j => !jobPostId.HasValue || j.Id == jobPostId.Value)
+                    .OrderByDescending(j => j.DatePosted)
+                    .ToList();
+
+                var jobPostDebug = new List<object>();
+                foreach (var job in jobPosts)
+                {
+                    var quiz = db.Quizzes.FirstOrDefault(q => q.JobPostId == job.Id && q.IsActive);
+                    var applications = db.JobApplications.Where(a => a.JobPostId == job.Id).ToList();
+                    var attempts = db.QuizAttempts
+                        .Where(qa => applications.Select(a => a.Id).Contains(qa.ApplicationId))
+                        .ToList();
+
+                    jobPostDebug.Add(new
+                    {
+                        JobPostId = job.Id,
+                        JobTitle = job.JobTitle,
+                        IsPublished = job.IsPublished,
+                        IsClosed = job.IsClosed,
+                        HasQuiz = quiz != null,
+                        QuizId = quiz?.Id ?? 0,
+                        QuizTitle = quiz?.Title ?? "No Quiz",
+                        QuizActive = quiz?.IsActive ?? false,
+                        QuizQuestions = quiz?.Questions.Count ?? 0,
+                        QuizPassingScore = quiz?.PassingScore ?? 0,
+                        QuizTimeLimit = quiz?.TimeLimitMinutes ?? 0,
+                        ApplicationCount = applications.Count,
+                        AttemptCount = attempts.Count,
+                        PassedCount = attempts.Count(a => a.Passed == true),
+                        FailedCount = attempts.Count(a => a.Passed == false),
+                        InProgressCount = attempts.Count(a => a.Status == "InProgress")
+                    });
+                }
+
+                ViewBag.DebugInfo = debugInfo;
+                ViewBag.JobPostDebug = jobPostDebug;
+                ViewBag.TargetJobPostId = jobPostId;
+
+                return View("DebugQuiz");
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = "Debug error: " + ex.Message;
+                return View("DebugQuiz");
+            }
+        }
+
+        // GET: JobPost/DebugCandidate
+        [Authorize(Roles = "Admin")]
+        public ActionResult DebugCandidate(string userId = null)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(userId))
+                {
+                    userId = User.Identity.GetUserId();
+                }
+
+                var candidate = db.Candidates.FirstOrDefault(c => c.UserId == userId);
+                if (candidate == null)
+                {
+                    ViewBag.Error = "Candidate not found for user ID: " + userId;
+                    return View("DebugCandidate");
+                }
+
+                var viewModel = new
+                {
+                    CandidateId = candidate.Id,
+                    CandidateName = candidate.FullName,
+                    CandidateEmail = candidate.Email,
+                    UserId = candidate.UserId,
+                    TotalApplications = db.JobApplications.Count(a => a.CandidateId == candidate.Id)
+                };
+
+                // Get all applications for this candidate
+                var applications = db.JobApplications
+                    .Where(a => a.CandidateId == candidate.Id)
+                    .OrderByDescending(a => a.ApplicationDate)
+                    .ToList();
+
+                var appDebug = new List<object>();
+                foreach (var app in applications)
+                {
+                    var jobPost = db.JobPosts.Find(app.JobPostId);
+                    var quiz = db.Quizzes.FirstOrDefault(q => q.JobPostId == app.JobPostId && q.IsActive);
+                    var quizAttempt = db.QuizAttempts
+                        .Where(qa => qa.ApplicationId == app.Id)
+                        .OrderByDescending(qa => qa.StartTime)
+                        .FirstOrDefault();
+
+                    appDebug.Add(new
+                    {
+                        ApplicationId = app.Id,
+                        JobTitle = jobPost?.JobTitle ?? "Unknown",
+                        Status = app.Status,
+                        ApplicationDate = app.ApplicationDate,
+                        InterviewScheduled = app.InterviewScheduled,
+                        InterviewDateTime = app.InterviewDateTime,
+                        IsShortlisted = app.IsShortlisted,
+                        QuizScore = app.QuizScore,
+                        QuizPassed = app.QuizPassed,
+                        QuizCompletedDate = app.QuizCompletedDate,
+                        HasQuiz = quiz != null,
+                        QuizId = quiz?.Id ?? 0,
+                        QuizTitle = quiz?.Title ?? "No Quiz",
+                        QuizActive = quiz?.IsActive ?? false,
+                        QuizQuestions = quiz?.Questions.Count ?? 0,
+                        HasAttempt = quizAttempt != null,
+                        AttemptId = quizAttempt?.Id ?? 0,
+                        AttemptStatus = quizAttempt?.Status ?? "No Attempt",
+                        AttemptScore = quizAttempt?.Score,
+                        AttemptPassed = quizAttempt?.Passed
+                    });
+                }
+
+                ViewBag.Candidate = viewModel;
+                ViewBag.Applications = appDebug;
+
+                return View("DebugCandidate");
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = "Debug error: " + ex.Message;
+                return View("DebugCandidate");
+            }
+        }
+
+        // POST: JobPost/DebugCreateQuiz
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<JsonResult> DebugCreateQuiz(int jobPostId)
+        {
+            try
+            {
+                var jobPost = db.JobPosts.Find(jobPostId);
+                if (jobPost == null)
+                {
+                    return Json(new { success = false, message = "Job post not found." });
+                }
+
+                // Check if quiz already exists
+                var existingQuiz = db.Quizzes.FirstOrDefault(q => q.JobPostId == jobPostId);
+                if (existingQuiz != null)
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = $"Quiz already exists. Quiz ID: {existingQuiz.Id}, Title: {existingQuiz.Title}, Questions: {existingQuiz.Questions.Count}"
+                    });
+                }
+
+                var quiz = await CreateAutoQuiz(jobPost, 5, 20, 60);
+
+                if (quiz != null)
+                {
+                    return Json(new
+                    {
+                        success = true,
+                        message = $"Quiz created successfully! Quiz ID: {quiz.Id}, Questions: {quiz.Questions.Count}",
+                        quizId = quiz.Id,
+                        questionCount = quiz.Questions.Count
+                    });
+                }
+                else
+                {
+                    return Json(new { success = false, message = "Failed to create quiz. Check server logs." });
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        // GET: JobPost/DebugCheckQuizStatus
+        [Authorize(Roles = "Admin")]
+        public JsonResult DebugCheckQuizStatus(int jobPostId)
+        {
+            try
+            {
+                var jobPost = db.JobPosts.Find(jobPostId);
+                if (jobPost == null)
+                {
+                    return Json(new { success = false, message = "Job post not found." });
+                }
+
+                var quiz = db.Quizzes.FirstOrDefault(q => q.JobPostId == jobPostId && q.IsActive);
+                var applications = db.JobApplications.Where(a => a.JobPostId == jobPostId).ToList();
+                var attempts = db.QuizAttempts
+                    .Where(qa => applications.Select(a => a.Id).Contains(qa.ApplicationId))
+                    .ToList();
+
+                return Json(new
+                {
+                    success = true,
+                    jobPost = new
+                    {
+                        jobPost.Id,
+                        jobPost.JobTitle,
+                        jobPost.IsPublished,
+                        jobPost.IsClosed
+                    },
+                    quiz = quiz != null ? new
+                    {
+                        quiz.Id,
+                        quiz.Title,
+                        quiz.IsActive,
+                        quiz.NumberOfQuestions,
+                        quiz.PassingScore,
+                        quiz.TimeLimitMinutes,
+                        QuestionCount = quiz.Questions.Count
+                    } : null,
+                    applications = applications.Select(a => new
+                    {
+                        a.Id,
+                        a.Status,
+                        a.QuizScore,
+                        a.QuizPassed,
+                        a.QuizCompletedDate
+                    }),
+                    attempts = attempts.Select(a => new
+                    {
+                        a.Id,
+                        a.Status,
+                        a.Score,
+                        a.Passed,
+                        a.StartTime,
+                        a.EndTime
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
             }
         }
 

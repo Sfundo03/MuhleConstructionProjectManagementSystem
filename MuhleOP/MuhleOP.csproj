@@ -178,6 +178,7 @@
     <Compile Include="Controllers\ClientController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\JobPostController.cs" />
+    <Compile Include="Controllers\NotificationsController.cs" />
     <Compile Include="Controllers\ProjectController.cs" />
     <Compile Include="Controllers\StaffController.cs" />
     <Compile Include="Global.asax.cs">
@@ -205,7 +206,6 @@
     <Compile Include="ViewModels\FinanceViewModels.cs" />
     <Compile Include="ViewModels\HandoverViewModels.cs" />
     <Compile Include="ViewModels\JobPostViewModels.cs" />
-    <Compile Include="ViewModels\NotificationViewModels.cs" />
     <Compile Include="ViewModels\QualityViewModels.cs" />
     <Compile Include="ViewModels\StaffViewModels.cs" />
   </ItemGroup>
@@ -302,10 +302,16 @@
     <Content Include="Views\Home\Contact.cshtml" />
     <Content Include="Views\Account\Lockout.cshtml" />
     <Content Include="Views\Account\ForgotPassword.cshtml" />
+    <Content Include="Views\JobPost\ManageQuiz.cshtml" />
+    <Content Include="Views\Candidate\MyQuizzes.cshtml" />
+    <Content Include="Views\Candidate\QuizResult.cshtml" />
+    <Content Include="Views\Candidate\TakeQuiz.cshtml" />
+    <Content Include="Views\JobPost\ViewQuizResult.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
     <Folder Include="Views\Manage\" />
+    <Folder Include="Views\Notifications\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Content\bootstrap.rtl.min.css.map" />
