@@ -43,26 +43,69 @@
     <div class="col-lg-8">
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body">
+                <!-- Job Title -->
                 <h3 class="mb-2">@Model.JobTitle</h3>
 
+                <!-- Job Badges -->
                 <div class="d-flex flex-wrap gap-2 mb-3">
-                    <span class="badge bg-primary">@Model.JobType</span>
-                    <span class="badge bg-info">@Model.Location</span>
-                    <span class="badge bg-warning">Closes: @Model.ClosingDate.ToString("dd MMM yyyy")</span>
+                    @if (!string.IsNullOrEmpty(Model.JobType))
+                    {
+                        <span class="badge bg-primary">
+                            <i class="fas fa-briefcase me-1"></i> @Model.JobType
+                        </span>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.Location))
+                    {
+                        <span class="badge bg-info">
+                            <i class="fas fa-map-marker-alt me-1"></i> @Model.Location
+                        </span>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.SalaryRange))
+                    {
+                        <span class="badge bg-success">
+                            <i class="fas fa-money-bill-wave me-1"></i> @Model.SalaryRange
+                        </span>
+                    }
+                    @if (Model.ClosingDate.HasValue)
+                    {
+                        <span class="badge bg-warning">
+                            <i class="fas fa-calendar-alt me-1"></i> Closes: @Model.ClosingDate.Value.ToString("dd MMM yyyy")
+                        </span>
+                    }
                 </div>
 
+                <!-- Job Description -->
                 <div class="mb-4">
                     <h5 class="border-bottom pb-2">
                         <i class="fas fa-file-alt text-gold me-2"></i>Job Description
                     </h5>
-                    <p style="white-space: pre-wrap; line-height: 1.8;">@Model.JobDescription</p>
+                    <div class="job-description">
+                        @if (!string.IsNullOrEmpty(Model.JobDescription))
+                        {
+                            <p style="white-space: pre-wrap; line-height: 1.8;">@Model.JobDescription</p>
+                        }
+                        else
+                        {
+                            <p class="text-muted">No description provided.</p>
+                        }
+                    </div>
                 </div>
 
+                <!-- Requirements -->
                 <div>
                     <h5 class="border-bottom pb-2">
                         <i class="fas fa-list-check text-gold me-2"></i>Requirements
                     </h5>
-                    <p style="white-space: pre-wrap; line-height: 1.8;">@Model.Requirements</p>
+                    <div class="requirements">
+                        @if (!string.IsNullOrEmpty(Model.Requirements))
+                        {
+                            <p style="white-space: pre-wrap; line-height: 1.8;">@Model.Requirements</p>
+                        }
+                        else
+                        {
+                            <p class="text-muted">No requirements listed.</p>
+                        }
+                    </div>
                 </div>
             </div>
         </div>
@@ -84,7 +127,7 @@
                             <i class="fas fa-info-circle me-2"></i>
                             You have already applied for this position. Please wait for feedback or check your email for updates.
                         </div>
-                        <a href="@Url.Action("ApplicationStatus", "Candidate", new { id = 0 })" class="btn btn-outline-info">
+                        <a href="@Url.Action("AllApplications", "Candidate")" class="btn btn-outline-info">
                             <i class="fas fa-chart-line me-2"></i> Check Application Status
                         </a>
                     }
@@ -133,6 +176,15 @@
 </div>
 
 <style>
+    .text-gold {
+        color: var(--primary-gold, #F5A623);
+    }
+
+    .border-bottom {
+        border-bottom: 2px solid var(--border-color, #e9ecef) !important;
+        padding-bottom: 8px;
+    }
+
     .badge {
         font-size: 11px;
         padding: 5px 10px;
@@ -150,12 +202,75 @@
             color: #fff;
         }
 
-    .text-gold {
-        color: var(--primary-gold, #F5A623);
+        .badge.bg-success {
+            color: #fff;
+        }
+
+    .job-description, .requirements {
+        max-height: 400px;
+        overflow-y: auto;
+        padding-right: 10px;
     }
 
-    .border-bottom {
-        border-bottom: 2px solid var(--border-color, #e9ecef) !important;
-        padding-bottom: 8px;
+        .job-description::-webkit-scrollbar,
+        .requirements::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .job-description::-webkit-scrollbar-track,
+        .requirements::-webkit-scrollbar-track {
+            background: var(--bg-hover, #f1f1f1);
+            border-radius: 3px;
+        }
+
+        .job-description::-webkit-scrollbar-thumb,
+        .requirements::-webkit-scrollbar-thumb {
+            background: var(--primary-gold, #F5A623);
+            border-radius: 3px;
+        }
+
+    [data-theme="dark"] .job-description::-webkit-scrollbar-track,
+    [data-theme="dark"] .requirements::-webkit-scrollbar-track {
+        background: var(--bg-hover, #2d3748);
     }
+
+    .btn-success {
+        background-color: #1cc88a;
+        border-color: #1cc88a;
+    }
+
+        .btn-success:hover {
+            background-color: #17a673;
+            border-color: #17a673;
+        }
+
+    .btn-outline-secondary {
+        color: #858796;
+        border-color: #858796;
+    }
+
+        .btn-outline-secondary:hover {
+            background-color: #858796;
+            color: #fff;
+        }
+
+    .btn-outline-primary {
+        color: #4e73df;
+        border-color: #4e73df;
+    }
+
+        .btn-outline-primary:hover {
+            background-color: #4e73df;
+            color: #fff;
+        }
+
+    .btn-outline-info {
+        color: #36b9cc;
+        border-color: #36b9cc;
+    }
+
+        .btn-outline-info:hover {
+            background-color: #36b9cc;
+            color: #fff;
+        }
 </style>

@@ -126,15 +126,32 @@ namespace MuhleOP.ViewModels
         public bool HasApplied { get; set; }
     }
 
+    // FIXED: ApplyJobViewModel with nullable ClosingDate
     public class ApplyJobViewModel
     {
         public int JobPostId { get; set; }
+
+        [Display(Name = "Job Title")]
         public string JobTitle { get; set; }
+
+        [Display(Name = "Salary Range")]
+        public string SalaryRange { get; set; }
+
+        [Display(Name = "Job Description")]
         public string JobDescription { get; set; }
+
+        [Display(Name = "Requirements")]
         public string Requirements { get; set; }
+
+        [Display(Name = "Location")]
         public string Location { get; set; }
+
+        [Display(Name = "Job Type")]
         public string JobType { get; set; }
-        public DateTime ClosingDate { get; set; }
+
+        [Display(Name = "Closing Date")]
+        [DataType(DataType.Date)]
+        public DateTime? ClosingDate { get; set; }
 
         [Display(Name = "Cover Letter")]
         [DataType(DataType.MultilineText)]

@@ -6,14 +6,14 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h2>Apply for: @Model.JobTitle</h2>
+        <h2>Apply for Job</h2>
         <p class="text-muted">
             <i class="fas fa-file-upload me-2"></i>
-            Complete your application for this position
+            Submit your application for the position
         </p>
     </div>
-    <a href="@Url.Action("JobDetails", new { id = Model.JobPostId })" class="btn btn-secondary">
-        <i class="fas fa-arrow-left"></i> Back to Job
+    <a href="@Url.Action("BrowseJobs", "Candidate")" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Jobs
     </a>
 </div>
 
@@ -26,202 +26,351 @@
 }
 
 <div class="row">
-    <div class="col-lg-8">
-        <div class="card border-0 shadow-sm">
+    <!-- Job Details Section -->
+    <div class="col-lg-5 mb-4">
+        <div class="card border-0 shadow-sm sticky-top" style="top: 20px; z-index: 1;">
+            <div class="card-header bg-transparent border-0">
+                <h5 class="mb-0">
+                    <i class="fas fa-briefcase text-gold me-2"></i>
+                    Job Details
+                </h5>
+            </div>
             <div class="card-body">
-                @using (Html.BeginForm("Apply", "Candidate", FormMethod.Post, new { enctype = "multipart/form-data" }))
+                <!-- Job Title -->
+                <h3 class="mb-2">@Model.JobTitle</h3>
+
+                <!-- Job Badges -->
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    @if (!string.IsNullOrEmpty(Model.JobType))
+                    {
+                        <span class="badge bg-primary">
+                            <i class="fas fa-briefcase me-1"></i> @Model.JobType
+                        </span>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.Location))
+                    {
+                        <span class="badge bg-info">
+                            <i class="fas fa-map-marker-alt me-1"></i> @Model.Location
+                        </span>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.SalaryRange))
+                    {
+                        <span class="badge bg-success">
+                            <i class="fas fa-money-bill-wave me-1"></i> @Model.SalaryRange
+                        </span>
+                    }
+                    @if (Model.ClosingDate.HasValue)
+                    {
+                        var daysLeft = (Model.ClosingDate.Value - DateTime.Now).Days;
+                        <span class="badge @(daysLeft > 7 ? "bg-success" : daysLeft > 3 ? "bg-warning" : "bg-danger")">
+                            <i class="fas fa-clock me-1"></i> @daysLeft days left
+                        </span>
+                    }
+                </div>
+
+                <!-- Closing Date -->
+                @if (Model.ClosingDate.HasValue)
                 {
-                    @Html.AntiForgeryToken()
-                    @Html.HiddenFor(m => m.JobPostId)
-                    @Html.HiddenFor(m => m.JobTitle)
-
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong>Note:</strong> You can update your documents before submitting the application. Only PDF and DOC files are accepted for CV and qualifications.
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        <strong>Closing Date:</strong> @Model.ClosingDate.Value.ToString("dd MMMM yyyy")
                     </div>
+                }
 
-                    <!-- Job Summary -->
-                    <div class="mb-4 p-3 bg-hover rounded">
-                        <h6 class="mb-2"><i class="fas fa-briefcase text-gold me-2"></i>Job Summary</h6>
-                        <dl class="row small">
-                            <dt class="col-sm-4">Position</dt>
-                            <dd class="col-sm-8">@Model.JobTitle</dd>
-                            <dt class="col-sm-4">Location</dt>
-                            <dd class="col-sm-8">@Model.Location</dd>
-                            <dt class="col-sm-4">Job Type</dt>
-                            <dd class="col-sm-8">@Model.JobType</dd>
-                            <dt class="col-sm-4">Closing Date</dt>
-                            <dd class="col-sm-8">@Model.ClosingDate.ToString("dd MMM yyyy")</dd>
-                        </dl>
-                    </div>
-
-                    <!-- Cover Letter -->
-                    <div class="mb-3">
-                        @Html.LabelFor(m => m.CoverLetter, new { @class = "form-label fw-bold" })
-                        @Html.TextAreaFor(m => m.CoverLetter, new
+                <!-- Job Description -->
+                <div class="mb-4">
+                    <h6 class="fw-bold text-gold">
+                        <i class="fas fa-file-alt me-2"></i>Job Description
+                    </h6>
+                    <div class="job-description">
+                        @if (!string.IsNullOrEmpty(Model.JobDescription))
                         {
-                            @class = "form-control",
-                            rows = "8",
-                            placeholder = "Write your cover letter here... Explain why you are the best candidate for this position."
-                        })
-                        @Html.ValidationMessageFor(m => m.CoverLetter, "", new { @class = "text-danger" })
-                        <small class="text-muted d-block mt-1">A well-written cover letter increases your chances of being shortlisted.</small>
+                            <p style="white-space: pre-wrap; line-height: 1.8;">@Model.JobDescription</p>
+                        }
+                        else
+                        {
+                            <p class="text-muted">No description provided.</p>
+                        }
                     </div>
+                </div>
 
-                    <hr />
-
-                    <!-- Document Uploads -->
-                    <div class="mb-3">
-                        <h5><i class="fas fa-file-upload text-gold me-2"></i>Update Your Documents</h5>
-                        <p class="text-muted small">Upload new versions of your documents if they have changed. Leave blank to keep existing files.</p>
+                <!-- Requirements -->
+                <div class="mb-3">
+                    <h6 class="fw-bold text-gold">
+                        <i class="fas fa-list-check me-2"></i>Requirements
+                    </h6>
+                    <div class="requirements">
+                        @if (!string.IsNullOrEmpty(Model.Requirements))
+                        {
+                            <p style="white-space: pre-wrap; line-height: 1.8;">@Model.Requirements</p>
+                        }
+                        else
+                        {
+                            <p class="text-muted">No requirements listed.</p>
+                        }
                     </div>
+                </div>
 
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                @Html.LabelFor(m => m.UpdatedCv, new { @class = "form-label fw-bold" })
-                                <input type="file" name="UpdatedCv" class="form-control-file" accept=".pdf,.doc,.docx" />
-                                @Html.ValidationMessageFor(m => m.UpdatedCv, "", new { @class = "text-danger" })
-                                <small class="text-muted d-block mt-1">PDF, DOC (Max 5MB)</small>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                @Html.LabelFor(m => m.UpdatedQualifications, new { @class = "form-label fw-bold" })
-                                <input type="file" name="UpdatedQualifications" class="form-control-file" accept=".pdf,.doc,.docx" />
-                                @Html.ValidationMessageFor(m => m.UpdatedQualifications, "", new { @class = "text-danger" })
-                                <small class="text-muted d-block mt-1">PDF, DOC (Max 5MB)</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                @Html.LabelFor(m => m.UpdatedIdDocument, new { @class = "form-label fw-bold" })
-                                <input type="file" name="UpdatedIdDocument" class="form-control-file" accept=".pdf,.doc,.docx,.jpg,.png" />
-                                @Html.ValidationMessageFor(m => m.UpdatedIdDocument, "", new { @class = "text-danger" })
-                                <small class="text-muted d-block mt-1">PDF, DOC, JPG, PNG (Max 5MB)</small>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                @Html.LabelFor(m => m.UpdatedLicense, new { @class = "form-label fw-bold" })
-                                <input type="file" name="UpdatedLicense" class="form-control-file" accept=".pdf,.doc,.docx,.jpg,.png" />
-                                @Html.ValidationMessageFor(m => m.UpdatedLicense, "", new { @class = "text-danger" })
-                                <small class="text-muted d-block mt-1">Optional: PDF, DOC, JPG, PNG (Max 5MB)</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Submit Buttons -->
-                    <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-success">
-                            <i class="fas fa-paper-plane"></i> Submit Application
-                        </button>
-                        <a href="@Url.Action("JobDetails", new { id = Model.JobPostId })" class="btn btn-secondary">
-                            <i class="fas fa-times"></i> Cancel
-                        </a>
+                @if (Model.HasApplied)
+                {
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>You have already applied for this position.</strong>
                     </div>
                 }
             </div>
         </div>
     </div>
 
-    <div class="col-lg-4">
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-body">
-                <h6 class="card-title">
-                    <i class="fas fa-check-circle text-success me-2"></i>Application Tips
-                </h6>
-                <ul class="list-unstyled small">
-                    <li class="mb-2">
-                        <i class="fas fa-check-circle text-success me-2"></i>
-                        Ensure your CV is up to date
-                    </li>
-                    <li class="mb-2">
-                        <i class="fas fa-check-circle text-success me-2"></i>
-                        Customize your cover letter
-                    </li>
-                    <li class="mb-2">
-                        <i class="fas fa-check-circle text-success me-2"></i>
-                        Upload all required documents
-                    </li>
-                    <li class="mb-2">
-                        <i class="fas fa-check-circle text-success me-2"></i>
-                        Double-check your contact information
-                    </li>
-                    <li>
-                        <i class="fas fa-check-circle text-success me-2"></i>
-                        Review your application before submitting
-                    </li>
-                </ul>
-            </div>
-        </div>
-
+    <!-- Application Form Section -->
+    <div class="col-lg-7">
         <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0">
+                <h5 class="mb-0">
+                    <i class="fas fa-pen-to-square text-gold me-2"></i>
+                    Application Form
+                </h5>
+            </div>
             <div class="card-body">
-                <h6 class="card-title">
-                    <i class="fas fa-briefcase text-gold me-2"></i>Job Summary
-                </h6>
-                <dl class="row small">
-                    <dt class="col-6">Position:</dt>
-                    <dd class="col-6">@Model.JobTitle</dd>
-                    <dt class="col-6">Location:</dt>
-                    <dd class="col-6">@Model.Location</dd>
-                    <dt class="col-6">Type:</dt>
-                    <dd class="col-6">@Model.JobType</dd>
-                    <dt class="col-6">Closes:</dt>
-                    <dd class="col-6">@Model.ClosingDate.ToString("dd MMM yyyy")</dd>
-                </dl>
+                @if (!Model.HasApplied)
+                {
+                    using (Html.BeginForm("Apply", "Candidate", FormMethod.Post, new { enctype = "multipart/form-data" }))
+                    {
+                        @Html.AntiForgeryToken()
+                        @Html.HiddenFor(m => m.JobPostId)
+                        @Html.HiddenFor(m => m.JobTitle)
+                        @Html.HiddenFor(m => m.JobDescription)
+                        @Html.HiddenFor(m => m.Requirements)
+                        @Html.HiddenFor(m => m.Location)
+                        @Html.HiddenFor(m => m.JobType)
+                        @Html.HiddenFor(m => m.SalaryRange)
+                        @Html.HiddenFor(m => m.ClosingDate)
+
+                        if (!ViewData.ModelState.IsValid)
+                        {
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                <strong>Please correct the following errors:</strong>
+                                <ul class="mb-0 mt-1">
+                                    @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                                    {
+                                        <li>@error.ErrorMessage</li>
+                                    }
+                                </ul>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+                            </div>
+                        }
+
+                        <!-- Cover Letter -->
+                        <div class="mb-4">
+                            @Html.LabelFor(m => m.CoverLetter, new { @class = "form-label fw-bold" })
+                            @Html.TextAreaFor(m => m.CoverLetter, new
+                            {
+                                @class = "form-control",
+                                rows = "6",
+                                placeholder = "Write a compelling cover letter explaining why you're the ideal candidate for this position..."
+                            })
+                            @Html.ValidationMessageFor(m => m.CoverLetter, "", new { @class = "text-danger" })
+                            <small class="text-muted d-block mt-1">Be specific about your skills and experience relevant to this role.</small>
+                        </div>
+
+                        <!-- Document Upload Section -->
+                        <div class="card border-0 bg-hover mb-4">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="fas fa-paperclip text-gold me-2"></i>
+                                    Supporting Documents
+                                </h6>
+                                <p class="text-muted small">Upload updated documents if needed. Leave blank to keep your existing documents.</p>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        @Html.LabelFor(m => m.UpdatedCv, new { @class = "form-label fw-bold" })
+                                        <input type="file" name="UpdatedCv" class="form-control" accept=".pdf,.doc,.docx,.txt" />
+                                        @Html.ValidationMessageFor(m => m.UpdatedCv, "", new { @class = "text-danger" })
+                                        <small class="text-muted d-block mt-1">PDF, DOC, DOCX, or TXT (Max 5MB)</small>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        @Html.LabelFor(m => m.UpdatedQualifications, new { @class = "form-label fw-bold" })
+                                        <input type="file" name="UpdatedQualifications" class="form-control" accept=".pdf,.doc,.docx,.txt" />
+                                        @Html.ValidationMessageFor(m => m.UpdatedQualifications, "", new { @class = "text-danger" })
+                                        <small class="text-muted d-block mt-1">PDF, DOC, DOCX, or TXT (Max 5MB)</small>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        @Html.LabelFor(m => m.UpdatedIdDocument, new { @class = "form-label fw-bold" })
+                                        <input type="file" name="UpdatedIdDocument" class="form-control" accept=".pdf,.jpg,.jpeg,.png" />
+                                        @Html.ValidationMessageFor(m => m.UpdatedIdDocument, "", new { @class = "text-danger" })
+                                        <small class="text-muted d-block mt-1">PDF, JPG, or PNG (Max 5MB)</small>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        @Html.LabelFor(m => m.UpdatedLicense, new { @class = "form-label fw-bold" })
+                                        <input type="file" name="UpdatedLicense" class="form-control" accept=".pdf,.jpg,.jpeg,.png" />
+                                        @Html.ValidationMessageFor(m => m.UpdatedLicense, "", new { @class = "text-danger" })
+                                        <small class="text-muted d-block mt-1">Optional: PDF, JPG, or PNG (Max 5MB)</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-paper-plane me-2"></i> Submit Application
+                            </button>
+                            <a href="@Url.Action("BrowseJobs", "Candidate")" class="btn btn-secondary btn-lg">
+                                <i class="fas fa-times me-2"></i> Cancel
+                            </a>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+                        <h4>Application Already Submitted</h4>
+                        <p class="text-muted">You have already applied for this position.</p>
+                        <a href="@Url.Action("BrowseJobs", "Candidate")" class="btn btn-primary">
+                            <i class="fas fa-arrow-left me-2"></i> Browse Other Jobs
+                        </a>
+                        <a href="@Url.Action("AllApplications", "Candidate")" class="btn btn-outline-info ms-2">
+                            <i class="fas fa-list me-2"></i> View My Applications
+                        </a>
+                    </div>
+                }
             </div>
         </div>
     </div>
 </div>
 
 <style>
-    .bg-hover {
-        background: var(--bg-hover, #f8f9fa);
-    }
-
     .text-gold {
         color: var(--primary-gold, #F5A623);
     }
 
-    .form-control-file {
-        padding: 8px 0;
-        font-size: 13px;
-        font-family: 'IBM Plex Sans', sans-serif;
-        color: var(--text-primary);
-        background: transparent;
-        border: none;
-        width: 100%;
+    .bg-hover {
+        background: var(--bg-hover, #f8f9fa);
     }
-
-        .form-control-file::-webkit-file-upload-button {
-            background: var(--charcoal, #14181D);
-            color: var(--amber, #FDB813);
-            border: none;
-            padding: 6px 14px;
-            border-radius: 2px;
-            font-size: 11px;
-            font-weight: 600;
-            font-family: 'IBM Plex Mono', monospace;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-            .form-control-file::-webkit-file-upload-button:hover {
-                background: #05070a;
-                color: #ffffff;
-            }
 
     [data-theme="dark"] .bg-hover {
         background: var(--bg-hover, #2d3748);
+    }
+
+    .form-control, .form-select {
+        font-size: 14px;
+        padding: 10px 14px;
+    }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-gold, #F5A623);
+            box-shadow: 0 0 0 0.25rem rgba(245, 166, 35, 0.25);
+        }
+
+    .btn-primary {
+        background-color: var(--primary-gold, #F5A623);
+        border-color: var(--primary-gold, #F5A623);
+    }
+
+        .btn-primary:hover {
+            background-color: var(--primary-gold-hover, #d4951e);
+            border-color: var(--primary-gold-hover, #d4951e);
+        }
+
+        .btn-primary:focus, .btn-primary:active {
+            background-color: var(--primary-gold-hover, #d4951e);
+            border-color: var(--primary-gold-hover, #d4951e);
+        }
+
+    .btn-secondary {
+        background-color: var(--bg-secondary, #6c757d);
+        border-color: var(--bg-secondary, #6c757d);
+        color: #fff;
+    }
+
+        .btn-secondary:hover {
+            background-color: var(--bg-secondary-hover, #5a6268);
+            border-color: var(--bg-secondary-hover, #5a6268);
+            color: #fff;
+        }
+
+    .btn-lg {
+        padding: 10px 24px;
+        font-size: 16px;
+    }
+
+    .badge {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+
+        .badge.bg-warning {
+            color: #fff;
+        }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-danger {
+            color: #fff;
+        }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+
+    .sticky-top {
+        z-index: 1;
+    }
+
+    .job-description, .requirements {
+        max-height: 300px;
+        overflow-y: auto;
+        padding-right: 10px;
+    }
+
+        .job-description::-webkit-scrollbar,
+        .requirements::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .job-description::-webkit-scrollbar-track,
+        .requirements::-webkit-scrollbar-track {
+            background: var(--bg-hover, #f1f1f1);
+            border-radius: 3px;
+        }
+
+        .job-description::-webkit-scrollbar-thumb,
+        .requirements::-webkit-scrollbar-thumb {
+            background: var(--primary-gold, #F5A623);
+            border-radius: 3px;
+        }
+
+    [data-theme="dark"] .job-description::-webkit-scrollbar-track,
+    [data-theme="dark"] .requirements::-webkit-scrollbar-track {
+        background: var(--bg-hover, #2d3748);
+    }
+
+    input[type="file"].form-control {
+        padding: 8px 12px;
+    }
+
+    .card-header.bg-transparent {
+        background: transparent !important;
     }
 </style>
 
 @section Scripts {
     @Scripts.Render("~/bundles/jqueryval")
+    <script>
+        $(document).ready(function() {
+            // Auto-fill cover letter if empty
+            var coverLetter = $('#CoverLetter');
+            if (coverLetter.val() && coverLetter.val().trim() === '') {
+                coverLetter.val('Dear Hiring Manager,\n\nI am writing to apply for the ' + '@Model.JobTitle' + ' position. I am very interested in this opportunity and believe my skills and experience make me a strong candidate for this role.\n\nI look forward to hearing from you.\n\nSincerely,\n' + '@User.Identity.Name');
+            }
+        });
+    </script>
 }

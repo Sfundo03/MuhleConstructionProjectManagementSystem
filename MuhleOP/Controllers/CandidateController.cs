@@ -234,6 +234,7 @@ namespace MuhleOP.Controllers
                     Requirements = job.Requirements,
                     Location = job.Location,
                     JobType = job.JobType,
+                    SalaryRange = job.SalaryRange,
                     ClosingDate = job.ClosingDate,
                     HasApplied = hasApplied
                 };
@@ -286,6 +287,7 @@ namespace MuhleOP.Controllers
                     Requirements = job.Requirements,
                     Location = job.Location,
                     JobType = job.JobType,
+                    SalaryRange = job.SalaryRange,
                     ClosingDate = job.ClosingDate,
                     HasExistingDocuments = true,
                     HasApplied = false,
@@ -409,12 +411,21 @@ namespace MuhleOP.Controllers
                         $"/Candidate/ApplicationStatus/{application.Id}"
                     );
 
-                    // Notify Admin
-                    var adminUsers = UserManager.Users.Where(u => UserManager.IsInRole(u.Id, "Admin")).ToList();
-                    foreach (var admin in adminUsers)
+                    // Notify Admin - FIXED: Get admin users properly
+                    var adminUsers = UserManager.Users.ToList();
+                    var adminUserIds = new List<string>();
+                    foreach (var adminUser in adminUsers)
+                    {
+                        if (UserManager.IsInRole(adminUser.Id, "Admin"))
+                        {
+                            adminUserIds.Add(adminUser.Id);
+                        }
+                    }
+
+                    foreach (var adminId in adminUserIds)
                     {
                         await CreateNotification(
-                            admin.Id,
+                            adminId,
                             "New Application Received",
                             $"{candidate.FullName} has applied for '{job.JobTitle}'",
                             "Application",
