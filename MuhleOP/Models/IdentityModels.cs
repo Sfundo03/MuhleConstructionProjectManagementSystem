@@ -77,6 +77,11 @@ namespace MuhleOP.Models
         public DbSet<ProjectHandover> ProjectHandovers { get; set; }
         public DbSet<HandoverDocument> HandoverDocuments { get; set; }
 
+        // Quiz Tables
+        public DbSet<Quiz> Quizzes { get; set; }
+        public DbSet<QuizQuestion> QuizQuestions { get; set; }
+        public DbSet<QuizAttempt> QuizAttempts { get; set; }
+
         public static ApplicationDbContext Create()
         {
             return new ApplicationDbContext();
@@ -180,7 +185,7 @@ namespace MuhleOP.Models
                 .HasPrecision(18, 2);
 
             // ============================================
-            // FIXED: One-to-One relationships with shared primary key
+            // One-to-One relationships with shared primary key
             // ============================================
 
             // Configure Project - ProjectBudget (One-to-One using ProjectId as PK)
@@ -241,13 +246,13 @@ namespace MuhleOP.Models
             // Configure Staff - Project relationships
             modelBuilder.Entity<Project>()
                 .HasRequired(p => p.ProjectManager)
-                .WithMany()
+                .WithMany(s => s.ManagedProjects)
                 .HasForeignKey(p => p.ProjectManagerId)
                 .WillCascadeOnDelete(false);
 
             modelBuilder.Entity<Project>()
                 .HasOptional(p => p.SiteManager)
-                .WithMany()
+                .WithMany(s => s.SupervisedProjects)
                 .HasForeignKey(p => p.SiteManagerId)
                 .WillCascadeOnDelete(false);
 
@@ -260,7 +265,7 @@ namespace MuhleOP.Models
 
             modelBuilder.Entity<DailyTask>()
                 .HasRequired(dt => dt.AssignedBy)
-                .WithMany()
+                .WithMany(s => s.CreatedTasks)
                 .HasForeignKey(dt => dt.AssignedByStaffId)
                 .WillCascadeOnDelete(false);
 
@@ -378,13 +383,13 @@ namespace MuhleOP.Models
             // Configure JobApplication - JobPost relationship
             modelBuilder.Entity<JobApplication>()
                 .HasRequired(ja => ja.JobPost)
-                .WithMany(jp => jp.Applications)
+                .WithMany(jp => jp.JobApplications)
                 .HasForeignKey(ja => ja.JobPostId)
                 .WillCascadeOnDelete(true);
 
             // Configure ApplicationStatusHistory - JobApplication relationship
             modelBuilder.Entity<ApplicationStatusHistory>()
-                .HasRequired(ash => ash.JobApplication)
+                .HasRequired(ash => ash.Application)
                 .WithMany(ja => ja.StatusHistory)
                 .HasForeignKey(ash => ash.ApplicationId)
                 .WillCascadeOnDelete(true);
@@ -430,6 +435,31 @@ namespace MuhleOP.Models
                 .WithMany()
                 .HasForeignKey(s => s.UserId)
                 .WillCascadeOnDelete(false);
+
+            // Configure Quiz relationships
+            modelBuilder.Entity<Quiz>()
+                .HasOptional(q => q.JobPost)
+                .WithMany()
+                .HasForeignKey(q => q.JobPostId)
+                .WillCascadeOnDelete(false);
+
+            modelBuilder.Entity<QuizQuestion>()
+                .HasRequired(qq => qq.Quiz)
+                .WithMany(q => q.Questions)
+                .HasForeignKey(qq => qq.QuizId)
+                .WillCascadeOnDelete(true);
+
+            modelBuilder.Entity<QuizAttempt>()
+                .HasRequired(qa => qa.Quiz)
+                .WithMany()
+                .HasForeignKey(qa => qa.QuizId)
+                .WillCascadeOnDelete(true);
+
+            modelBuilder.Entity<QuizAttempt>()
+                .HasRequired(qa => qa.Application)
+                .WithMany()
+                .HasForeignKey(qa => qa.ApplicationId)
+                .WillCascadeOnDelete(true);
         }
     }
 }

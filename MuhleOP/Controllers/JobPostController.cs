@@ -46,7 +46,9 @@ namespace MuhleOP.Controllers
                 DatePosted = j.DatePosted,
                 PostedBy = j.PostedBy,
                 ApplicationCount = db.JobApplications.Count(a => a.JobPostId == j.Id),
-                AcceptedCount = j.AcceptedApplicantsCount
+                AcceptedCount = j.AcceptedApplicantsCount,
+                SystemRoleId = j.SystemRoleId,
+                SystemRoleName = j.SystemRole != null ? j.SystemRole.Name : "Unknown"
             }).ToList();
 
             return View(viewModels);
@@ -56,7 +58,11 @@ namespace MuhleOP.Controllers
         [Authorize(Roles = "Admin")]
         public ActionResult Create()
         {
-            return View();
+            var viewModel = new JobPostViewModel();
+            viewModel.AvailableRoles = GetSystemRoles();
+            viewModel.ClosingDate = DateTime.Now.AddDays(30);
+            viewModel.NumberOfOpenings = 1;
+            return View(viewModel);
         }
 
         // POST: JobPost/Create - Use Case 1: Create Vacancy
@@ -67,16 +73,34 @@ namespace MuhleOP.Controllers
         {
             if (ModelState.IsValid)
             {
-                var existingJob = db.JobPosts.FirstOrDefault(j => j.JobTitle == viewModel.JobTitle && !j.IsClosed);
+                // Check for duplicate job post with same role
+                var existingJob = db.JobPosts.FirstOrDefault(j =>
+                    j.SystemRoleId == viewModel.SystemRoleId &&
+                    !j.IsClosed &&
+                    j.IsPublished);
+
                 if (existingJob != null)
                 {
-                    ModelState.AddModelError("JobTitle", "A job post with this title already exists and is active.");
+                    ModelState.AddModelError("SystemRoleId", "A job post for this role already exists and is active.");
+                    viewModel.AvailableRoles = GetSystemRoles();
                     return View(viewModel);
                 }
 
+                // Get the role name from the database
+                var role = db.Roles.Find(viewModel.SystemRoleId);
+                if (role == null)
+                {
+                    ModelState.AddModelError("SystemRoleId", "Selected role does not exist.");
+                    viewModel.AvailableRoles = GetSystemRoles();
+                    return View(viewModel);
+                }
+
+                // Auto-generate job title from role name
+                string jobTitle = $"{role.Name} Position";
+
                 var jobPost = new JobPost
                 {
-                    JobTitle = viewModel.JobTitle,
+                    JobTitle = jobTitle,
                     JobDescription = viewModel.JobDescription,
                     Requirements = viewModel.Requirements,
                     ClosingDate = viewModel.ClosingDate,
@@ -91,7 +115,8 @@ namespace MuhleOP.Controllers
                     IsAutoClosed = false,
                     DatePosted = DateTime.Now,
                     PostedBy = User.Identity.Name,
-                    AcceptedApplicantsCount = 0
+                    AcceptedApplicantsCount = 0,
+                    SystemRoleId = viewModel.SystemRoleId
                 };
 
                 db.JobPosts.Add(jobPost);
@@ -100,15 +125,16 @@ namespace MuhleOP.Controllers
                 await CreateNotification(
                     User.Identity.GetUserId(),
                     "Job Post Created",
-                    $"Job post '{jobPost.JobTitle}' has been created successfully.",
+                    $"Job post '{jobPost.JobTitle}' has been created successfully for role {role.Name}.",
                     "System",
                     $"/JobPost/Details/{jobPost.Id}"
                 );
 
-                TempData["SuccessMessage"] = "Job post created successfully!";
+                TempData["SuccessMessage"] = $"Job post created successfully for role: {role.Name}!";
                 return RedirectToAction("Index");
             }
 
+            viewModel.AvailableRoles = GetSystemRoles();
             return View(viewModel);
         }
 
@@ -121,6 +147,8 @@ namespace MuhleOP.Controllers
             {
                 return HttpNotFound();
             }
+
+            var roleName = jobPost.SystemRole != null ? jobPost.SystemRole.Name : "Unknown";
 
             var viewModel = new JobPostViewModel
             {
@@ -141,7 +169,9 @@ namespace MuhleOP.Controllers
                 DatePosted = jobPost.DatePosted,
                 PostedBy = jobPost.PostedBy,
                 ApplicationCount = db.JobApplications.Count(a => a.JobPostId == jobPost.Id),
-                AcceptedCount = jobPost.AcceptedApplicantsCount
+                AcceptedCount = jobPost.AcceptedApplicantsCount,
+                SystemRoleId = jobPost.SystemRoleId,
+                SystemRoleName = roleName
             };
 
             return View(viewModel);
@@ -174,8 +204,10 @@ namespace MuhleOP.Controllers
                 IsClosed = jobPost.IsClosed,
                 IsAutoClosed = jobPost.IsAutoClosed,
                 DatePosted = jobPost.DatePosted,
-                PostedBy = jobPost.PostedBy
+                PostedBy = jobPost.PostedBy,
+                SystemRoleId = jobPost.SystemRoleId
             };
+            viewModel.AvailableRoles = GetSystemRoles();
 
             return View(viewModel);
         }
@@ -194,7 +226,31 @@ namespace MuhleOP.Controllers
                     return HttpNotFound();
                 }
 
-                jobPost.JobTitle = viewModel.JobTitle;
+                // Check for duplicate if role changed
+                if (jobPost.SystemRoleId != viewModel.SystemRoleId)
+                {
+                    var existingJob = db.JobPosts.FirstOrDefault(j =>
+                        j.SystemRoleId == viewModel.SystemRoleId &&
+                        j.Id != viewModel.Id &&
+                        !j.IsClosed &&
+                        j.IsPublished);
+
+                    if (existingJob != null)
+                    {
+                        ModelState.AddModelError("SystemRoleId", "A job post for this role already exists and is active.");
+                        viewModel.AvailableRoles = GetSystemRoles();
+                        return View(viewModel);
+                    }
+
+                    // Update job title if role changed
+                    var role = db.Roles.Find(viewModel.SystemRoleId);
+                    if (role != null)
+                    {
+                        jobPost.JobTitle = $"{role.Name} Position";
+                        jobPost.SystemRoleId = viewModel.SystemRoleId;
+                    }
+                }
+
                 jobPost.JobDescription = viewModel.JobDescription;
                 jobPost.Requirements = viewModel.Requirements;
                 jobPost.ClosingDate = viewModel.ClosingDate;
@@ -212,6 +268,7 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("Index");
             }
 
+            viewModel.AvailableRoles = GetSystemRoles();
             return View(viewModel);
         }
 
@@ -1235,6 +1292,28 @@ namespace MuhleOP.Controllers
             if (hasLicense) score += 5;
 
             return Math.Round(score, 2);
+        }
+
+        private List<SelectListItem> GetSystemRoles()
+        {
+            var roles = db.Roles
+                .Where(r => r.Name != "Admin" && r.Name != "Client" && r.Name != "Candidate")
+                .OrderBy(r => r.Name)
+                .Select(r => new SelectListItem
+                {
+                    Value = r.Id,
+                    Text = r.Name
+                })
+                .ToList();
+
+            // Add a default empty option
+            roles.Insert(0, new SelectListItem
+            {
+                Value = "",
+                Text = "-- Select a System Role --"
+            });
+
+            return roles;
         }
 
         #endregion

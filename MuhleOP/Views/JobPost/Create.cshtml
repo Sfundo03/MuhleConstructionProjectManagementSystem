@@ -17,6 +17,21 @@
     </a>
 </div>
 
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i>
+        <strong>Please correct the following errors:</strong>
+        <ul class="mb-0 mt-1">
+            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+            {
+                <li>@error.ErrorMessage</li>
+            }
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+    </div>
+}
+
 <div class="card border-0 shadow-sm">
     <div class="card-body">
         @using (Html.BeginForm())
@@ -26,11 +41,23 @@
             <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
-                        @Html.LabelFor(m => m.JobTitle, new { @class = "form-label fw-bold" })
-                        @Html.TextBoxFor(m => m.JobTitle, new { @class = "form-control", placeholder = "e.g. Senior Construction Manager" })
-                        @Html.ValidationMessageFor(m => m.JobTitle, "", new { @class = "text-danger" })
+                        @Html.LabelFor(m => m.SystemRoleId, new { @class = "form-label fw-bold" })
+                        @Html.DropDownListFor(m => m.SystemRoleId, Model.AvailableRoles, new { @class = "form-select", id = "SystemRoleId" })
+                        @Html.ValidationMessageFor(m => m.SystemRoleId, "", new { @class = "text-danger" })
+                        <small class="text-muted d-block mt-1">Select the system role for this position. The job title will be auto-generated.</small>
                     </div>
                 </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.JobTitle, new { @class = "form-label fw-bold" })
+                        @Html.TextBoxFor(m => m.JobTitle, new { @class = "form-control", @readonly = "readonly", id = "JobTitle", placeholder = "Auto-generated from selected role" })
+                        @Html.ValidationMessageFor(m => m.JobTitle, "", new { @class = "text-danger" })
+                        <small class="text-muted d-block mt-1">Job title is auto-generated based on the selected role</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
                         @Html.LabelFor(m => m.Department, new { @class = "form-label fw-bold" })
@@ -38,9 +65,6 @@
                         @Html.ValidationMessageFor(m => m.Department, "", new { @class = "text-danger" })
                     </div>
                 </div>
-            </div>
-
-            <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
                         @Html.LabelFor(m => m.JobType, new { @class = "form-label fw-bold" })
@@ -51,6 +75,9 @@
                         @Html.ValidationMessageFor(m => m.JobType, "", new { @class = "text-danger" })
                     </div>
                 </div>
+            </div>
+
+            <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
                         @Html.LabelFor(m => m.ExperienceLevel, new { @class = "form-label fw-bold" })
@@ -61,9 +88,6 @@
                         @Html.ValidationMessageFor(m => m.ExperienceLevel, "", new { @class = "text-danger" })
                     </div>
                 </div>
-            </div>
-
-            <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
                         @Html.LabelFor(m => m.Location, new { @class = "form-label fw-bold" })
@@ -71,6 +95,9 @@
                         @Html.ValidationMessageFor(m => m.Location, "", new { @class = "text-danger" })
                     </div>
                 </div>
+            </div>
+
+            <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
                         @Html.LabelFor(m => m.SalaryRange, new { @class = "form-label fw-bold" })
@@ -78,9 +105,6 @@
                         @Html.ValidationMessageFor(m => m.SalaryRange, "", new { @class = "text-danger" })
                     </div>
                 </div>
-            </div>
-
-            <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
                         @Html.LabelFor(m => m.NumberOfOpenings, new { @class = "form-label fw-bold" })
@@ -89,6 +113,9 @@
                         <small class="text-muted d-block mt-1">Number of positions available for this role</small>
                     </div>
                 </div>
+            </div>
+
+            <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
                         @Html.LabelFor(m => m.ClosingDate, new { @class = "form-label fw-bold" })
@@ -141,7 +168,7 @@
                 <ul class="list-unstyled small">
                     <li class="mb-2">
                         <i class="fas fa-check-circle text-success me-2"></i>
-                        Use a clear, descriptive job title
+                        Select the appropriate system role - this determines the job title
                     </li>
                     <li class="mb-2">
                         <i class="fas fa-check-circle text-success me-2"></i>
@@ -179,8 +206,45 @@
         font-weight: 600;
         font-size: 14px;
     }
+
+    .form-control[readonly] {
+        background-color: #f8f9fa;
+        cursor: not-allowed;
+    }
+
+    [data-theme="dark"] .form-control[readonly] {
+        background-color: #2d3748;
+    }
 </style>
 
 @section Scripts {
     @Scripts.Render("~/bundles/jqueryval")
+    <script>
+        $(document).ready(function() {
+            // Auto-generate job title when role is selected
+            $('#SystemRoleId').change(function() {
+                var roleId = $(this).val();
+                if (roleId) {
+                    var roleName = $(this).find('option:selected').text();
+                    // Remove the "-- Select a System Role --" option text
+                    if (roleName && roleName !== '-- Select a System Role --') {
+                        $('#JobTitle').val(roleName + ' Position');
+                    } else {
+                        $('#JobTitle').val('');
+                    }
+                } else {
+                    $('#JobTitle').val('');
+                }
+            });
+
+            // If role is pre-selected (for edit mode), set job title
+            var selectedRole = $('#SystemRoleId').val();
+            if (selectedRole) {
+                var roleName = $('#SystemRoleId').find('option:selected').text();
+                if (roleName && roleName !== '-- Select a System Role --') {
+                    $('#JobTitle').val(roleName + ' Position');
+                }
+            }
+        });
+    </script>
 }

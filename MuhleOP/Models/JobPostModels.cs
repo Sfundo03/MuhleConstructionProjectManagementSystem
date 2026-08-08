@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.AspNet.Identity.EntityFramework;
 
 namespace MuhleOP.Models
 {
@@ -12,7 +13,7 @@ namespace MuhleOP.Models
 
         [Required(ErrorMessage = "Job title is required")]
         [Display(Name = "Job Title")]
-        [StringLength(100, ErrorMessage = "Job title cannot exceed 100 characters")]
+        [StringLength(100)]
         public string JobTitle { get; set; }
 
         [Required(ErrorMessage = "Job description is required")]
@@ -28,14 +29,13 @@ namespace MuhleOP.Models
         [Required(ErrorMessage = "Closing date is required")]
         [Display(Name = "Closing Date")]
         [DataType(DataType.Date)]
-        [DisplayFormat(DataFormatString = "{0:yyyy-MM-dd}", ApplyFormatInEditMode = true)]
         public DateTime ClosingDate { get; set; }
 
         [Display(Name = "Job Type")]
-        public string JobType { get; set; } // Full-time, Part-time, Contract, Temporary, Internship
+        public string JobType { get; set; }
 
         [Display(Name = "Experience Level")]
-        public string ExperienceLevel { get; set; } // Entry, Junior, Mid, Senior, Lead, Executive
+        public string ExperienceLevel { get; set; }
 
         [Display(Name = "Location")]
         [StringLength(100)]
@@ -46,7 +46,7 @@ namespace MuhleOP.Models
         public string SalaryRange { get; set; }
 
         [Display(Name = "Number of Openings")]
-        [Range(1, 100, ErrorMessage = "Number of openings must be between 1 and 100")]
+        [Range(1, 100)]
         public int NumberOfOpenings { get; set; } = 1;
 
         [Display(Name = "Department")]
@@ -59,33 +59,36 @@ namespace MuhleOP.Models
         [Display(Name = "Is Closed")]
         public bool IsClosed { get; set; }
 
+        [Display(Name = "Is Auto Closed")]
+        public bool IsAutoClosed { get; set; }
+
         [Display(Name = "Date Posted")]
         public DateTime DatePosted { get; set; }
 
         [Display(Name = "Posted By")]
         public string PostedBy { get; set; }
 
-        // Auto-close tracking
-        [Display(Name = "Auto Closed")]
-        public bool IsAutoClosed { get; set; }
+        [Display(Name = "Accepted Applicants Count")]
+        public int AcceptedApplicantsCount { get; set; }
 
         [Display(Name = "Auto Close Date")]
         public DateTime? AutoCloseDate { get; set; }
 
-        [Display(Name = "Accepted Applicants Count")]
-        public int AcceptedApplicantsCount { get; set; }
+        // System Role ID for the position - This links to the ASP.NET Identity Role
+        [Display(Name = "System Role")]
+        public string SystemRoleId { get; set; }
+
+        // Navigation Property to the Identity Role
+        [ForeignKey("SystemRoleId")]
+        public virtual IdentityRole SystemRole { get; set; }
 
         // Navigation Properties
-        public virtual ICollection<JobApplication> Applications { get; set; }
+        public virtual ICollection<JobApplication> JobApplications { get; set; }
 
         public JobPost()
         {
             DatePosted = DateTime.Now;
-            IsPublished = true;
-            IsClosed = false;
-            IsAutoClosed = false;
-            AcceptedApplicantsCount = 0;
-            Applications = new List<JobApplication>();
+            JobApplications = new List<JobApplication>();
         }
     }
 
@@ -106,30 +109,24 @@ namespace MuhleOP.Models
         [ForeignKey("CandidateId")]
         public virtual Candidate Candidate { get; set; }
 
-        [Display(Name = "Application Date")]
-        public DateTime ApplicationDate { get; set; }
-
-        [Display(Name = "Application Status")]
-        public string Status { get; set; } // Pending, Shortlisted, Interview Scheduled, Passed Interview, Failed Interview, Hired, Rejected
-
         [Display(Name = "Cover Letter")]
         [DataType(DataType.MultilineText)]
         public string CoverLetter { get; set; }
 
-        [Display(Name = "Additional Notes")]
-        public string Notes { get; set; }
+        [Display(Name = "Application Date")]
+        public DateTime ApplicationDate { get; set; }
 
-        [Display(Name = "Is Withdrawn")]
-        public bool IsWithdrawn { get; set; }
+        [Display(Name = "Status")]
+        public string Status { get; set; }
 
         // Ranking Properties
         [Display(Name = "Ranking Score")]
         public double RankingScore { get; set; }
 
-        [Display(Name = "Skills Match %")]
+        [Display(Name = "Skills Match Percentage")]
         public int SkillsMatchPercentage { get; set; }
 
-        [Display(Name = "Has Matric/Grade 12")]
+        [Display(Name = "Has Matric")]
         public bool HasMatric { get; set; }
 
         [Display(Name = "Has License")]
@@ -148,21 +145,15 @@ namespace MuhleOP.Models
         [Display(Name = "Interview Scheduled")]
         public bool InterviewScheduled { get; set; }
 
-        [Display(Name = "Interview Date")]
-        [DataType(DataType.DateTime)]
+        [Display(Name = "Interview Date & Time")]
         public DateTime? InterviewDateTime { get; set; }
 
         [Display(Name = "Interview Notes")]
+        [DataType(DataType.MultilineText)]
         public string InterviewNotes { get; set; }
 
-        [Display(Name = "Interview Location")]
-        public string InterviewLocation { get; set; }
-
-        [Display(Name = "Interview Type")]
-        public string InterviewType { get; set; } // In-person, Phone, Video
-
         [Display(Name = "Interview Result")]
-        public string InterviewResult { get; set; } // Passed, Failed, Pending
+        public string InterviewResult { get; set; }
 
         [Display(Name = "Interview Feedback")]
         [DataType(DataType.MultilineText)]
@@ -174,19 +165,6 @@ namespace MuhleOP.Models
         [Display(Name = "Interview Assessed Date")]
         public DateTime? InterviewAssessedDate { get; set; }
 
-        // Quiz Properties (for automated assessment)
-        [Display(Name = "Quiz Score")]
-        public int? QuizScore { get; set; }
-
-        [Display(Name = "Quiz Passed")]
-        public bool? QuizPassed { get; set; }
-
-        [Display(Name = "Quiz Date")]
-        public DateTime? QuizDate { get; set; }
-
-        [Display(Name = "Quiz Result")]
-        public string QuizResult { get; set; } // Passed, Failed, Not Taken
-
         // Hiring Properties
         [Display(Name = "Is Hired")]
         public bool IsHired { get; set; }
@@ -197,6 +175,16 @@ namespace MuhleOP.Models
         [Display(Name = "Hired By")]
         public string HiredBy { get; set; }
 
+        // Quiz Properties
+        [Display(Name = "Quiz Score")]
+        public int? QuizScore { get; set; }
+
+        [Display(Name = "Quiz Passed")]
+        public bool? QuizPassed { get; set; }
+
+        [Display(Name = "Quiz Completed Date")]
+        public DateTime? QuizCompletedDate { get; set; }
+
         // Navigation Properties
         public virtual ICollection<ApplicationStatusHistory> StatusHistory { get; set; }
 
@@ -204,17 +192,12 @@ namespace MuhleOP.Models
         {
             ApplicationDate = DateTime.Now;
             Status = "Pending";
-            IsWithdrawn = false;
+            InterviewResult = "Pending";
             IsShortlisted = false;
             InterviewScheduled = false;
             IsHired = false;
             RankingScore = 0;
             SkillsMatchPercentage = 0;
-            HasMatric = false;
-            HasLicense = false;
-            QualificationLevel = "None";
-            InterviewResult = "Pending";
-            QuizResult = "Not Taken";
             StatusHistory = new List<ApplicationStatusHistory>();
         }
     }
@@ -228,7 +211,7 @@ namespace MuhleOP.Models
         public int ApplicationId { get; set; }
 
         [ForeignKey("ApplicationId")]
-        public virtual JobApplication JobApplication { get; set; }
+        public virtual JobApplication Application { get; set; }
 
         [Required]
         [Display(Name = "Status")]
@@ -247,6 +230,128 @@ namespace MuhleOP.Models
         public ApplicationStatusHistory()
         {
             ChangeDate = DateTime.Now;
+        }
+    }
+
+    public class Quiz
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        [Display(Name = "Quiz Title")]
+        [StringLength(200)]
+        public string Title { get; set; }
+
+        [Display(Name = "Description")]
+        [DataType(DataType.MultilineText)]
+        public string Description { get; set; }
+
+        [Display(Name = "Job Post")]
+        public int? JobPostId { get; set; }
+
+        [ForeignKey("JobPostId")]
+        public virtual JobPost JobPost { get; set; }
+
+        [Display(Name = "Time Limit (Minutes)")]
+        public int TimeLimitMinutes { get; set; } = 30;
+
+        [Display(Name = "Passing Score")]
+        public int PassingScore { get; set; } = 70;
+
+        [Display(Name = "Is Active")]
+        public bool IsActive { get; set; }
+
+        [Display(Name = "Created Date")]
+        public DateTime CreatedDate { get; set; }
+
+        [Display(Name = "Created By")]
+        public string CreatedBy { get; set; }
+
+        // Navigation Properties
+        public virtual ICollection<QuizQuestion> Questions { get; set; }
+
+        public Quiz()
+        {
+            IsActive = true;
+            CreatedDate = DateTime.Now;
+            Questions = new List<QuizQuestion>();
+        }
+    }
+
+    public class QuizQuestion
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        public int QuizId { get; set; }
+
+        [ForeignKey("QuizId")]
+        public virtual Quiz Quiz { get; set; }
+
+        [Required]
+        [Display(Name = "Question")]
+        [DataType(DataType.MultilineText)]
+        public string Question { get; set; }
+
+        [Required]
+        [Display(Name = "Question Type")]
+        public string QuestionType { get; set; } // MultipleChoice, TrueFalse, ShortAnswer
+
+        [Display(Name = "Options (JSON)")]
+        public string OptionsJson { get; set; }
+
+        [Required]
+        [Display(Name = "Correct Answer")]
+        public string CorrectAnswer { get; set; }
+
+        [Display(Name = "Points")]
+        public int Points { get; set; } = 1;
+
+        [Display(Name = "Order")]
+        public int Order { get; set; }
+    }
+
+    public class QuizAttempt
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        public int QuizId { get; set; }
+
+        [ForeignKey("QuizId")]
+        public virtual Quiz Quiz { get; set; }
+
+        [Required]
+        public int ApplicationId { get; set; }
+
+        [ForeignKey("ApplicationId")]
+        public virtual JobApplication Application { get; set; }
+
+        [Display(Name = "Start Time")]
+        public DateTime StartTime { get; set; }
+
+        [Display(Name = "End Time")]
+        public DateTime? EndTime { get; set; }
+
+        [Display(Name = "Score")]
+        public int? Score { get; set; }
+
+        [Display(Name = "Passed")]
+        public bool? Passed { get; set; }
+
+        [Display(Name = "Answers (JSON)")]
+        public string AnswersJson { get; set; }
+
+        [Display(Name = "Status")]
+        public string Status { get; set; } // InProgress, Completed, TimedOut
+
+        public QuizAttempt()
+        {
+            StartTime = DateTime.Now;
+            Status = "InProgress";
         }
     }
 }

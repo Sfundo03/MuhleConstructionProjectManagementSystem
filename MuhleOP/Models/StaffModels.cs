@@ -60,6 +60,15 @@ namespace MuhleOP.Models
         public virtual ICollection<Timesheet> Timesheets { get; set; }
         public virtual ICollection<SiteInspection> Inspections { get; set; }
 
+        // Projects where this Staff member is the Project Manager
+        public virtual ICollection<Project> ManagedProjects { get; set; }
+
+        // Projects where this Staff member is the Site Manager
+        public virtual ICollection<Project> SupervisedProjects { get; set; }
+
+        // DailyTasks created/assigned by this Staff member
+        public virtual ICollection<DailyTask> CreatedTasks { get; set; }
+
         public Staff()
         {
             HireDate = DateTime.Now;
@@ -69,6 +78,9 @@ namespace MuhleOP.Models
             AssignedTasks = new List<DailyTask>();
             Timesheets = new List<Timesheet>();
             Inspections = new List<SiteInspection>();
+            ManagedProjects = new List<Project>();
+            SupervisedProjects = new List<Project>();
+            CreatedTasks = new List<DailyTask>();
         }
 
         private string GenerateEmployeeId()
