@@ -203,7 +203,7 @@ namespace MuhleOP.ViewModels
         public bool SendQuizInvitation { get; set; } = true;
 
         [Display(Name = "Quiz Time Limit (Minutes)")]
-        public int QuizTimeLimit { get; set; } = 30;
+        public int QuizTimeLimit { get; set; } = 15;
 
         [Display(Name = "Quiz Passing Score")]
         public int QuizPassingScore { get; set; } = 60;

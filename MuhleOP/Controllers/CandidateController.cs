@@ -1156,47 +1156,33 @@ namespace MuhleOP.Controllers
                 // Check if quiz exists - use a direct query to avoid lazy loading issues
                 System.Diagnostics.Debug.WriteLine($">>> TakeQuiz: Checking for active quiz for JobPostId: {jobPost.Id}");
 
-                var quiz = db.Quizzes
-                    .Where(q => q.JobPostId == jobPost.Id && q.IsActive)
-                    .Select(q => new { Quiz = q, QuestionCount = db.QuizQuestions.Count(qq => qq.QuizId == q.Id) })
-                    .FirstOrDefault();
+                var existingQuizRow = db.Quizzes.FirstOrDefault(q => q.JobPostId == jobPost.Id && q.IsActive);
 
-                Quiz fullQuiz = null;
+                Quiz fullQuiz;
 
-                if (quiz != null)
+                if (existingQuizRow != null)
                 {
-                    System.Diagnostics.Debug.WriteLine($">>> TakeQuiz: Found active quiz: ID={quiz.Quiz.Id}, Title={quiz.Quiz.Title}, QuestionCount={quiz.QuestionCount}");
-
-                    if (quiz.QuestionCount > 0)
-                    {
-                        // Load full quiz with questions
-                        fullQuiz = db.Quizzes.Include(q => q.Questions).FirstOrDefault(q => q.Id == quiz.Quiz.Id);
-                        System.Diagnostics.Debug.WriteLine($">>> TakeQuiz: Loaded full quiz with {fullQuiz?.Questions?.Count ?? 0} questions");
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($">>> TakeQuiz: Quiz has 0 questions. Will generate questions.");
-                    }
+                    System.Diagnostics.Debug.WriteLine($">>> TakeQuiz: Found active quiz: ID={existingQuizRow.Id}, Title={existingQuizRow.Title}");
                 }
                 else
                 {
                     System.Diagnostics.Debug.WriteLine($">>> TakeQuiz: No active quiz found. Will auto-create one.");
                 }
 
+                // Always run this - not just when the quiz is missing or empty. It tops up any
+                // quiz with fewer than 10 questions AND de-duplicates any quiz that already has
+                // repeated questions from a previous bug, so a candidate never lands on a quiz
+                // with duplicated content.
+                System.Diagnostics.Debug.WriteLine($">>> TakeQuiz: Ensuring quiz for JobPostId: {jobPost.Id} has 10 unique questions");
+                fullQuiz = await CreateAutoQuizForCandidate(jobPost);
+
                 if (fullQuiz == null || !fullQuiz.Questions.Any())
                 {
-                    // Auto-generate quiz if none exists or has no questions
-                    System.Diagnostics.Debug.WriteLine($">>> TakeQuiz: Creating/updating quiz for JobPostId: {jobPost.Id}");
-                    fullQuiz = await CreateAutoQuizForCandidate(jobPost);
-
-                    if (fullQuiz == null || !fullQuiz.Questions.Any())
-                    {
-                        System.Diagnostics.Debug.WriteLine($">>> TakeQuiz: Failed to create quiz or no questions generated.");
-                        TempData["ErrorMessage"] = "Quiz not available for this position. Please contact the administrator.";
-                        return RedirectToAction("AllApplications");
-                    }
-                    System.Diagnostics.Debug.WriteLine($">>> TakeQuiz: Quiz created/updated with {fullQuiz.Questions.Count} questions");
+                    System.Diagnostics.Debug.WriteLine($">>> TakeQuiz: Failed to create quiz or no questions generated.");
+                    TempData["ErrorMessage"] = "Quiz not available for this position. Please contact the administrator.";
+                    return RedirectToAction("AllApplications");
                 }
+                System.Diagnostics.Debug.WriteLine($">>> TakeQuiz: Quiz ready with {fullQuiz.Questions.Count} questions");
 
                 // Check if there's an in-progress attempt
                 var inProgressAttempt = db.QuizAttempts
@@ -1233,7 +1219,7 @@ namespace MuhleOP.Controllers
                     QuizId = fullQuiz.Id,
                     Title = fullQuiz.Title,
                     Description = fullQuiz.Description,
-                    TimeLimitMinutes = 20, // Changed to 20 minutes
+                    TimeLimitMinutes = 15,
                     PassingScore = fullQuiz.PassingScore,
                     NumberOfQuestions = questions.Count,
                     ApplicationId = application.Id,
@@ -1250,7 +1236,7 @@ namespace MuhleOP.Controllers
 
                 ViewBag.AttemptId = attempt.Id;
                 ViewBag.QuizTitle = fullQuiz.Title;
-                ViewBag.TimeLimitMinutes = 20; // Changed to 20 minutes
+                ViewBag.TimeLimitMinutes = 15;
                 ViewBag.QuestionCount = questions.Count;
                 ViewBag.PassingScore = fullQuiz.PassingScore;
 
@@ -1262,6 +1248,77 @@ namespace MuhleOP.Controllers
                 System.Diagnostics.Debug.WriteLine($">>> TakeQuiz EXCEPTION: {ex.Message}\n{ex.StackTrace}");
                 TempData["ErrorMessage"] = "Error loading quiz: " + ex.Message;
                 return RedirectToAction("AllApplications");
+            }
+        }
+
+        // POST: Candidate/SaveQuizProgress
+        // Called periodically (and on every answer change) by TakeQuiz.cshtml so that answers
+        // are persisted to the QuizAttempt row as the candidate works through the quiz, instead
+        // of only being held in browser memory until the final Submit click. Without this, a
+        // refresh, tab close, or resumed session (ResumeQuiz) would wipe out everything the
+        // candidate had already answered, which is what was causing candidates to end up with
+        // low/failed scores despite having answered questions.
+        [HttpPost]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        public async Task<JsonResult> SaveQuizProgress(int attemptId, string answers)
+        {
+            try
+            {
+                var user = UserManager.FindById(User.Identity.GetUserId());
+                if (user == null)
+                {
+                    return Json(new { success = false, message = "User not authenticated" });
+                }
+
+                var candidate = db.Candidates.FirstOrDefault(c => c.UserId == user.Id);
+                if (candidate == null)
+                {
+                    return Json(new { success = false, message = "Candidate not found" });
+                }
+
+                var attempt = db.QuizAttempts.Find(attemptId);
+                if (attempt == null)
+                {
+                    return Json(new { success = false, message = "Quiz attempt not found" });
+                }
+
+                var application = db.JobApplications.Find(attempt.ApplicationId);
+                if (application == null || application.CandidateId != candidate.Id)
+                {
+                    return Json(new { success = false, message = "Permission denied" });
+                }
+
+                // Only persist progress while the attempt is still in progress - never overwrite
+                // the final answers of a completed attempt.
+                if (attempt.Status != "InProgress")
+                {
+                    return Json(new { success = false, message = "Quiz already completed" });
+                }
+
+                // Validate the incoming JSON before saving so a malformed payload can't corrupt
+                // previously-saved answers.
+                Dictionary<int, string> parsedAnswers;
+                try
+                {
+                    parsedAnswers = string.IsNullOrWhiteSpace(answers)
+                        ? new Dictionary<int, string>()
+                        : JsonConvert.DeserializeObject<Dictionary<int, string>>(answers);
+                }
+                catch
+                {
+                    return Json(new { success = false, message = "Invalid answers payload" });
+                }
+
+                attempt.AnswersJson = JsonConvert.SerializeObject(parsedAnswers);
+                await db.SaveChangesAsync();
+
+                return Json(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($">>> SaveQuizProgress EXCEPTION: {ex.Message}\n{ex.StackTrace}");
+                return Json(new { success = false, message = "Error saving progress: " + ex.Message });
             }
         }
 
@@ -1396,11 +1453,10 @@ namespace MuhleOP.Controllers
                 db.ApplicationStatusHistories.Add(history);
                 await db.SaveChangesAsync();
 
-                // Create notification for candidate
-                string notificationTitle = passed ? "Quiz Completed - Passed!" : "Quiz Completed - Failed";
-                string notificationMessage = passed
-                    ? $"Congratulations! You passed the quiz for '{application.JobPost?.JobTitle ?? "the position"}' with a score of {score}%."
-                    : $"You did not pass the quiz for '{application.JobPost?.JobTitle ?? "the position"}'. Your score was {score}%. The passing score is {quiz.PassingScore}%.";
+                // Create notification for candidate - no marks/pass-fail is shown to the
+                // candidate. Only admins should see the actual score (sent separately below).
+                string notificationTitle = "Quiz Completed";
+                string notificationMessage = $"Thank you for completing the quiz for '{application.JobPost?.JobTitle ?? "the position"}'. We will be in touch regarding the final decision.";
 
                 await CreateNotification(
                     user.Id,
@@ -1410,8 +1466,8 @@ namespace MuhleOP.Controllers
                     $"/Candidate/QuizResult/{attempt.Id}"
                 );
 
-                // Notify admin if passed
-                if (passed)
+                // Notify admin (with full marks) regardless of pass/fail, so the hiring team
+                // has visibility into every completed attempt, not just passing ones.
                 {
                     var adminUsers = UserManager.Users.ToList();
                     var adminUserIds = new List<string>();
@@ -1423,12 +1479,15 @@ namespace MuhleOP.Controllers
                         }
                     }
 
+                    string adminTitle = passed ? "Candidate Passed Quiz" : "Candidate Completed Quiz - Did Not Pass";
+                    string adminMessage = $"{candidate.FullName} {(passed ? "passed" : "did not pass")} the quiz for '{application.JobPost?.JobTitle ?? "the position"}' with a score of {score}%.";
+
                     foreach (var adminId in adminUserIds)
                     {
                         await CreateNotification(
                             adminId,
-                            "Candidate Passed Quiz",
-                            $"{candidate.FullName} passed the quiz for '{application.JobPost?.JobTitle ?? "the position"}' with a score of {score}%.",
+                            adminTitle,
+                            adminMessage,
                             "Quiz",
                             $"/JobPost/ReviewApplications/{application.JobPostId}"
                         );
@@ -1437,14 +1496,14 @@ namespace MuhleOP.Controllers
 
                 System.Diagnostics.Debug.WriteLine($">>> SubmitQuiz: Completed successfully. Result: {(passed ? "PASSED" : "FAILED")}");
 
+                // Note: intentionally not returning score/passed/passingScore to the client -
+                // candidates must not have access to their marks, only admins do (marks are
+                // stored server-side and visible to admins via ManageQuiz / ReviewApplications).
                 return Json(new
                 {
                     success = true,
-                    passed = passed,
-                    score = score,
-                    passingScore = quiz.PassingScore,
                     attemptId = attempt.Id,
-                    message = passed ? "Quiz completed! You passed!" : "Quiz completed. You did not pass."
+                    message = "Quiz completed! Thank you for your submission."
                 });
             }
             catch (Exception ex)
@@ -1594,7 +1653,7 @@ namespace MuhleOP.Controllers
                     QuizId = quiz.Id,
                     Title = quiz.Title,
                     Description = quiz.Description,
-                    TimeLimitMinutes = 20, // Changed to 20 minutes
+                    TimeLimitMinutes = 15,
                     PassingScore = quiz.PassingScore,
                     NumberOfQuestions = questions.Count,
                     ApplicationId = application.Id,
@@ -1612,7 +1671,7 @@ namespace MuhleOP.Controllers
 
                 ViewBag.AttemptId = attempt.Id;
                 ViewBag.QuizTitle = quiz.Title;
-                ViewBag.TimeLimitMinutes = 20; // Changed to 20 minutes
+                ViewBag.TimeLimitMinutes = 15;
                 ViewBag.QuestionCount = questions.Count;
                 ViewBag.PassingScore = quiz.PassingScore;
                 ViewBag.ElapsedSeconds = (int)(DateTime.Now - attempt.StartTime).TotalSeconds;
@@ -1634,112 +1693,100 @@ namespace MuhleOP.Controllers
 
             try
             {
-                // Check if quiz already exists
-                System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: Checking for existing quiz for JobPostId: {jobPost.Id}");
+                var quiz = db.Quizzes.FirstOrDefault(q => q.JobPostId == jobPost.Id && q.IsActive);
 
-                var existingQuiz = db.Quizzes.Include(q => q.Questions)
-                    .FirstOrDefault(q => q.JobPostId == jobPost.Id);
-
-                if (existingQuiz != null)
+                if (quiz == null)
                 {
-                    System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: Found existing quiz: ID={existingQuiz.Id}, Title={existingQuiz.Title}");
+                    System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: No existing quiz found. Creating new quiz.");
 
-                    // Check if quiz already has questions
-                    if (existingQuiz.Questions != null && existingQuiz.Questions.Any())
+                    quiz = new Quiz
                     {
-                        // Check if there are already 10 questions - if so, use existing
-                        if (existingQuiz.Questions.Count >= 10)
-                        {
-                            System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: Quiz already has {existingQuiz.Questions.Count} questions. Returning existing quiz.");
-                            return existingQuiz;
-                        }
-                        else
-                        {
-                            // Has some questions but less than 10 - generate more to reach 10
-                            System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: Quiz has {existingQuiz.Questions.Count} questions. Need to generate {10 - existingQuiz.Questions.Count} more.");
+                        Title = $"Quiz for {jobPost.JobTitle}",
+                        Description = $"This quiz assesses candidates for the {jobPost.JobTitle} position.",
+                        JobPostId = jobPost.Id,
+                        SystemRoleId = jobPost.SystemRoleId,
+                        TimeLimitMinutes = 15,
+                        PassingScore = 60,
+                        NumberOfQuestions = 10,
+                        IsActive = true,
+                        CreatedDate = DateTime.Now,
+                        CreatedBy = "System"
+                    };
 
-                            var additionalQuestions = GenerateSampleQuestions(
-                                jobPost.JobTitle,
-                                jobPost.Requirements,
-                                10 - existingQuiz.Questions.Count);
-
-                            foreach (var q in additionalQuestions)
-                            {
-                                // Make sure the order is correct
-                                var maxOrder = existingQuiz.Questions.Any() ? existingQuiz.Questions.Max(qq => qq.Order) : 0;
-                                var question = new QuizQuestion
-                                {
-                                    QuizId = existingQuiz.Id,
-                                    Question = q.Question,
-                                    QuestionType = "MultipleChoice",
-                                    OptionsJson = JsonConvert.SerializeObject(q.Options),
-                                    CorrectAnswer = q.CorrectAnswer,
-                                    Points = 1,
-                                    Order = maxOrder + q.Order
-                                };
-                                db.QuizQuestions.Add(question);
-                                existingQuiz.Questions.Add(question);
-                            }
-                            await db.SaveChangesAsync();
-                            System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: Added {additionalQuestions.Count} questions to existing quiz. Total now: {existingQuiz.Questions.Count}");
-                            return existingQuiz;
-                        }
-                    }
-
-                    // Quiz shell exists but has no questions - generate 10 new ones
-                    System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: Quiz exists with no questions. Generating 10 questions now.");
-                    var fallbackQuestions = GenerateSampleQuestions(
-                        jobPost.JobTitle,
-                        jobPost.Requirements,
-                        10);
-
-                    System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: Generated {fallbackQuestions.Count} questions");
-
-                    foreach (var q in fallbackQuestions)
-                    {
-                        var question = new QuizQuestion
-                        {
-                            QuizId = existingQuiz.Id,
-                            Question = q.Question,
-                            QuestionType = "MultipleChoice",
-                            OptionsJson = JsonConvert.SerializeObject(q.Options),
-                            CorrectAnswer = q.CorrectAnswer,
-                            Points = 1,
-                            Order = q.Order
-                        };
-                        db.QuizQuestions.Add(question);
-                        existingQuiz.Questions.Add(question);
-                    }
+                    db.Quizzes.Add(quiz);
                     await db.SaveChangesAsync();
-                    System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: Added 10 questions to existing quiz.");
-                    return existingQuiz;
+                    System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: Quiz created with ID: {quiz.Id}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: Found existing quiz: ID={quiz.Id}, Title={quiz.Title}");
                 }
 
-                System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: No existing quiz found. Creating new quiz.");
+                return await EnsureTenUniqueQuestions(quiz, jobPost);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate EXCEPTION: {ex.Message}\n{ex.StackTrace}");
+                return null;
+            }
+        }
 
-                var quiz = new Quiz
+        // Makes sure the given quiz has exactly 10 questions with no duplicate question text.
+        // This both handles topping up a quiz that has fewer than 10 questions, and self-heals
+        // any quiz that was previously left with duplicated questions - e.g. because the job
+        // title's keyword filter matched only a handful of questions in the bank, and a later
+        // "top up" call re-picked from that exact same small pool instead of excluding what
+        // was already used. Every call re-reads questions straight from the database and
+        // returns a freshly reloaded Quiz, so the result is never affected by stale in-memory
+        // navigation-collection state.
+        private async Task<Quiz> EnsureTenUniqueQuestions(Quiz quiz, JobPost jobPost)
+        {
+            const int targetCount = 10;
+
+            var existingQuestions = db.QuizQuestions
+                .Where(qq => qq.QuizId == quiz.Id)
+                .OrderBy(qq => qq.Order)
+                .ToList();
+
+            // Keep only the first occurrence of each distinct question text; anything after
+            // that is a duplicate and gets removed.
+            var seenTexts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var uniqueQuestions = new List<QuizQuestion>();
+            var duplicates = new List<QuizQuestion>();
+            foreach (var q in existingQuestions)
+            {
+                if (seenTexts.Add(q.Question ?? string.Empty))
                 {
-                    Title = $"Quiz for {jobPost.JobTitle}",
-                    Description = $"This quiz assesses candidates for the {jobPost.JobTitle} position.",
-                    JobPostId = jobPost.Id,
-                    SystemRoleId = jobPost.SystemRoleId,
-                    TimeLimitMinutes = 20, // Changed to 20 minutes
-                    PassingScore = 60,
-                    NumberOfQuestions = 10,
-                    IsActive = true,
-                    CreatedDate = DateTime.Now,
-                    CreatedBy = "System"
-                };
+                    uniqueQuestions.Add(q);
+                }
+                else
+                {
+                    duplicates.Add(q);
+                }
+            }
 
-                db.Quizzes.Add(quiz);
-                await db.SaveChangesAsync();
-                System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: Quiz created with ID: {quiz.Id}");
+            bool changed = false;
 
-                // Generate exactly 10 questions
-                var questions = GenerateSampleQuestions(jobPost.JobTitle, jobPost.Requirements, 10);
-                System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: Generated {questions.Count} questions");
+            if (duplicates.Any())
+            {
+                System.Diagnostics.Debug.WriteLine($">>> EnsureTenUniqueQuestions: Removing {duplicates.Count} duplicate question(s) from QuizId={quiz.Id}");
+                db.QuizQuestions.RemoveRange(duplicates);
+                changed = true;
+            }
 
-                foreach (var q in questions)
+            if (uniqueQuestions.Count < targetCount)
+            {
+                int needed = targetCount - uniqueQuestions.Count;
+                System.Diagnostics.Debug.WriteLine($">>> EnsureTenUniqueQuestions: QuizId={quiz.Id} has {uniqueQuestions.Count} unique question(s). Generating {needed} more.");
+
+                // Exclude every question already on the quiz so the newly generated batch can
+                // never duplicate one that's already there.
+                var excludeTexts = uniqueQuestions.Select(q => q.Question).ToList();
+                var newQuestions = GenerateSampleQuestions(jobPost.JobTitle, jobPost.Requirements, needed, excludeTexts);
+
+                int maxOrder = uniqueQuestions.Any() ? uniqueQuestions.Max(q => q.Order) : 0;
+                int offset = 1;
+                foreach (var q in newQuestions)
                 {
                     var question = new QuizQuestion
                     {
@@ -1749,28 +1796,33 @@ namespace MuhleOP.Controllers
                         OptionsJson = JsonConvert.SerializeObject(q.Options),
                         CorrectAnswer = q.CorrectAnswer,
                         Points = 1,
-                        Order = q.Order
+                        Order = maxOrder + offset
                     };
+                    offset++;
                     db.QuizQuestions.Add(question);
                 }
-                await db.SaveChangesAsync();
-                System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate: Added {questions.Count} questions to quiz ID: {quiz.Id}");
 
-                return quiz;
+                System.Diagnostics.Debug.WriteLine($">>> EnsureTenUniqueQuestions: Generated {newQuestions.Count} new unique question(s) (asked for {needed}).");
+                changed = true;
             }
-            catch (Exception ex)
+
+            if (changed)
             {
-                System.Diagnostics.Debug.WriteLine($">>> CreateAutoQuizForCandidate EXCEPTION: {ex.Message}\n{ex.StackTrace}");
-                return null;
+                await db.SaveChangesAsync();
             }
+
+            // Reload fresh from the database so what's returned is guaranteed to match what's
+            // actually stored - no stale or duplicated in-memory collection state.
+            return db.Quizzes.Include(q => q.Questions).First(q => q.Id == quiz.Id);
         }
 
-        private List<QuizQuestionViewModel> GenerateSampleQuestions(string jobTitle, string requirements, int count = 10)
+        private List<QuizQuestionViewModel> GenerateSampleQuestions(string jobTitle, string requirements, int count = 10, List<string> excludeQuestionTexts = null)
         {
-            System.Diagnostics.Debug.WriteLine($">>> GenerateSampleQuestions called for: {jobTitle}, count: {count}");
+            System.Diagnostics.Debug.WriteLine($">>> GenerateSampleQuestions called for: {jobTitle}, count: {count}, excluding: {excludeQuestionTexts?.Count ?? 0}");
 
             var questions = new List<QuizQuestionViewModel>();
             var random = new Random();
+            var exclude = new HashSet<string>(excludeQuestionTexts ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
 
             // Generic construction/project management questions
             var questionBank = new List<Tuple<string, List<string>, string>>
@@ -1875,30 +1927,47 @@ namespace MuhleOP.Controllers
                     "Project manager oversees entire project, site manager oversees daily operations"),
             };
 
+            // Remove anything already on the quiz first, so a "top up" call can never re-pick
+            // a question that's already there.
+            var availableBank = questionBank.Where(q => !exclude.Contains(q.Item1)).ToList();
+
             // Filter questions based on job title keywords
-            var filteredQuestions = questionBank;
+            var filteredQuestions = availableBank;
             if (!string.IsNullOrEmpty(jobTitle))
             {
                 var keywords = jobTitle.ToLower().Split(' ');
-                filteredQuestions = questionBank.Where(q =>
+                filteredQuestions = availableBank.Where(q =>
                     keywords.Any(k => q.Item1.ToLower().Contains(k) || q.Item2.Any(o => o.ToLower().Contains(k)))
                 ).ToList();
 
+                // Fall back to the full available bank whenever the keyword-filtered pool is
+                // too small to cover what's needed. Combined with the exclusion above (which
+                // removes anything already on the quiz from the pool before we even get here),
+                // this means a "top up" call can never re-select a question that's already on
+                // the quiz, even if the job title's keyword match is narrow.
                 if (filteredQuestions.Count < count)
                 {
-                    filteredQuestions = questionBank;
+                    filteredQuestions = availableBank;
                 }
             }
 
             // Ensure we have exactly 'count' questions
             var selectedQuestions = filteredQuestions.OrderBy(x => random.Next()).Take(count).ToList();
 
-            // If not enough questions, add more from the bank
-            if (selectedQuestions.Count < count && questionBank.Count > selectedQuestions.Count)
+            // If still not enough (e.g. the available bank itself is smaller than requested,
+            // most likely because of the exclusion list), add more from the available bank -
+            // never from the full unfiltered bank, or an excluded/duplicate question could
+            // slip back in.
+            if (selectedQuestions.Count < count && availableBank.Count > selectedQuestions.Count)
             {
-                var additional = questionBank.Except(selectedQuestions).OrderBy(x => random.Next()).Take(count - selectedQuestions.Count);
+                var additional = availableBank.Except(selectedQuestions).OrderBy(x => random.Next()).Take(count - selectedQuestions.Count);
                 selectedQuestions.AddRange(additional);
             }
+
+            // Note: if availableBank itself has fewer unique questions remaining than
+            // requested (the bank is nearly exhausted for this job title/exclusion set), we
+            // simply return as many unique questions as are available rather than looping
+            // back and duplicating one.
 
             for (int i = 0; i < selectedQuestions.Count && i < count; i++)
             {

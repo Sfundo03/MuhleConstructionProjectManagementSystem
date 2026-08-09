@@ -3,7 +3,7 @@
     ViewBag.Title = "Take Quiz";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     var attemptId = ViewBag.AttemptId ?? 0;
-    var timeLimitMinutes = ViewBag.TimeLimitMinutes ?? 20;
+    var timeLimitMinutes = ViewBag.TimeLimitMinutes ?? 15;
     var questionCount = ViewBag.QuestionCount ?? 10;
     var passingScore = ViewBag.PassingScore ?? 60;
     var elapsedSeconds = ViewBag.ElapsedSeconds ?? 0;
@@ -410,9 +410,36 @@
                 });
             }
 
+            let saveProgressTimeout = null;
+
             function saveAnswer(questionId, answer) {
                 answers[questionId] = answer;
                 updateAnsweredCount();
+                scheduleSaveProgress();
+            }
+
+            // Persist answers to the server (debounced) so that a refresh, closed tab, or
+            // resumed session doesn't lose anything the candidate has already answered.
+            function scheduleSaveProgress() {
+                if (saveProgressTimeout) {
+                    clearTimeout(saveProgressTimeout);
+                }
+                saveProgressTimeout = setTimeout(saveProgressNow, 800);
+            }
+
+            function saveProgressNow() {
+                $.ajax({
+                    url: '@Url.Action("SaveQuizProgress", "Candidate")',
+                    type: 'POST',
+                    data: {
+                        __RequestVerificationToken: $('#quizForm input[name="__RequestVerificationToken"]').val(),
+                        attemptId: attemptId,
+                        answers: JSON.stringify(answers)
+                    }
+                    // Best-effort: if this fails (e.g. brief network hiccup), the next answer
+                    // change will simply try again. The final Submit still sends the complete
+                    // answer set regardless.
+                });
             }
 
             function getAnswer(questionId) {
@@ -521,8 +548,25 @@
             updateAnsweredCount();
             startTimer();
 
-            // Warn before leaving page
+            // Safety-net autosave every 20 seconds in case a debounced save was missed
+            setInterval(function() {
+                if (Object.keys(answers).length > 0) {
+                    saveProgressNow();
+                }
+            }, 20000);
+
+            // Warn before leaving page, and make a best-effort save of whatever has been
+            // answered so far (navigator.sendBeacon delivers even as the page unloads).
             window.addEventListener('beforeunload', function(e) {
+                if (Object.keys(answers).length > 0 && navigator.sendBeacon) {
+                    var token = $('#quizForm input[name="__RequestVerificationToken"]').val();
+                    var formData = new FormData();
+                    formData.append('__RequestVerificationToken', token);
+                    formData.append('attemptId', attemptId);
+                    formData.append('answers', JSON.stringify(answers));
+                    navigator.sendBeacon('@Url.Action("SaveQuizProgress", "Candidate")', formData);
+                }
+
                 if (Object.keys(answers).length < totalQuestions) {
                     e.preventDefault();
                     e.returnValue = 'You have not completed all questions. Are you sure you want to leave?';

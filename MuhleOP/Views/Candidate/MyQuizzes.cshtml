@@ -36,7 +36,6 @@
                             <th>Quiz Title</th>
                             <th>Position</th>
                             <th>Date</th>
-                            <th>Score</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -55,18 +54,6 @@
                                     else
                                     {
                                         @attempt.StartTime.ToString("dd MMM yyyy HH:mm")
-                                    }
-                                </td>
-                                <td>
-                                    @if (attempt.Score.HasValue)
-                                    {
-                                        <span class="badge @(attempt.Passed == true ? "bg-success" : "bg-danger")">
-                                            @attempt.Score%
-                                        </span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-secondary">N/A</span>
                                     }
                                 </td>
                                 <td>
