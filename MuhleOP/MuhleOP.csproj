@@ -186,6 +186,7 @@
     </Compile>
     <Compile Include="Helpers\ContractPdfGenerator.cs" />
     <Compile Include="Helpers\ContractTemplateGenerator.cs" />
+    <Compile Include="Helpers\EmailHelper.cs" />
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Models\AccountViewModels.cs" />
     <Compile Include="Models\CandidateModels.cs" />
