@@ -71,6 +71,17 @@ namespace MuhleOP.Controllers
             switch (result)
             {
                 case SignInStatus.Success:
+                    // Credentials were correct - now make sure the account
+                    // (Staff, Candidate, etc) hasn't been deactivated. This
+                    // covers staff deactivated via Staff/ToggleActive as well
+                    // as any other role using ApplicationUser.IsActive.
+                    var signedInUser = await UserManager.FindByNameAsync(model.Email);
+                    if (signedInUser != null && !signedInUser.IsActive)
+                    {
+                        AuthenticationManager.SignOut(DefaultAuthenticationTypes.ApplicationCookie);
+                        ModelState.AddModelError("", "Your account has been deactivated. Please contact the administrator.");
+                        return View(model);
+                    }
                     return RedirectToLocal(returnUrl);
                 case SignInStatus.LockedOut:
                     return View("Lockout");

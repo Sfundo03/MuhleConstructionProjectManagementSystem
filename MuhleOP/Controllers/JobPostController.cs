@@ -867,7 +867,7 @@ namespace MuhleOP.Controllers
                         );
 
                         TempData["SuccessMessage"] = $"Interview assessment completed for {model.CandidateFullName}. Result: Passed!";
-                        return RedirectToAction("HireCandidate", new { id = application.Id });
+                        return RedirectToAction("HireManagementDetails", "Staff", new { applicationId = application.Id });
                     }
 
                     TempData["SuccessMessage"] = $"Interview assessment completed for {model.CandidateFullName}. Result: {model.InterviewResult}";
@@ -988,13 +988,13 @@ namespace MuhleOP.Controllers
                     return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
                 }
 
-                if (application.IsHired)
+                if (db.Staff.Any(s => s.UserId == candidate.UserId))
                 {
-                    TempData["ErrorMessage"] = "This candidate has already been hired.";
+                    TempData["ErrorMessage"] = "This candidate already has a staff account.";
                     return RedirectToAction("ReviewApplications", new { id = application.JobPostId });
                 }
 
-                return RedirectToAction("HireFromCandidate", "Staff", new { id = candidate.Id, applicationId = application.Id });
+                return RedirectToAction("HireManagementDetails", "Staff", new { applicationId = application.Id });
             }
             catch (Exception ex)
             {

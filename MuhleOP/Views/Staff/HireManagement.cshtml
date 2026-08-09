@@ -1,0 +1,128 @@
+﻿@model MuhleOP.ViewModels.HireManagementListViewModel
+@{
+    ViewBag.Title = "Hire Management";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Hire Management</h2>
+        <p class="text-muted">
+            <i class="fas fa-user-clock me-2"></i>
+            Candidates who passed their interview and are waiting for their staff account to be created
+        </p>
+    </div>
+    <div>
+        <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+            <i class="fas fa-users"></i> View Staff
+        </a>
+        <a href="@Url.Action("Index", "JobPost")" class="btn btn-secondary ms-2">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+    </div>
+}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Candidate</th>
+                        <th>Email</th>
+                        <th>Applied For</th>
+                        <th>Account Role</th>
+                        <th>Assessed On</th>
+                        <th>Hired By</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.ReadyToHire != null && Model.ReadyToHire.Any())
+                    {
+                        foreach (var item in Model.ReadyToHire)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-2">
+                                            <div class="rounded-circle bg-gold d-flex align-items-center justify-content-center" style="width:35px;height:35px;color:#fff;font-size:14px;font-weight:700;">
+                                                @(string.IsNullOrEmpty(item.CandidateFullName) ? "?" : item.CandidateFullName.Substring(0, 1).ToUpper())
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <strong>@item.CandidateFullName</strong>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>@item.CandidateEmail</td>
+                                <td>@item.JobTitle</td>
+                                <td><span class="badge bg-primary">@item.SystemRoleName</span></td>
+                                <td>@(item.InterviewAssessedDate?.ToString("dd MMM yyyy") ?? "-")</td>
+                                <td>@item.HiredBy</td>
+                                <td>
+                                    <a href="@Url.Action("HireManagementDetails", new { applicationId = item.ApplicationId })" class="btn btn-sm btn-gold">
+                                        <i class="fas fa-user-plus"></i> Create Account
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <i class="fas fa-user-clock fa-3x text-muted mb-3" style="opacity:0.3;"></i>
+                                <h5>Nothing to Hire Right Now</h5>
+                                <p class="text-muted">Candidates who pass their interview will show up here, ready to have their staff account created.</p>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-gold {
+        background-color: var(--primary-gold, #F5A623);
+    }
+
+    .btn-gold {
+        background-color: var(--primary-gold, #F5A623);
+        border-color: var(--primary-gold, #F5A623);
+        color: #fff;
+    }
+
+        .btn-gold:hover {
+            background-color: #d68e10;
+            border-color: #d68e10;
+            color: #fff;
+        }
+
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+</style>

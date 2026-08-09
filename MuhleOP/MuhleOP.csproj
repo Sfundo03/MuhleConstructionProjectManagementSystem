@@ -279,9 +279,7 @@
     <Content Include="Views\JobPost\CandidateDetails.cshtml" />
     <Content Include="Views\Candidate\ApplicationStatus.cshtml" />
     <Content Include="Views\Candidate\AllApplications.cshtml" />
-    <Content Include="Views\Staff\Hire.cshtml" />
-    <Content Include="Views\Staff\Index.cshtml" />
-    <Content Include="Views\Staff\Details.cshtml" />
+    <Content Include="Views\Staff\StaffIndex.cshtml" />
     <Content Include="Views\JobPost\AssessInterview.cshtml" />
     <Content Include="Views\JobPost\CloseJobPostView.cshtml" />
     <Content Include="Views\Client\ContractDetails.cshtml" />
@@ -295,9 +293,7 @@
     <Content Include="Views\Project\Initiate.cshtml" />
     <Content Include="Views\Project\Details.cshtml" />
     <Content Include="Views\Project\Index.cshtml" />
-    <Content Include="Views\Staff\HireFromCandidate.cshtml" />
     <Content Include="Views\Staff\Delete.cshtml" />
-    <Content Include="Views\Staff\Edit.cshtml" />
     <Content Include="Views\Client\SendContract.cshtml" />
     <Content Include="Views\Home\Contact.cshtml" />
     <Content Include="Views\Account\Lockout.cshtml" />
@@ -307,6 +303,9 @@
     <Content Include="Views\Candidate\QuizResult.cshtml" />
     <Content Include="Views\Candidate\TakeQuiz.cshtml" />
     <Content Include="Views\JobPost\ViewQuizResult.cshtml" />
+    <Content Include="Views\Staff\HireManagement.cshtml" />
+    <Content Include="Views\Staff\HireManagementDetails.cshtml" />
+    <Content Include="Views\Staff\Index.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />

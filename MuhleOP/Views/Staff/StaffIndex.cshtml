@@ -1,0 +1,339 @@
+﻿﻿@model MuhleOP.ViewModels.StaffListViewModel
+@{
+    ViewBag.Title = "Staff Management";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Staff Management</h2>
+        <p class="text-muted">
+            <i class="fas fa-users me-2"></i>
+            Manage all staff members and their roles
+        </p>
+    </div>
+    <div>
+        <a href="@Url.Action("HireManagement")" class="btn btn-gold">
+            <i class="fas fa-user-clock"></i> Hire Management
+        </a>
+        <a href="@Url.Action("Hire")" class="btn btn-success ms-2">
+            <i class="fas fa-user-plus"></i> Hire Staff
+        </a>
+        <a href="@Url.Action("Index", "JobPost")" class="btn btn-secondary ms-2">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+    </div>
+}
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-2">Total Staff</h6>
+                        <h3 class="mb-0">@Model.TotalStaff</h3>
+                    </div>
+                    <div class="icon-circle bg-primary text-white">
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-2">Active Staff</h6>
+                        <h3 class="mb-0">@Model.ActiveStaff</h3>
+                    </div>
+                    <div class="icon-circle bg-success text-white">
+                        <i class="fas fa-user-check"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-2">Inactive Staff</h6>
+                        <h3 class="mb-0">@Model.InactiveStaff</h3>
+                    </div>
+                    <div class="icon-circle bg-secondary text-white">
+                        <i class="fas fa-user-slash"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Staff Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover" id="staffTable">
+                <thead>
+                    <tr>
+                        <th>Staff Member</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Employee ID</th>
+                        <th>Department</th>
+                        <th>Hire Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.StaffMembers != null && Model.StaffMembers.Any())
+                    {
+                        foreach (var staff in Model.StaffMembers)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-2">
+                                            <div class="rounded-circle bg-gold d-flex align-items-center justify-content-center" style="width:35px;height:35px;color:#fff;font-size:14px;font-weight:700;">
+                                                @staff.FullName.Substring(0, 1).ToUpper()
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <strong>@staff.FullName</strong>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>@staff.Email</td>
+                                <td>
+                                    <span class="badge bg-@GetRoleColor(staff.Role)">@staff.Role</span>
+                                </td>
+                                <td><code>@staff.EmployeeId</code></td>
+                                <td>@staff.Department</td>
+                                <td>@staff.HireDate.ToString("dd MMM yyyy")</td>
+                                <td>
+                                    @if (staff.IsActive)
+                                    {
+                                        <span class="badge bg-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="@Url.Action("Details", new { id = staff.Id })" class="btn btn-outline-info" title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <button onclick="toggleActive(@staff.Id, '@staff.FullName')"
+                                                class="btn btn-outline-@(staff.IsActive ? "warning" : "success")"
+                                                title="@(staff.IsActive ? "Deactivate" : "Activate")">
+                                            <i class="fas fa-@(staff.IsActive ? "user-slash" : "user-check")"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <i class="fas fa-users fa-3x text-muted mb-3" style="opacity:0.3;"></i>
+                                <h5>No Staff Members</h5>
+                                <p class="text-muted">Hire your first staff member to get started.</p>
+                                <a href="@Url.Action("Hire")" class="btn btn-success">
+                                    <i class="fas fa-user-plus"></i> Hire Staff
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .icon-circle {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+
+    .bg-primary {
+        background-color: #4e73df;
+    }
+
+    .bg-success {
+        background-color: #1cc88a;
+    }
+
+    .bg-secondary {
+        background-color: #858796;
+    }
+
+    .bg-gold {
+        background-color: var(--primary-gold, #F5A623);
+    }
+
+    .btn-gold {
+        background-color: var(--primary-gold, #F5A623);
+        border-color: var(--primary-gold, #F5A623);
+        color: #fff;
+    }
+
+        .btn-gold:hover {
+            background-color: #d68e10;
+            border-color: #d68e10;
+            color: #fff;
+        }
+
+    .badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+        .badge.bg-warning {
+            color: #fff;
+        }
+
+        .badge.bg-info {
+            color: #fff;
+        }
+
+        .badge.bg-success {
+            color: #fff;
+        }
+
+        .badge.bg-secondary {
+            color: #fff;
+        }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+
+        .badge.bg-danger {
+            color: #fff;
+        }
+
+    .btn-group .btn {
+        margin: 1px;
+    }
+
+    .btn-outline-info {
+        color: #36b9cc;
+        border-color: #36b9cc;
+    }
+
+        .btn-outline-info:hover {
+            background-color: #36b9cc;
+            color: #fff;
+        }
+
+    .btn-outline-warning {
+        color: #f6c23e;
+        border-color: #f6c23e;
+    }
+
+        .btn-outline-warning:hover {
+            background-color: #f6c23e;
+            color: #fff;
+        }
+
+    .btn-outline-success {
+        color: #1cc88a;
+        border-color: #1cc88a;
+    }
+
+        .btn-outline-success:hover {
+            background-color: #1cc88a;
+            color: #fff;
+        }
+
+    code {
+        background: var(--bg-hover);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+
+    [data-theme="dark"] code {
+        background: var(--bg-hover, #2d3748);
+    }
+</style>
+
+@functions {
+    public string GetRoleColor(string role)
+    {
+        switch (role)
+        {
+            case "Crew Member": return "primary";
+            case "Project Manager": return "success";
+            case "Finance Officer": return "warning";
+            case "Site Manager": return "info";
+            case "Procurement Officer": return "secondary";
+            default: return "secondary";
+        }
+    }
+}
+
+@section Scripts {
+    <script>
+        function toggleActive(id, fullName) {
+            const status = document.querySelector(`button[onclick*="toggleActive(${id}"]`)?.closest('tr')?.querySelector('.badge')?.textContent;
+            const action = status === 'Active' ? 'deactivate' : 'activate';
+
+            if (!confirm(`Are you sure you want to ${action} ${fullName}?`)) {
+                return;
+            }
+
+            fetch('@Url.Action("ToggleActive")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ id: id })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            });
+        }
+    </script>
+}

@@ -76,6 +76,54 @@ namespace MuhleOP.ViewModels
         }
     }
 
+    // ===== HIRE MANAGEMENT (auto account creation for hired candidates) =====
+
+    public class HireManagementListItemViewModel
+    {
+        public int ApplicationId { get; set; }
+        public int CandidateId { get; set; }
+        public string CandidateFullName { get; set; }
+        public string CandidateEmail { get; set; }
+        public string CandidatePhone { get; set; }
+        public string ProfilePicturePath { get; set; }
+
+        public int JobPostId { get; set; }
+        public string JobTitle { get; set; }
+        public string Department { get; set; }
+        public string SystemRoleName { get; set; }
+
+        public DateTime? InterviewAssessedDate { get; set; }
+        public string HiredBy { get; set; }
+    }
+
+    public class HireManagementListViewModel
+    {
+        public List<HireManagementListItemViewModel> ReadyToHire { get; set; }
+
+        public HireManagementListViewModel()
+        {
+            ReadyToHire = new List<HireManagementListItemViewModel>();
+        }
+    }
+
+    public class HireManagementDetailsViewModel
+    {
+        public int ApplicationId { get; set; }
+        public int CandidateId { get; set; }
+        public string CandidateFullName { get; set; }
+        public string CandidateEmail { get; set; }
+        public string CandidatePhone { get; set; }
+        public string ProfilePicturePath { get; set; }
+
+        public int JobPostId { get; set; }
+        public string JobTitle { get; set; }
+        public string Department { get; set; }
+
+        // The role the auto-created account will be assigned - derived from the
+        // job post's linked system role, falling back to the job title.
+        public string SystemRoleName { get; set; }
+    }
+
     public class StaffDetailsViewModel
     {
         public int Id { get; set; }

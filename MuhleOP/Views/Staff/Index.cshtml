@@ -13,7 +13,10 @@
         </p>
     </div>
     <div>
-        <a href="@Url.Action("Hire")" class="btn btn-success">
+        <a href="@Url.Action("HireManagement")" class="btn btn-gold">
+            <i class="fas fa-user-clock"></i> Hire Management
+        </a>
+        <a href="@Url.Action("Hire")" class="btn btn-success ms-2">
             <i class="fas fa-user-plus"></i> Hire Staff
         </a>
         <a href="@Url.Action("Index", "JobPost")" class="btn btn-secondary ms-2">
@@ -199,6 +202,18 @@
     .bg-gold {
         background-color: var(--primary-gold, #F5A623);
     }
+
+    .btn-gold {
+        background-color: var(--primary-gold, #F5A623);
+        border-color: var(--primary-gold, #F5A623);
+        color: #fff;
+    }
+
+        .btn-gold:hover {
+            background-color: #d68e10;
+            border-color: #d68e10;
+            color: #fff;
+        }
 
     .badge {
         font-size: 11px;

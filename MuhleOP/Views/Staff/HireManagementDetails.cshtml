@@ -1,0 +1,118 @@
+﻿@model MuhleOP.ViewModels.HireManagementDetailsViewModel
+@{
+    ViewBag.Title = "Create Staff Account";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Create Staff Account</h2>
+        <p class="text-muted">
+            <i class="fas fa-user-check me-2"></i>
+            Review the details below, then create the login for this candidate
+        </p>
+    </div>
+    <a href="@Url.Action("HireManagement")" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back
+    </a>
+</div>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
+    </div>
+}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <div class="alert alert-success">
+            <i class="fas fa-star me-2"></i>
+            <strong>Congratulations!</strong> @Model.CandidateFullName passed the interview for
+            <strong>@Model.JobTitle</strong> and is ready to be hired.
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <div class="form-label fw-bold">Full Name</div>
+                    <div class="form-control-plaintext">@Model.CandidateFullName</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <div class="form-label fw-bold">Email (will be the login username)</div>
+                    <div class="form-control-plaintext">@Model.CandidateEmail</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <div class="form-label fw-bold">Phone Number</div>
+                    <div class="form-control-plaintext">@Model.CandidatePhone</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <div class="form-label fw-bold">Department</div>
+                    <div class="form-control-plaintext">@(string.IsNullOrEmpty(Model.Department) ? "-" : Model.Department)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <div class="form-label fw-bold">Job Applied For</div>
+                    <div class="form-control-plaintext">@Model.JobTitle</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <div class="form-label fw-bold">Account Role</div>
+                    <div class="form-control-plaintext"><span class="badge bg-primary">@Model.SystemRoleName</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-info mt-3">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Note:</strong> No details need to be entered. The account will use the candidate's
+            existing email address, a secure password will be generated automatically, and a welcome
+            email with the login credentials will be sent to <strong>@Model.CandidateEmail</strong>.
+        </div>
+
+        @using (Html.BeginForm("CreateAccountFromApplication", "Staff", FormMethod.Post))
+        {
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="applicationId" value="@Model.ApplicationId" />
+
+            <div class="d-flex gap-2 mt-4">
+                <button type="submit" class="btn btn-success" onclick="return confirm('Create a staff account for @Model.CandidateFullName and email their login details?');">
+                    <i class="fas fa-user-plus"></i> Confirm &amp; Create Account
+                </button>
+                <a href="@Url.Action("HireManagement")" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Cancel
+                </a>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .badge {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+
+        .badge.bg-primary {
+            color: #fff;
+        }
+
+    .form-control-plaintext {
+        font-size: 14px;
+    }
+</style>
