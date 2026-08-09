@@ -4,8 +4,10 @@ using MuhleOP.Models;
 using MuhleOP.ViewModels;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
 using System.Linq;
+using System.Net.Mail;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
@@ -138,13 +140,30 @@ namespace MuhleOP.Controllers
             {
                 try
                 {
-                    // Check if client already exists
+                    // Check if client already exists - by registration number,
+                    // by client contact email, or by an existing login account
+                    // using that email (e.g. the contact is already a Staff
+                    // member or Candidate in the system).
                     var existingClient = db.Clients
                         .FirstOrDefault(c => c.RegistrationNumber == model.RegistrationNumber || c.ContactEmail == model.ContactEmail);
 
                     if (existingClient != null)
                     {
-                        ModelState.AddModelError("", "A client with this registration number or email already exists.");
+                        if (existingClient.RegistrationNumber == model.RegistrationNumber)
+                        {
+                            ModelState.AddModelError("RegistrationNumber", "A client with this registration number is already registered.");
+                        }
+                        else
+                        {
+                            ModelState.AddModelError("ContactEmail", "A client with this contact email is already registered.");
+                        }
+                        return View(model);
+                    }
+
+                    var existingUser = await UserManager.FindByEmailAsync(model.ContactEmail);
+                    if (existingUser != null)
+                    {
+                        ModelState.AddModelError("ContactEmail", "A login account with this email already exists in the system.");
                         return View(model);
                     }
 
@@ -207,7 +226,7 @@ namespace MuhleOP.Controllers
                         }
 
                         // Send welcome email with login credentials
-                        SendWelcomeEmail(model.ContactEmail, model.PrimaryContactName, password);
+                        SendWelcomeEmail(model.ContactEmail, model.PrimaryContactName, model.CompanyName, password);
 
                         // Notify Admin
                         await CreateNotification(
@@ -729,10 +748,68 @@ namespace MuhleOP.Controllers
             return new string(password);
         }
 
-        private void SendWelcomeEmail(string email, string name, string password)
+        // Sends the "registration successful" email containing the
+        // auto-generated login password. Reads SMTP settings from
+        // web.config appSettings:
+        //   SmtpHost, SmtpPort, SmtpUseSsl, SmtpUsername, SmtpPassword, SmtpFromEmail, SmtpFromName
+        private void SendWelcomeEmail(string email, string contactName, string companyName, string password)
         {
-            // Email sending logic - simplified for now
-            System.Diagnostics.Debug.WriteLine($"Welcome email sent to {email} for {name} with password: {password}");
+            try
+            {
+                string host = ConfigurationManager.AppSettings["SmtpHost"];
+                if (string.IsNullOrEmpty(host))
+                {
+                    System.Diagnostics.Debug.WriteLine($"SMTP not configured - welcome email not sent to {email} (password: {password}).");
+                    return;
+                }
+
+                int port = int.Parse(ConfigurationManager.AppSettings["SmtpPort"] ?? "587");
+                bool useSsl = bool.Parse(ConfigurationManager.AppSettings["SmtpUseSsl"] ?? "true");
+                string smtpUser = ConfigurationManager.AppSettings["SmtpUsername"];
+                string smtpPass = ConfigurationManager.AppSettings["SmtpPassword"];
+                string fromEmail = ConfigurationManager.AppSettings["SmtpFromEmail"] ?? smtpUser;
+                string fromName = ConfigurationManager.AppSettings["SmtpFromName"] ?? "MuhleOP";
+
+                string subject = "Welcome to MuhleOps - Your Client Account is Ready";
+                string body = $@"
+                    <div style='font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:auto;'>
+                        <h2 style='color:#F5A623;'>Welcome, {contactName}!</h2>
+                        <p><strong>{companyName}</strong> has been successfully registered with MuhleOps.</p>
+                        <p>A login account has been created for you. Please use the credentials below to sign in:</p>
+                        <table style='border-collapse:collapse;margin:16px 0;'>
+                            <tr><td style='padding:4px 12px 4px 0;'><strong>Email:</strong></td><td>{email}</td></tr>
+                            <tr><td style='padding:4px 12px 4px 0;'><strong>Password:</strong></td><td>{password}</td></tr>
+                        </table>
+                        <p>For your security, please log in and change your password as soon as possible.</p>
+                        <p>Once logged in, you'll be able to view your contracts and track project progress.</p>
+                        <p style='color:#888;font-size:12px;margin-top:24px;'>This is an automated message, please do not reply to this email.</p>
+                    </div>";
+
+                using (var message = new MailMessage())
+                {
+                    message.From = new MailAddress(fromEmail, fromName);
+                    message.To.Add(email);
+                    message.Subject = subject;
+                    message.Body = body;
+                    message.IsBodyHtml = true;
+
+                    using (var client = new SmtpClient(host, port))
+                    {
+                        client.EnableSsl = useSsl;
+                        if (!string.IsNullOrEmpty(smtpUser))
+                        {
+                            client.Credentials = new System.Net.NetworkCredential(smtpUser, smtpPass);
+                        }
+                        client.Send(message);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Don't let an email failure block registration - the account
+                // was already created successfully. Just log it.
+                System.Diagnostics.Debug.WriteLine($"Error sending client welcome email: {ex.Message}");
+            }
         }
 
         private async Task CreateNotification(string userId, string title, string message, string type, string link)

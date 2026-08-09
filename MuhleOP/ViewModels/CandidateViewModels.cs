@@ -355,6 +355,7 @@ namespace MuhleOP.ViewModels
         [StringLength(50)]
         public string RegistrationNumber { get; set; }
 
+        [Required(ErrorMessage = "Tax identification number is required")]
         [Display(Name = "Tax Identification Number")]
         [StringLength(50)]
         public string TaxIdNumber { get; set; }
@@ -398,14 +399,17 @@ namespace MuhleOP.ViewModels
         [Display(Name = "Company Size")]
         public string CompanySize { get; set; }
 
+        [Required(ErrorMessage = "Billing information is required")]
         [Display(Name = "Billing Information")]
         [DataType(DataType.MultilineText)]
         public string BillingInformation { get; set; }
 
+        [Required(ErrorMessage = "Payment terms are required")]
         [Display(Name = "Payment Terms")]
         public string PaymentTerms { get; set; }
 
         [Display(Name = "Credit Limit")]
+        [Range(0, double.MaxValue, ErrorMessage = "Credit limit cannot be negative")]
         public decimal? CreditLimit { get; set; }
     }
 
