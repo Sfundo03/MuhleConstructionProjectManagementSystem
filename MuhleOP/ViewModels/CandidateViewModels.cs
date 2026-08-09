@@ -433,6 +433,8 @@ namespace MuhleOP.ViewModels
         public decimal? CreditLimit { get; set; }
         public bool IsActive { get; set; }
         public DateTime RegistrationDate { get; set; }
+        public string RegisteredBy { get; set; }
+        public string UserId { get; set; }
         public int ContractCount { get; set; }
         public int ProjectCount { get; set; }
         public string DisplayName { get; set; }
@@ -465,6 +467,13 @@ namespace MuhleOP.ViewModels
         public DateTime CreatedDate { get; set; }
         public string CreatedBy { get; set; }
         public string ContractFilePath { get; set; }
+        public string ReviewedBy { get; set; }
+        public DateTime? ReviewedDate { get; set; }
+        public string ReviewNotes { get; set; }
+        public string GeneratedPdfPath { get; set; }
+        public string SignedPdfPath { get; set; }
+        public DateTime? SentForReviewDate { get; set; }
+        public DateTime? SentToClientDate { get; set; }
         public bool IsActive => Status != "Terminated" && Status != "Completed";
         public string StatusBadgeColor => GetStatusColor();
 
@@ -558,11 +567,109 @@ namespace MuhleOP.ViewModels
         public HttpPostedFileBase ContractFile { get; set; }
 
         public List<SelectListItem> Clients { get; set; }
+        public List<SelectListItem> ContractTypes { get; set; }
 
         public CreateContractViewModel()
         {
             Clients = new List<SelectListItem>();
+            ContractTypes = new List<SelectListItem>
+            {
+                new SelectListItem { Text = "Fixed Price", Value = "Fixed Price" },
+                new SelectListItem { Text = "Time and Materials", Value = "Time and Materials" },
+                new SelectListItem { Text = "Cost Plus", Value = "Cost Plus" }
+            };
         }
+    }
+
+    public class ReviewContractViewModel
+    {
+        [Required]
+        public int ContractId { get; set; }
+
+        [Display(Name = "Contract Number")]
+        public string ContractNumber { get; set; }
+
+        [Required]
+        public int ClientId { get; set; }
+
+        [Display(Name = "Client")]
+        public string ClientName { get; set; }
+
+        [Required(ErrorMessage = "Project name is required")]
+        [Display(Name = "Project Name")]
+        [StringLength(200)]
+        public string ProjectName { get; set; }
+
+        [Display(Name = "Contract Type")]
+        public string ContractType { get; set; }
+
+        [Required(ErrorMessage = "Contract value is required")]
+        [Display(Name = "Contract Value")]
+        public decimal ContractValue { get; set; }
+
+        [Required(ErrorMessage = "Start date is required")]
+        [Display(Name = "Start Date")]
+        [DataType(DataType.Date)]
+        public DateTime StartDate { get; set; }
+
+        [Required(ErrorMessage = "End date is required")]
+        [Display(Name = "End Date")]
+        [DataType(DataType.Date)]
+        public DateTime EndDate { get; set; }
+
+        [Required(ErrorMessage = "Project scope is required")]
+        [Display(Name = "Project Scope")]
+        [DataType(DataType.MultilineText)]
+        public string ProjectScope { get; set; }
+
+        [Required(ErrorMessage = "Deliverables are required")]
+        [Display(Name = "Deliverables")]
+        [DataType(DataType.MultilineText)]
+        public string Deliverables { get; set; }
+
+        [Required(ErrorMessage = "Payment terms are required")]
+        [Display(Name = "Payment Terms")]
+        [DataType(DataType.MultilineText)]
+        public string PaymentTerms { get; set; }
+
+        [Required(ErrorMessage = "Payment schedule is required")]
+        [Display(Name = "Payment Schedule")]
+        [DataType(DataType.MultilineText)]
+        public string PaymentSchedule { get; set; }
+
+        [Required(ErrorMessage = "Milestones are required")]
+        [Display(Name = "Milestones")]
+        [DataType(DataType.MultilineText)]
+        public string Milestones { get; set; }
+
+        [Required(ErrorMessage = "Timeline is required")]
+        [Display(Name = "Timeline")]
+        [DataType(DataType.MultilineText)]
+        public string Timeline { get; set; }
+
+        [Display(Name = "Penalty Clauses")]
+        [DataType(DataType.MultilineText)]
+        public string PenaltyClauses { get; set; }
+
+        [Display(Name = "Termination Conditions")]
+        [DataType(DataType.MultilineText)]
+        public string TerminationConditions { get; set; }
+
+        [Display(Name = "Special Conditions")]
+        [DataType(DataType.MultilineText)]
+        public string SpecialConditions { get; set; }
+
+        public string Status { get; set; }
+
+        [Display(Name = "Created By")]
+        public string CreatedBy { get; set; }
+
+        [Display(Name = "Created Date")]
+        public DateTime CreatedDate { get; set; }
+
+        [Display(Name = "Review Notes")]
+        [DataType(DataType.MultilineText)]
+        public string ReviewNotes { get; set; }
     }
 
     public class SignContractViewModel

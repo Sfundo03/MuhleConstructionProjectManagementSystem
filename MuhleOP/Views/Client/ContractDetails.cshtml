@@ -4,6 +4,7 @@
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     var isClient = ViewBag.IsClient ?? false;
     var canSign = ViewBag.CanSign ?? false;
+    var canReview = ViewBag.CanReview ?? false;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -15,16 +16,25 @@
         </p>
     </div>
     <div>
+        <a href="@Url.Action("DownloadContractPdf", new { id = Model.Id })" class="btn btn-outline-secondary">
+            <i class="fas fa-file-pdf"></i> @(Model.IsSigned ? "Download Signed PDF" : "Download PDF")
+        </a>
+        @if (canReview)
+        {
+            <a href="@Url.Action("ReviewContract", new { id = Model.Id })" class="btn btn-warning">
+                <i class="fas fa-clipboard-check"></i> Review &amp; Finalize
+            </a>
+        }
         @if (canSign)
         {
             <a href="@Url.Action("SignContract", new { id = Model.Id })" class="btn btn-success">
                 <i class="fas fa-signature"></i> Sign Contract
             </a>
         }
-        @if (!Model.IsSigned && Model.Status != "Terminated" && !isClient)
+        @if (!Model.IsSigned && Model.Status == "Sent" && !isClient)
         {
-            <a href="@Url.Action("SendContract", new { id = Model.Id })" class="btn btn-primary">
-                <i class="fas fa-paper-plane"></i> Send for Signature
+            <a href="@Url.Action("SendContract", new { id = Model.Id })" class="btn btn-primary" title="Resend signature reminder to client">
+                <i class="fas fa-paper-plane"></i> Resend to Client
             </a>
         }
         <a href="@Url.Action("Contracts", new { id = Model.ClientId })" class="btn btn-secondary ms-2">
@@ -32,6 +42,25 @@
         </a>
     </div>
 </div>
+
+@if (Model.Status == "PendingReview" && !isClient)
+{
+    <div class="alert alert-warning">
+        <i class="fas fa-hourglass-half me-2"></i>
+        This contract is awaiting Project Manager review before it can be sent to the client.
+    </div>
+}
+@if (!string.IsNullOrEmpty(Model.ReviewedBy))
+{
+    <div class="alert alert-secondary">
+        <i class="fas fa-clipboard-check me-2"></i>
+        Reviewed by <strong>@Model.ReviewedBy</strong> on @Model.ReviewedDate?.ToString("dd MMM yyyy HH:mm")
+        @if (!string.IsNullOrEmpty(Model.ReviewNotes))
+        {
+            <div class="mt-1"><em>"@Model.ReviewNotes"</em></div>
+        }
+    </div>
+}
 
 <div class="row">
     <div class="col-lg-8">
@@ -43,8 +72,8 @@
                         <div class="d-flex flex-wrap gap-2 mb-3">
                             <span class="badge bg-primary">@Model.ContractType</span>
                             <span class="badge bg-info">@Model.ContractNumber</span>
-                            <span class="badge bg-@(Model.IsSigned ? "success" : Model.Status == "Draft" ? "secondary" : Model.Status == "Sent" ? "info" : Model.Status == "Active" ? "primary" : Model.Status == "Terminated" ? "danger" : "secondary")">
-                                @Model.Status
+                            <span class="badge bg-@(Model.IsSigned ? "success" : Model.Status == "Draft" ? "secondary" : Model.Status == "PendingReview" ? "warning" : Model.Status == "Sent" ? "info" : Model.Status == "Active" ? "primary" : Model.Status == "Terminated" ? "danger" : "secondary")">
+                                @(Model.Status == "PendingReview" ? "Pending PM Review" : Model.Status)
                             </span>
                             @if (Model.IsSigned)
                             {
@@ -172,16 +201,25 @@
             <div class="card-body">
                 <h5 class="card-title"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h5>
                 <div class="d-grid gap-2">
+                    <a href="@Url.Action("DownloadContractPdf", new { id = Model.Id })" class="btn btn-outline-secondary">
+                        <i class="fas fa-file-pdf"></i> @(Model.IsSigned ? "Download Signed PDF" : "Download PDF")
+                    </a>
+                    @if (canReview)
+                    {
+                        <a href="@Url.Action("ReviewContract", new { id = Model.Id })" class="btn btn-warning">
+                            <i class="fas fa-clipboard-check"></i> Review &amp; Finalize
+                        </a>
+                    }
                     @if (canSign)
                     {
                         <a href="@Url.Action("SignContract", new { id = Model.Id })" class="btn btn-success">
                             <i class="fas fa-signature"></i> Sign Contract
                         </a>
                     }
-                    @if (!Model.IsSigned && Model.Status != "Terminated" && !isClient)
+                    @if (!Model.IsSigned && Model.Status == "Sent" && !isClient)
                     {
                         <a href="@Url.Action("SendContract", new { id = Model.Id })" class="btn btn-primary">
-                            <i class="fas fa-paper-plane"></i> Send for Signature
+                            <i class="fas fa-paper-plane"></i> Resend to Client
                         </a>
                     }
                     <a href="@Url.Action("Contracts", new { id = Model.ClientId })" class="btn btn-outline-secondary">
@@ -200,8 +238,8 @@
                 <div class="d-flex flex-column gap-2">
                     <div class="d-flex justify-content-between">
                         <span class="text-muted">Status:</span>
-                        <span class="badge bg-@(Model.IsSigned ? "success" : Model.Status == "Draft" ? "secondary" : Model.Status == "Sent" ? "info" : Model.Status == "Active" ? "primary" : "secondary")">
-                            @Model.Status
+                        <span class="badge bg-@(Model.IsSigned ? "success" : Model.Status == "Draft" ? "secondary" : Model.Status == "PendingReview" ? "warning" : Model.Status == "Sent" ? "info" : Model.Status == "Active" ? "primary" : "secondary")">
+                            @(Model.Status == "PendingReview" ? "Pending Review" : Model.Status)
                         </span>
                     </div>
                     <div class="d-flex justify-content-between">

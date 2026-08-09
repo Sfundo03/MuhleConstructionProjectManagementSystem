@@ -105,6 +105,19 @@ namespace MuhleOP.Models
         public string DisplayName => $"{CompanyName} ({PrimaryContactName})";
     }
 
+    // Centralised status string constants so the controller and views never
+    // rely on hand-typed "magic strings" for the contract workflow.
+    public static class ContractStatus
+    {
+        public const string Draft = "Draft";
+        public const string PendingReview = "PendingReview";
+        public const string Sent = "Sent";
+        public const string Signed = "Signed";
+        public const string Active = "Active";
+        public const string Completed = "Completed";
+        public const string Terminated = "Terminated";
+    }
+
     public class Contract
     {
         [Key]
@@ -180,7 +193,9 @@ namespace MuhleOP.Models
         public string SpecialConditions { get; set; }
 
         [Display(Name = "Contract Status")]
-        public string Status { get; set; } // Draft, Sent, Signed, Active, Completed, Terminated
+        // Draft -> PendingReview -> Sent -> Signed -> Active -> Completed
+        // (or Terminated at any point before Signed)
+        public string Status { get; set; }
 
         [Display(Name = "Is Signed")]
         public bool IsSigned { get; set; }
@@ -189,7 +204,7 @@ namespace MuhleOP.Models
         public DateTime? SignatureDate { get; set; }
 
         [Display(Name = "Signed Document Path")]
-        public string SignedDocumentPath { get; set; }
+        public string SignedDocumentPath { get; set; } // path to the raw signature image
 
         [Display(Name = "Created Date")]
         public DateTime CreatedDate { get; set; }
@@ -198,7 +213,33 @@ namespace MuhleOP.Models
         public string CreatedBy { get; set; }
 
         [Display(Name = "Contract File Path")]
-        public string ContractFilePath { get; set; }
+        public string ContractFilePath { get; set; } // optional manually-uploaded contract file
+
+        // ===== Project Manager review (added for admin -> PM -> client workflow) =====
+
+        [Display(Name = "Reviewed By")]
+        public string ReviewedBy { get; set; }
+
+        [Display(Name = "Review Date")]
+        public DateTime? ReviewedDate { get; set; }
+
+        [Display(Name = "Review Notes")]
+        [DataType(DataType.MultilineText)]
+        public string ReviewNotes { get; set; }
+
+        // ===== Generated PDF tracking (iTextSharp) =====
+
+        [Display(Name = "Generated Contract PDF Path")]
+        public string GeneratedPdfPath { get; set; } // unsigned draft/preview PDF, regenerated whenever contract text changes
+
+        [Display(Name = "Signed Contract PDF Path")]
+        public string SignedPdfPath { get; set; } // final PDF with the signature stamped in, produced after signing
+
+        [Display(Name = "Sent For Review Date")]
+        public DateTime? SentForReviewDate { get; set; }
+
+        [Display(Name = "Sent To Client Date")]
+        public DateTime? SentToClientDate { get; set; }
 
         // Navigation Properties
         public virtual ICollection<ContractSignature> Signatures { get; set; }
@@ -206,7 +247,7 @@ namespace MuhleOP.Models
 
         public Contract()
         {
-            Status = "Draft";
+            Status = ContractStatus.Draft;
             IsSigned = false;
             CreatedDate = DateTime.Now;
             Signatures = new List<ContractSignature>();

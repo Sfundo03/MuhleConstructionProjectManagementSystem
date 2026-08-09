@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNet.Identity;
 using Microsoft.AspNet.Identity.Owin;
+using MuhleOP.Helpers;
 using MuhleOP.Models;
 using MuhleOP.ViewModels;
 using System;
@@ -64,6 +65,8 @@ namespace MuhleOP.Controllers
                 CreditLimit = c.CreditLimit,
                 IsActive = c.IsActive,
                 RegistrationDate = c.RegistrationDate,
+                RegisteredBy = c.RegisteredBy,
+                UserId = c.UserId,
                 ContractCount = db.Contracts.Count(ct => ct.ClientId == c.Id),
                 ProjectCount = db.Projects.Count(p => p.ClientId == c.Id),
                 DisplayName = c.DisplayName
@@ -112,6 +115,8 @@ namespace MuhleOP.Controllers
                 CreditLimit = client.CreditLimit,
                 IsActive = client.IsActive,
                 RegistrationDate = client.RegistrationDate,
+                RegisteredBy = client.RegisteredBy,
+                UserId = client.UserId,
                 ContractCount = contracts.Count,
                 ProjectCount = projects.Count,
                 DisplayName = client.DisplayName
@@ -305,7 +310,14 @@ namespace MuhleOP.Controllers
                 SignedDocumentPath = c.SignedDocumentPath,
                 CreatedDate = c.CreatedDate,
                 CreatedBy = c.CreatedBy,
-                ContractFilePath = c.ContractFilePath
+                ContractFilePath = c.ContractFilePath,
+                ReviewedBy = c.ReviewedBy,
+                ReviewedDate = c.ReviewedDate,
+                ReviewNotes = c.ReviewNotes,
+                GeneratedPdfPath = c.GeneratedPdfPath,
+                SignedPdfPath = c.SignedPdfPath,
+                SentForReviewDate = c.SentForReviewDate,
+                SentToClientDate = c.SentToClientDate
             }).ToList();
 
             ViewBag.ClientName = client.CompanyName;
@@ -326,11 +338,47 @@ namespace MuhleOP.Controllers
             var viewModel = new CreateContractViewModel
             {
                 ClientId = clientId,
-                Status = "Draft"
+                Status = ContractStatus.Draft
             };
 
             ViewBag.ClientName = client.CompanyName;
             return View(viewModel);
+        }
+
+        // POST: Client/GenerateContractDefaults - AJAX call from the Create Contract
+        // form's "Auto-Generate" button. Fills text fields from offline templates;
+        // the admin can still edit every field before submitting.
+        [HttpPost]
+        [Authorize(Roles = "Admin, Project Manager")]
+        public ActionResult GenerateContractDefaults(int clientId, string projectName, string contractType,
+            decimal contractValue, DateTime startDate, DateTime endDate)
+        {
+            var client = db.Clients.Find(clientId);
+            if (client == null)
+            {
+                return Json(new { success = false, message = "Client not found." });
+            }
+
+            if (endDate < startDate)
+            {
+                return Json(new { success = false, message = "End date must be after start date." });
+            }
+
+            var defaults = ContractTemplateGenerator.Generate(client.CompanyName, projectName, contractType,
+                contractValue, startDate, endDate);
+
+            return Json(new
+            {
+                success = true,
+                defaults.ProjectScope,
+                defaults.Deliverables,
+                defaults.PaymentTerms,
+                defaults.PaymentSchedule,
+                defaults.Milestones,
+                defaults.Timeline,
+                defaults.PenaltyClauses,
+                defaults.TerminationConditions
+            });
         }
 
         // POST: Client/CreateContract - Use Case 7: Create Contract
@@ -400,36 +448,56 @@ namespace MuhleOP.Controllers
                         PenaltyClauses = model.PenaltyClauses,
                         TerminationConditions = model.TerminationConditions,
                         SpecialConditions = model.SpecialConditions,
-                        Status = model.Status,
                         IsSigned = false,
                         CreatedBy = User.Identity.Name,
                         CreatedDate = DateTime.Now,
                         ContractFilePath = contractFilePath
                     };
 
+                    // Completeness check - all key clauses must be filled in
+                    // (auto-generated or hand-typed) before it can go anywhere.
+                    var missingFields = ValidateContractCompleteness(contract);
+                    if (missingFields.Any())
+                    {
+                        ModelState.AddModelError("", "Please complete the following before submitting: " + string.Join(", ", missingFields));
+                        ViewBag.ClientName = client.CompanyName;
+                        return View(model);
+                    }
+
+                    contract.Status = ContractStatus.PendingReview;
+                    contract.SentForReviewDate = DateTime.Now;
+
                     db.Contracts.Add(contract);
                     await db.SaveChangesAsync();
 
-                    // Create notification for client
-                    await CreateNotification(
-                        client.UserId,
-                        "New Contract Created",
-                        $"A new contract for '{model.ProjectName}' has been created. Please review and sign.",
-                        "System",
-                        $"/Client/SignContract/{contract.Id}"
-                    );
+                    // Generate the draft/preview PDF now so it's downloadable immediately
+                    GenerateAndSaveDraftPdf(contract, client);
+                    await db.SaveChangesAsync();
 
-                    // Notify Admin
+                    // Notify every Project Manager that a contract is waiting on their review
+                    var pmUsers = UserManager.Users.ToList().Where(u => UserManager.IsInRole(u.Id, "Project Manager")).ToList();
+                    foreach (var pm in pmUsers)
+                    {
+                        await CreateNotification(
+                            pm.Id,
+                            "Contract Awaiting Your Review",
+                            $"A new contract for '{model.ProjectName}' ({client.CompanyName}) needs your review before it can be sent to the client.",
+                            "System",
+                            $"/Client/ReviewContract/{contract.Id}"
+                        );
+                    }
+
+                    // Notify Admin (confirmation)
                     await CreateNotification(
                         User.Identity.GetUserId(),
-                        "Contract Created",
-                        $"Contract for '{model.ProjectName}' has been created successfully.",
+                        "Contract Submitted for Review",
+                        $"Contract for '{model.ProjectName}' has been created and sent to the Project Manager for review.",
                         "System",
                         $"/Client/ContractDetails/{contract.Id}"
                     );
 
-                    TempData["SuccessMessage"] = $"Contract for '{model.ProjectName}' created successfully!";
-                    return RedirectToAction("Contracts", new { id = model.ClientId });
+                    TempData["SuccessMessage"] = $"Contract for '{model.ProjectName}' created and sent to the Project Manager for review!";
+                    return RedirectToAction("ContractDetails", new { id = contract.Id });
                 }
                 catch (Exception ex)
                 {
@@ -439,6 +507,202 @@ namespace MuhleOP.Controllers
 
             ViewBag.ClientName = db.Clients.Find(model.ClientId)?.CompanyName;
             return View(model);
+        }
+
+        // GET: Client/ReviewContract/5 - Project Manager reviews/edits and finalizes
+        // a contract that was submitted by the Admin, then sends it to the client.
+        [Authorize(Roles = "Project Manager, Admin")]
+        public ActionResult ReviewContract(int id)
+        {
+            var contract = db.Contracts.Find(id);
+            if (contract == null)
+            {
+                TempData["ErrorMessage"] = "Contract not found.";
+                return RedirectToAction("Index");
+            }
+
+            if (contract.Status != ContractStatus.PendingReview)
+            {
+                TempData["ErrorMessage"] = "This contract is not currently awaiting review.";
+                return RedirectToAction("ContractDetails", new { id = contract.Id });
+            }
+
+            var client = db.Clients.Find(contract.ClientId);
+
+            var viewModel = new ReviewContractViewModel
+            {
+                ContractId = contract.Id,
+                ContractNumber = contract.ContractNumber,
+                ClientId = contract.ClientId,
+                ClientName = client?.CompanyName,
+                ProjectName = contract.ProjectName,
+                ContractType = contract.ContractType,
+                ContractValue = contract.ContractValue,
+                StartDate = contract.StartDate,
+                EndDate = contract.EndDate,
+                ProjectScope = contract.ProjectScope,
+                Deliverables = contract.Deliverables,
+                PaymentTerms = contract.PaymentTerms,
+                PaymentSchedule = contract.PaymentSchedule,
+                Milestones = contract.Milestones,
+                Timeline = contract.Timeline,
+                PenaltyClauses = contract.PenaltyClauses,
+                TerminationConditions = contract.TerminationConditions,
+                SpecialConditions = contract.SpecialConditions,
+                Status = contract.Status,
+                CreatedBy = contract.CreatedBy,
+                CreatedDate = contract.CreatedDate
+            };
+
+            return View(viewModel);
+        }
+
+        // POST: Client/ReviewContract - Project Manager finalizes and sends to client
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Project Manager, Admin")]
+        public async Task<ActionResult> ReviewContract(ReviewContractViewModel model)
+        {
+            var contract = db.Contracts.Find(model.ContractId);
+            if (contract == null)
+            {
+                TempData["ErrorMessage"] = "Contract not found.";
+                return RedirectToAction("Index");
+            }
+
+            if (contract.Status != ContractStatus.PendingReview)
+            {
+                TempData["ErrorMessage"] = "This contract is not currently awaiting review.";
+                return RedirectToAction("ContractDetails", new { id = contract.Id });
+            }
+
+            if (model.EndDate < model.StartDate)
+            {
+                ModelState.AddModelError("EndDate", "End date must be after start date.");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                model.ClientName = db.Clients.Find(model.ClientId)?.CompanyName;
+                return View(model);
+            }
+
+            try
+            {
+                var client = db.Clients.Find(contract.ClientId);
+
+                // Apply the PM's (possibly edited) final wording
+                contract.ProjectName = model.ProjectName;
+                contract.ContractType = model.ContractType;
+                contract.ContractValue = model.ContractValue;
+                contract.StartDate = model.StartDate;
+                contract.EndDate = model.EndDate;
+                contract.ProjectScope = model.ProjectScope;
+                contract.Deliverables = model.Deliverables;
+                contract.PaymentTerms = model.PaymentTerms;
+                contract.PaymentSchedule = model.PaymentSchedule;
+                contract.Milestones = model.Milestones;
+                contract.Timeline = model.Timeline;
+                contract.PenaltyClauses = model.PenaltyClauses;
+                contract.TerminationConditions = model.TerminationConditions;
+                contract.SpecialConditions = model.SpecialConditions;
+
+                var missingFields = ValidateContractCompleteness(contract);
+                if (missingFields.Any())
+                {
+                    ModelState.AddModelError("", "Please complete the following before sending: " + string.Join(", ", missingFields));
+                    model.ClientName = client?.CompanyName;
+                    return View(model);
+                }
+
+                contract.ReviewedBy = User.Identity.Name;
+                contract.ReviewedDate = DateTime.Now;
+                contract.ReviewNotes = model.ReviewNotes;
+                contract.Status = ContractStatus.Sent;
+                contract.SentToClientDate = DateTime.Now;
+
+                // Regenerate the draft PDF with the PM's final wording
+                GenerateAndSaveDraftPdf(contract, client);
+
+                await db.SaveChangesAsync();
+
+                // Notify + email the client
+                await CreateNotification(
+                    client.UserId,
+                    "Contract Ready for Signature",
+                    $"The contract for '{contract.ProjectName}' has been finalized and is ready for your signature.",
+                    "System",
+                    $"/Client/SignContract/{contract.Id}"
+                );
+                SendContractReadyEmail(client, contract);
+
+                // Notify Admin
+                var adminUsers = UserManager.Users.ToList().Where(u => UserManager.IsInRole(u.Id, "Admin")).ToList();
+                foreach (var admin in adminUsers)
+                {
+                    await CreateNotification(
+                        admin.Id,
+                        "Contract Finalized & Sent to Client",
+                        $"Contract for '{contract.ProjectName}' was reviewed by {contract.ReviewedBy} and sent to {client.CompanyName} for signature.",
+                        "System",
+                        $"/Client/ContractDetails/{contract.Id}"
+                    );
+                }
+
+                TempData["SuccessMessage"] = $"Contract for '{contract.ProjectName}' finalized and sent to {client.CompanyName} for signature.";
+                return RedirectToAction("ContractDetails", new { id = contract.Id });
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", "Error finalizing contract: " + ex.Message);
+                model.ClientName = db.Clients.Find(model.ClientId)?.CompanyName;
+                return View(model);
+            }
+        }
+
+        // GET: Client/DownloadContractPdf/5 - available before AND after signing
+        [Authorize(Roles = "Admin, Project Manager, Client")]
+        public ActionResult DownloadContractPdf(int id)
+        {
+            var contract = db.Contracts.Find(id);
+            if (contract == null)
+            {
+                TempData["ErrorMessage"] = "Contract not found.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            var client = db.Clients.Find(contract.ClientId);
+
+            // If the current user is the Client, make sure it's *their* contract
+            if (User.IsInRole("Client"))
+            {
+                var user = UserManager.FindById(User.Identity.GetUserId());
+                var myClient = db.Clients.FirstOrDefault(c => c.UserId == user.Id);
+                if (myClient == null || myClient.Id != contract.ClientId)
+                {
+                    TempData["ErrorMessage"] = "You are not authorized to view this contract.";
+                    return RedirectToAction("Index", "Home");
+                }
+            }
+
+            byte[] pdfBytes;
+            string fileName = $"{contract.ContractNumber}.pdf";
+
+            if (contract.IsSigned && !string.IsNullOrEmpty(contract.SignedPdfPath))
+            {
+                var signedPath = Server.MapPath(contract.SignedPdfPath);
+                if (System.IO.File.Exists(signedPath))
+                {
+                    pdfBytes = System.IO.File.ReadAllBytes(signedPath);
+                    fileName = $"{contract.ContractNumber}_Signed.pdf";
+                    return File(pdfBytes, "application/pdf", fileName);
+                }
+            }
+
+            // Otherwise generate the current draft/preview on the fly so it always
+            // reflects the latest saved wording.
+            pdfBytes = ContractPdfGenerator.Generate(contract, client);
+            return File(pdfBytes, "application/pdf", fileName);
         }
 
         // GET: Client/ContractDetails/5
@@ -479,7 +743,14 @@ namespace MuhleOP.Controllers
                 SignedDocumentPath = contract.SignedDocumentPath,
                 CreatedDate = contract.CreatedDate,
                 CreatedBy = contract.CreatedBy,
-                ContractFilePath = contract.ContractFilePath
+                ContractFilePath = contract.ContractFilePath,
+                ReviewedBy = contract.ReviewedBy,
+                ReviewedDate = contract.ReviewedDate,
+                ReviewNotes = contract.ReviewNotes,
+                GeneratedPdfPath = contract.GeneratedPdfPath,
+                SignedPdfPath = contract.SignedPdfPath,
+                SentForReviewDate = contract.SentForReviewDate,
+                SentToClientDate = contract.SentToClientDate
             };
 
             // Check if current user is the client
@@ -487,7 +758,8 @@ namespace MuhleOP.Controllers
             bool isClient = client != null && client.UserId == user?.Id;
 
             ViewBag.IsClient = isClient;
-            ViewBag.CanSign = isClient && !contract.IsSigned && contract.Status != "Terminated";
+            ViewBag.CanSign = isClient && !contract.IsSigned && contract.Status != ContractStatus.Terminated;
+            ViewBag.CanReview = (User.IsInRole("Project Manager") || User.IsInRole("Admin")) && contract.Status == ContractStatus.PendingReview;
 
             return View(viewModel);
         }
@@ -598,7 +870,7 @@ namespace MuhleOP.Controllers
                     // Update contract
                     contract.IsSigned = true;
                     contract.SignatureDate = DateTime.Now;
-                    contract.Status = "Signed";
+                    contract.Status = ContractStatus.Signed;
                     contract.SignedDocumentPath = "~/Uploads/Signatures/" + signatureFileName;
 
                     // Add signature record
@@ -618,8 +890,29 @@ namespace MuhleOP.Controllers
                     db.ContractSignatures.Add(signature);
                     await db.SaveChangesAsync();
 
+                    // Generate the final signed PDF (contract text + signature image stamped in)
+                    byte[] signatureBytesForPdf = null;
+                    if (!string.IsNullOrEmpty(model.SignatureData))
+                    {
+                        string b64 = model.SignatureData.Replace("data:image/png;base64,", "").Replace("data:image/jpeg;base64,", "");
+                        signatureBytesForPdf = Convert.FromBase64String(b64);
+                    }
+                    byte[] signedPdfBytes = ContractPdfGenerator.Generate(contract, client, signatureBytesForPdf, signature);
+
+                    string pdfFolder = Server.MapPath("~/Uploads/SignedContracts/");
+                    if (!Directory.Exists(pdfFolder))
+                    {
+                        Directory.CreateDirectory(pdfFolder);
+                    }
+                    string pdfFileName = "SignedContract_" + contract.Id + "_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".pdf";
+                    string pdfFilePath = Path.Combine(pdfFolder, pdfFileName);
+                    System.IO.File.WriteAllBytes(pdfFilePath, signedPdfBytes);
+                    contract.SignedPdfPath = "~/Uploads/SignedContracts/" + pdfFileName;
+
+                    await db.SaveChangesAsync();
+
                     // Create notification for Admin
-                    var adminUsers = UserManager.Users.Where(u => UserManager.IsInRole(u.Id, "Admin")).ToList();
+                    var adminUsers = UserManager.Users.ToList().Where(u => UserManager.IsInRole(u.Id, "Admin")).ToList();
                     foreach (var admin in adminUsers)
                     {
                         await CreateNotification(
@@ -632,7 +925,7 @@ namespace MuhleOP.Controllers
                     }
 
                     // Notify Project Managers
-                    var pmUsers = UserManager.Users.Where(u => UserManager.IsInRole(u.Id, "Project Manager")).ToList();
+                    var pmUsers = UserManager.Users.ToList().Where(u => UserManager.IsInRole(u.Id, "Project Manager")).ToList();
                     foreach (var pm in pmUsers)
                     {
                         await CreateNotification(
@@ -653,6 +946,12 @@ namespace MuhleOP.Controllers
                         $"/Client/ContractDetails/{contract.Id}"
                     );
 
+                    // Email the signed PDF (attached) to PM(s), Admin(s) and the Client
+                    var recipientEmails = new List<string> { client.ContactEmail };
+                    recipientEmails.AddRange(adminUsers.Where(u => !string.IsNullOrEmpty(u.Email)).Select(u => u.Email));
+                    recipientEmails.AddRange(pmUsers.Where(u => !string.IsNullOrEmpty(u.Email)).Select(u => u.Email));
+                    SendSignedContractEmail(recipientEmails.Distinct().ToList(), contract, client, signedPdfBytes, pdfFileName);
+
                     TempData["SuccessMessage"] = $"Contract for '{contract.ProjectName}' has been signed successfully!";
                     return RedirectToAction("ContractDetails", new { id = contract.Id });
                 }
@@ -665,7 +964,10 @@ namespace MuhleOP.Controllers
             return View(model);
         }
 
-        // GET: Client/SendContract/5 - Send contract for signature
+        // GET: Client/SendContract/5 - Resend the signature reminder to the client.
+        // NOTE: the Draft -> PendingReview -> Sent transition now happens through
+        // CreateContract (Admin) and ReviewContract (Project Manager); this action
+        // only re-notifies the client for a contract that's already in "Sent" status.
         [Authorize(Roles = "Admin, Project Manager")]
         public async Task<ActionResult> SendContract(int id)
         {
@@ -682,13 +984,28 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("ContractDetails", new { id = contract.Id });
             }
 
+            if (contract.Status == ContractStatus.PendingReview)
+            {
+                TempData["ErrorMessage"] = "This contract is still awaiting Project Manager review. It will be sent to the client once reviewed.";
+                return RedirectToAction("ContractDetails", new { id = contract.Id });
+            }
+
+            if (contract.Status == ContractStatus.Draft)
+            {
+                TempData["ErrorMessage"] = "This contract hasn't been submitted for review yet.";
+                return RedirectToAction("ContractDetails", new { id = contract.Id });
+            }
+
             var client = db.Clients.Find(contract.ClientId);
 
-            // Update status
-            contract.Status = "Sent";
+            contract.Status = ContractStatus.Sent;
+            if (contract.SentToClientDate == null)
+            {
+                contract.SentToClientDate = DateTime.Now;
+            }
             await db.SaveChangesAsync();
 
-            // Notify client
+            // Notify + email client
             await CreateNotification(
                 client.UserId,
                 "Contract Ready for Signature",
@@ -696,6 +1013,7 @@ namespace MuhleOP.Controllers
                 "System",
                 $"/Client/SignContract/{contract.Id}"
             );
+            SendContractReadyEmail(client, contract);
 
             TempData["SuccessMessage"] = $"Contract sent to {client.CompanyName} for signature.";
             return RedirectToAction("ContractDetails", new { id = contract.Id });
@@ -734,6 +1052,169 @@ namespace MuhleOP.Controllers
             );
 
             return Json(new { success = true, isActive = client.IsActive });
+        }
+
+        // Checks that every clause required for a legally usable contract has
+        // been filled in (auto-generated or hand-typed). Returns the list of
+        // missing field labels, or an empty list if complete.
+        private List<string> ValidateContractCompleteness(Contract contract)
+        {
+            var missing = new List<string>();
+            if (string.IsNullOrWhiteSpace(contract.ProjectName)) missing.Add("Project Name");
+            if (contract.ContractValue <= 0) missing.Add("Contract Value");
+            if (contract.StartDate == default(DateTime)) missing.Add("Start Date");
+            if (contract.EndDate == default(DateTime)) missing.Add("End Date");
+            if (contract.EndDate < contract.StartDate) missing.Add("End Date must be after Start Date");
+            if (string.IsNullOrWhiteSpace(contract.ProjectScope)) missing.Add("Project Scope");
+            if (string.IsNullOrWhiteSpace(contract.Deliverables)) missing.Add("Deliverables");
+            if (string.IsNullOrWhiteSpace(contract.PaymentTerms)) missing.Add("Payment Terms");
+            if (string.IsNullOrWhiteSpace(contract.PaymentSchedule)) missing.Add("Payment & Invoicing Schedule");
+            if (string.IsNullOrWhiteSpace(contract.Milestones)) missing.Add("Milestones");
+            if (string.IsNullOrWhiteSpace(contract.Timeline)) missing.Add("Project Timeline");
+            if (string.IsNullOrWhiteSpace(contract.PenaltyClauses)) missing.Add("Penalty Clauses");
+            if (string.IsNullOrWhiteSpace(contract.TerminationConditions)) missing.Add("Termination Conditions");
+            return missing;
+        }
+
+        // Generates the current draft/preview PDF and saves it to disk,
+        // updating contract.GeneratedPdfPath. Call SaveChangesAsync afterwards.
+        private void GenerateAndSaveDraftPdf(Contract contract, Client client)
+        {
+            try
+            {
+                byte[] pdfBytes = ContractPdfGenerator.Generate(contract, client);
+                string folder = Server.MapPath("~/Uploads/ContractPdfs/");
+                if (!Directory.Exists(folder))
+                {
+                    Directory.CreateDirectory(folder);
+                }
+                string fileName = "Contract_" + contract.Id + "_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".pdf";
+                string filePath = Path.Combine(folder, fileName);
+                System.IO.File.WriteAllBytes(filePath, pdfBytes);
+                contract.GeneratedPdfPath = "~/Uploads/ContractPdfs/" + fileName;
+            }
+            catch (Exception ex)
+            {
+                // Don't block the workflow if PDF generation fails - the contract
+                // record is already saved; DownloadContractPdf can regenerate on demand.
+                System.Diagnostics.Debug.WriteLine($"Error generating contract PDF: {ex.Message}");
+            }
+        }
+
+        // Reads SMTP settings from web.config appSettings, same convention as
+        // SendWelcomeEmail below. Returns null if SMTP isn't configured (email
+        // sending is then skipped and just logged, so nothing blocks the workflow).
+        private SmtpClient BuildSmtpClient(out string fromEmail, out string fromName)
+        {
+            fromEmail = null;
+            fromName = null;
+            string host = ConfigurationManager.AppSettings["SmtpHost"];
+            if (string.IsNullOrEmpty(host)) return null;
+
+            int port = int.Parse(ConfigurationManager.AppSettings["SmtpPort"] ?? "587");
+            bool useSsl = bool.Parse(ConfigurationManager.AppSettings["SmtpUseSsl"] ?? "true");
+            string smtpUser = ConfigurationManager.AppSettings["SmtpUsername"];
+            string smtpPass = ConfigurationManager.AppSettings["SmtpPassword"];
+            fromEmail = ConfigurationManager.AppSettings["SmtpFromEmail"] ?? smtpUser;
+            fromName = ConfigurationManager.AppSettings["SmtpFromName"] ?? "MuhleOP";
+
+            var client = new SmtpClient(host, port) { EnableSsl = useSsl };
+            if (!string.IsNullOrEmpty(smtpUser))
+            {
+                client.Credentials = new System.Net.NetworkCredential(smtpUser, smtpPass);
+            }
+            return client;
+        }
+
+        private void SendContractReadyEmail(Client client, Contract contract)
+        {
+            try
+            {
+                using (var smtp = BuildSmtpClient(out string fromEmail, out string fromName))
+                {
+                    if (smtp == null)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"SMTP not configured - contract-ready email not sent to {client.ContactEmail}.");
+                        return;
+                    }
+
+                    string body = $@"
+                        <div style='font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:auto;'>
+                            <h2 style='color:#F5A623;'>Contract Ready for Your Signature</h2>
+                            <p>Dear {client.PrimaryContactName},</p>
+                            <p>The contract for <strong>{contract.ProjectName}</strong> (Contract No. {contract.ContractNumber}) has been
+                            reviewed and finalized. Please log in to MuhleOps to review and sign it.</p>
+                            <p><strong>Contract Value:</strong> {contract.ContractValue:C}<br/>
+                            <strong>Start Date:</strong> {contract.StartDate:dd MMM yyyy}<br/>
+                            <strong>End Date:</strong> {contract.EndDate:dd MMM yyyy}</p>
+                            <p>You can download a copy of the contract for review before signing directly from the system.</p>
+                            <p style='color:#888;font-size:12px;margin-top:24px;'>This is an automated message, please do not reply to this email.</p>
+                        </div>";
+
+                    using (var message = new MailMessage())
+                    {
+                        message.From = new MailAddress(fromEmail, fromName);
+                        message.To.Add(client.ContactEmail);
+                        message.Subject = $"Contract Ready for Signature - {contract.ContractNumber}";
+                        message.Body = body;
+                        message.IsBodyHtml = true;
+                        smtp.Send(message);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error sending contract-ready email: {ex.Message}");
+            }
+        }
+
+        private void SendSignedContractEmail(List<string> recipientEmails, Contract contract, Client client, byte[] pdfBytes, string pdfFileName)
+        {
+            if (recipientEmails == null || !recipientEmails.Any()) return;
+
+            try
+            {
+                using (var smtp = BuildSmtpClient(out string fromEmail, out string fromName))
+                {
+                    if (smtp == null)
+                    {
+                        System.Diagnostics.Debug.WriteLine("SMTP not configured - signed contract email not sent.");
+                        return;
+                    }
+
+                    string body = $@"
+                        <div style='font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:auto;'>
+                            <h2 style='color:#F5A623;'>Contract Signed</h2>
+                            <p>The contract <strong>{contract.ProjectName}</strong> (Contract No. {contract.ContractNumber}) for
+                            {client.CompanyName} has been signed on {contract.SignatureDate:dd MMM yyyy HH:mm}.</p>
+                            <p>The signed contract is attached to this email as a PDF for your records.</p>
+                            <p style='color:#888;font-size:12px;margin-top:24px;'>This is an automated message, please do not reply to this email.</p>
+                        </div>";
+
+                    using (var message = new MailMessage())
+                    {
+                        message.From = new MailAddress(fromEmail, fromName);
+                        foreach (var email in recipientEmails)
+                        {
+                            message.To.Add(email);
+                        }
+                        message.Subject = $"Contract Signed - {contract.ContractNumber}";
+                        message.Body = body;
+                        message.IsBodyHtml = true;
+
+                        using (var stream = new MemoryStream(pdfBytes))
+                        {
+                            var attachment = new Attachment(stream, pdfFileName, "application/pdf");
+                            message.Attachments.Add(attachment);
+                            smtp.Send(message);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error sending signed contract email: {ex.Message}");
+            }
         }
 
         private string GenerateRandomPassword()

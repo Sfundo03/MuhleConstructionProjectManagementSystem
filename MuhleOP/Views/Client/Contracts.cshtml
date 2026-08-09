@@ -52,8 +52,8 @@
                                 <td>@contract.StartDate.ToString("dd MMM yyyy")</td>
                                 <td>@contract.EndDate.ToString("dd MMM yyyy")</td>
                                 <td>
-                                    <span class="badge bg-@(contract.IsSigned ? "success" : contract.Status == "Draft" ? "secondary" : contract.Status == "Sent" ? "info" : contract.Status == "Active" ? "primary" : contract.Status == "Terminated" ? "danger" : "secondary")">
-                                        @contract.Status
+                                    <span class="badge bg-@(contract.IsSigned ? "success" : contract.Status == "Draft" ? "secondary" : contract.Status == "PendingReview" ? "warning" : contract.Status == "Sent" ? "info" : contract.Status == "Active" ? "primary" : contract.Status == "Terminated" ? "danger" : "secondary")">
+                                        @(contract.Status == "PendingReview" ? "Pending Review" : contract.Status)
                                     </span>
                                     @if (contract.IsSigned)
                                     {
@@ -66,9 +66,18 @@
                                         <a href="@Url.Action("ContractDetails", new { id = contract.Id })" class="btn btn-outline-info" title="View Details">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        @if (!contract.IsSigned && contract.Status != "Terminated")
+                                        <a href="@Url.Action("DownloadContractPdf", new { id = contract.Id })" class="btn btn-outline-secondary" title="Download PDF">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </a>
+                                        @if (contract.Status == "PendingReview" && (User.IsInRole("Project Manager") || User.IsInRole("Admin")))
                                         {
-                                            <a href="@Url.Action("SendContract", new { id = contract.Id })" class="btn btn-outline-primary" title="Send for Signature">
+                                            <a href="@Url.Action("ReviewContract", new { id = contract.Id })" class="btn btn-outline-warning" title="Review & Finalize">
+                                                <i class="fas fa-clipboard-check"></i>
+                                            </a>
+                                        }
+                                        @if (!contract.IsSigned && contract.Status == "Sent")
+                                        {
+                                            <a href="@Url.Action("SendContract", new { id = contract.Id })" class="btn btn-outline-primary" title="Resend to Client">
                                                 <i class="fas fa-paper-plane"></i>
                                             </a>
                                         }

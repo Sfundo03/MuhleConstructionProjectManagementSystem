@@ -1,0 +1,225 @@
+﻿
+@model MuhleOP.ViewModels.CreateContractViewModel
+@{
+    ViewBag.Title = "Create Contract";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Create Contract</h2>
+        <p class="text-muted">
+            <i class="fas fa-file-contract me-2"></i>
+            New service contract for <strong>@ViewBag.ClientName</strong>
+        </p>
+    </div>
+    <a href="@Url.Action("Contracts", new { id = Model.ClientId })" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back
+    </a>
+</div>
+
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="alert alert-danger">
+        @Html.ValidationSummary(false, "", new { @class = "mb-0" })
+    </div>
+}
+
+<div class="row">
+    <div class="col-lg-9">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                @using (Html.BeginForm("CreateContract", "Client", FormMethod.Post, new { enctype = "multipart/form-data" }))
+                {
+                    @Html.AntiForgeryToken()
+                    @Html.HiddenFor(m => m.ClientId)
+                    @Html.HiddenFor(m => m.Status)
+
+                    <h5 class="mb-3"><i class="fas fa-info-circle text-gold me-2"></i>Basic Details</h5>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            @Html.LabelFor(m => m.ProjectName, new { @class = "form-label fw-bold" })
+                            @Html.TextBoxFor(m => m.ProjectName, new { @class = "form-control", id = "ProjectName" })
+                            @Html.ValidationMessageFor(m => m.ProjectName, "", new { @class = "text-danger" })
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            @Html.LabelFor(m => m.ContractType, new { @class = "form-label fw-bold" })
+                            @Html.DropDownListFor(m => m.ContractType, Model.ContractTypes, "-- Select Contract Type --", new { @class = "form-control", id = "ContractType" })
+                            @Html.ValidationMessageFor(m => m.ContractType, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            @Html.LabelFor(m => m.ContractValue, new { @class = "form-label fw-bold" })
+                            @Html.TextBoxFor(m => m.ContractValue, new { @class = "form-control", id = "ContractValue", type = "number", step = "0.01" })
+                            @Html.ValidationMessageFor(m => m.ContractValue, "", new { @class = "text-danger" })
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            @Html.LabelFor(m => m.StartDate, new { @class = "form-label fw-bold" })
+                            @Html.TextBoxFor(m => m.StartDate, "{0:yyyy-MM-dd}", new { @class = "form-control", id = "StartDate", type = "date" })
+                            @Html.ValidationMessageFor(m => m.StartDate, "", new { @class = "text-danger" })
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            @Html.LabelFor(m => m.EndDate, new { @class = "form-label fw-bold" })
+                            @Html.TextBoxFor(m => m.EndDate, "{0:yyyy-MM-dd}", new { @class = "form-control", id = "EndDate", type = "date" })
+                            @Html.ValidationMessageFor(m => m.EndDate, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-4 mb-3">
+                        <h5 class="mb-0"><i class="fas fa-file-alt text-gold me-2"></i>Contract Clauses</h5>
+                        <button type="button" id="autoGenerateBtn" class="btn btn-sm btn-outline-warning">
+                            <i class="fas fa-magic"></i> Auto-Generate
+                        </button>
+                    </div>
+                    <p class="text-muted small">Auto-generate fills these fields from a standard template based on the details above. Every field stays fully editable.</p>
+
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.ProjectScope, new { @class = "form-label fw-bold" })
+                        @Html.TextAreaFor(m => m.ProjectScope, new { @class = "form-control", rows = "3", id = "ProjectScope" })
+                        @Html.ValidationMessageFor(m => m.ProjectScope, "", new { @class = "text-danger" })
+                    </div>
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.Deliverables, new { @class = "form-label fw-bold" })
+                        @Html.TextAreaFor(m => m.Deliverables, new { @class = "form-control", rows = "3", id = "Deliverables" })
+                        @Html.ValidationMessageFor(m => m.Deliverables, "", new { @class = "text-danger" })
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            @Html.LabelFor(m => m.PaymentTerms, new { @class = "form-label fw-bold" })
+                            @Html.TextAreaFor(m => m.PaymentTerms, new { @class = "form-control", rows = "4", id = "PaymentTerms" })
+                            @Html.ValidationMessageFor(m => m.PaymentTerms, "", new { @class = "text-danger" })
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            @Html.LabelFor(m => m.PaymentSchedule, new { @class = "form-label fw-bold" })
+                            @Html.TextAreaFor(m => m.PaymentSchedule, new { @class = "form-control", rows = "4", id = "PaymentSchedule" })
+                            @Html.ValidationMessageFor(m => m.PaymentSchedule, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            @Html.LabelFor(m => m.Milestones, new { @class = "form-label fw-bold" })
+                            @Html.TextAreaFor(m => m.Milestones, new { @class = "form-control", rows = "4", id = "Milestones" })
+                            @Html.ValidationMessageFor(m => m.Milestones, "", new { @class = "text-danger" })
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            @Html.LabelFor(m => m.Timeline, new { @class = "form-label fw-bold" })
+                            @Html.TextAreaFor(m => m.Timeline, new { @class = "form-control", rows = "4", id = "Timeline" })
+                            @Html.ValidationMessageFor(m => m.Timeline, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            @Html.LabelFor(m => m.PenaltyClauses, new { @class = "form-label fw-bold" })
+                            @Html.TextAreaFor(m => m.PenaltyClauses, new { @class = "form-control", rows = "4", id = "PenaltyClauses" })
+                            @Html.ValidationMessageFor(m => m.PenaltyClauses, "", new { @class = "text-danger" })
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            @Html.LabelFor(m => m.TerminationConditions, new { @class = "form-label fw-bold" })
+                            @Html.TextAreaFor(m => m.TerminationConditions, new { @class = "form-control", rows = "4", id = "TerminationConditions" })
+                            @Html.ValidationMessageFor(m => m.TerminationConditions, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.SpecialConditions, new { @class = "form-label fw-bold" })
+                        @Html.TextAreaFor(m => m.SpecialConditions, new { @class = "form-control", rows = "3" })
+                        @Html.ValidationMessageFor(m => m.SpecialConditions, "", new { @class = "text-danger" })
+                    </div>
+
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.ContractFile, new { @class = "form-label fw-bold" })
+                        @Html.TextBoxFor(m => m.ContractFile, new { @class = "form-control", type = "file" })
+                        <small class="text-muted">Optional: attach a supporting document (e.g. an externally-drafted contract) alongside the generated one.</small>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Submitting will send this contract to a <strong>Project Manager for review</strong>. They can edit the wording
+                        before it's finalized and sent to the client for signature.
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-paper-plane"></i> Submit for PM Review
+                        </button>
+                        <a href="@Url.Action("Contracts", new { id = Model.ClientId })" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-list-check text-gold me-2"></i>Workflow</h6>
+                <ol class="small ps-3">
+                    <li class="mb-2">You create the contract (auto-generate + edit as needed)</li>
+                    <li class="mb-2">A Project Manager reviews and finalizes it</li>
+                    <li class="mb-2">The client is notified and signs it online</li>
+                    <li>Everyone gets the signed PDF by email</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .text-gold {
+        color: #F5A623;
+    }
+</style>
+
+@section Scripts {
+    <script>
+        document.getElementById('autoGenerateBtn').addEventListener('click', function () {
+            var btn = this;
+            var payload = {
+                clientId: @Model.ClientId,
+                projectName: document.getElementById('ProjectName').value,
+                contractType: document.getElementById('ContractType').value,
+                contractValue: parseFloat(document.getElementById('ContractValue').value) || 0,
+                startDate: document.getElementById('StartDate').value,
+                endDate: document.getElementById('EndDate').value
+            };
+
+            if (!payload.projectName || !payload.contractType || !payload.contractValue || !payload.startDate || !payload.endDate) {
+                alert('Please fill in Project Name, Contract Type, Value, Start Date and End Date first.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+            $.ajax({
+                url: '@Url.Action("GenerateContractDefaults", "Client")',
+                type: 'POST',
+                data: payload,
+                headers: { 'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val() },
+                success: function (result) {
+                    if (result.success) {
+                        document.getElementById('ProjectScope').value = result.ProjectScope;
+                        document.getElementById('Deliverables').value = result.Deliverables;
+                        document.getElementById('PaymentTerms').value = result.PaymentTerms;
+                        document.getElementById('PaymentSchedule').value = result.PaymentSchedule;
+                        document.getElementById('Milestones').value = result.Milestones;
+                        document.getElementById('Timeline').value = result.Timeline;
+                        document.getElementById('PenaltyClauses').value = result.PenaltyClauses;
+                        document.getElementById('TerminationConditions').value = result.TerminationConditions;
+                    } else {
+                        alert(result.message || 'Could not generate contract text.');
+                    }
+                },
+                error: function () {
+                    alert('Error generating contract text. Please try again.');
+                },
+                complete: function () {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-magic"></i> Auto-Generate';
+                }
+            });
+        });
+    </script>
+}

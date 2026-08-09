@@ -12,9 +12,14 @@
             Review and electronically sign the contract
         </p>
     </div>
-    <a href="@Url.Action("ContractDetails", new { id = Model.ContractId })" class="btn btn-secondary">
-        <i class="fas fa-arrow-left"></i> Back to Contract
-    </a>
+    <div>
+        <a href="@Url.Action("DownloadContractPdf", new { id = Model.ContractId })" class="btn btn-outline-secondary">
+            <i class="fas fa-file-pdf"></i> Download PDF
+        </a>
+        <a href="@Url.Action("ContractDetails", new { id = Model.ContractId })" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Contract
+        </a>
+    </div>
 </div>
 
 <div class="row">
@@ -354,7 +359,7 @@
         setTimeout(resizeCanvas, 100);
 
         // Form validation
-        document.getElementById('signButton').addEventListener('click', function(e) {
+        document.getElementById('signButton').addEventListener('click', function (e) {
             const acceptTerms = document.getElementById('AcceptTerms').checked;
             const signatureData = document.getElementById('SignatureData').value;
 
@@ -383,8 +388,8 @@
         }
 
         // Observe theme changes
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
+        const observer = new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
                 if (mutation.attributeName === 'data-theme') {
                     updateCanvasTheme();
                     redrawSignature();

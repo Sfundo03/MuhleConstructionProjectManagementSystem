@@ -1,0 +1,154 @@
+﻿
+@model MuhleOP.ViewModels.ReviewContractViewModel
+@{
+    ViewBag.Title = "Review Contract";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Review Contract</h2>
+        <p class="text-muted">
+            <i class="fas fa-clipboard-check me-2"></i>
+            @Model.ContractNumber - @Model.ClientName
+        </p>
+    </div>
+    <div>
+        <a href="@Url.Action("DownloadContractPdf", new { id = Model.ContractId })" class="btn btn-outline-secondary">
+            <i class="fas fa-file-pdf"></i> Download PDF
+        </a>
+        <a href="@Url.Action("ContractDetails", new { id = Model.ContractId })" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
+</div>
+
+<div class="alert alert-info">
+    <i class="fas fa-info-circle me-2"></i>
+    Created by <strong>@Model.CreatedBy</strong> on @Model.CreatedDate.ToString("dd MMM yyyy HH:mm"). Edit any field below, then finalize to send it to the client for signature.
+</div>
+
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="alert alert-danger">
+        @Html.ValidationSummary(false, "", new { @class = "mb-0" })
+    </div>
+}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        @using (Html.BeginForm("ReviewContract", "Client", FormMethod.Post))
+        {
+            @Html.AntiForgeryToken()
+            @Html.HiddenFor(m => m.ContractId)
+            @Html.HiddenFor(m => m.ClientId)
+            @Html.HiddenFor(m => m.ClientName)
+            @Html.HiddenFor(m => m.Status)
+            @Html.HiddenFor(m => m.CreatedBy)
+            @Html.HiddenFor(m => m.CreatedDate)
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    @Html.LabelFor(m => m.ProjectName, new { @class = "form-label fw-bold" })
+                    @Html.TextBoxFor(m => m.ProjectName, new { @class = "form-control" })
+                    @Html.ValidationMessageFor(m => m.ProjectName, "", new { @class = "text-danger" })
+                </div>
+                <div class="col-md-6 mb-3">
+                    @Html.LabelFor(m => m.ContractType, new { @class = "form-label fw-bold" })
+                    @Html.TextBoxFor(m => m.ContractType, new { @class = "form-control" })
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    @Html.LabelFor(m => m.ContractValue, new { @class = "form-label fw-bold" })
+                    @Html.TextBoxFor(m => m.ContractValue, new { @class = "form-control", type = "number", step = "0.01" })
+                    @Html.ValidationMessageFor(m => m.ContractValue, "", new { @class = "text-danger" })
+                </div>
+                <div class="col-md-4 mb-3">
+                    @Html.LabelFor(m => m.StartDate, new { @class = "form-label fw-bold" })
+                    @Html.TextBoxFor(m => m.StartDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                    @Html.ValidationMessageFor(m => m.StartDate, "", new { @class = "text-danger" })
+                </div>
+                <div class="col-md-4 mb-3">
+                    @Html.LabelFor(m => m.EndDate, new { @class = "form-label fw-bold" })
+                    @Html.TextBoxFor(m => m.EndDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                    @Html.ValidationMessageFor(m => m.EndDate, "", new { @class = "text-danger" })
+                </div>
+            </div>
+
+            <hr />
+
+            <div class="mb-3">
+                @Html.LabelFor(m => m.ProjectScope, new { @class = "form-label fw-bold" })
+                @Html.TextAreaFor(m => m.ProjectScope, new { @class = "form-control", rows = "3" })
+                @Html.ValidationMessageFor(m => m.ProjectScope, "", new { @class = "text-danger" })
+            </div>
+            <div class="mb-3">
+                @Html.LabelFor(m => m.Deliverables, new { @class = "form-label fw-bold" })
+                @Html.TextAreaFor(m => m.Deliverables, new { @class = "form-control", rows = "3" })
+                @Html.ValidationMessageFor(m => m.Deliverables, "", new { @class = "text-danger" })
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    @Html.LabelFor(m => m.PaymentTerms, new { @class = "form-label fw-bold" })
+                    @Html.TextAreaFor(m => m.PaymentTerms, new { @class = "form-control", rows = "4" })
+                    @Html.ValidationMessageFor(m => m.PaymentTerms, "", new { @class = "text-danger" })
+                </div>
+                <div class="col-md-6 mb-3">
+                    @Html.LabelFor(m => m.PaymentSchedule, new { @class = "form-label fw-bold" })
+                    @Html.TextAreaFor(m => m.PaymentSchedule, new { @class = "form-control", rows = "4" })
+                    @Html.ValidationMessageFor(m => m.PaymentSchedule, "", new { @class = "text-danger" })
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    @Html.LabelFor(m => m.Milestones, new { @class = "form-label fw-bold" })
+                    @Html.TextAreaFor(m => m.Milestones, new { @class = "form-control", rows = "4" })
+                    @Html.ValidationMessageFor(m => m.Milestones, "", new { @class = "text-danger" })
+                </div>
+                <div class="col-md-6 mb-3">
+                    @Html.LabelFor(m => m.Timeline, new { @class = "form-label fw-bold" })
+                    @Html.TextAreaFor(m => m.Timeline, new { @class = "form-control", rows = "4" })
+                    @Html.ValidationMessageFor(m => m.Timeline, "", new { @class = "text-danger" })
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    @Html.LabelFor(m => m.PenaltyClauses, new { @class = "form-label fw-bold" })
+                    @Html.TextAreaFor(m => m.PenaltyClauses, new { @class = "form-control", rows = "4" })
+                    @Html.ValidationMessageFor(m => m.PenaltyClauses, "", new { @class = "text-danger" })
+                </div>
+                <div class="col-md-6 mb-3">
+                    @Html.LabelFor(m => m.TerminationConditions, new { @class = "form-label fw-bold" })
+                    @Html.TextAreaFor(m => m.TerminationConditions, new { @class = "form-control", rows = "4" })
+                    @Html.ValidationMessageFor(m => m.TerminationConditions, "", new { @class = "text-danger" })
+                </div>
+            </div>
+            <div class="mb-3">
+                @Html.LabelFor(m => m.SpecialConditions, new { @class = "form-label fw-bold" })
+                @Html.TextAreaFor(m => m.SpecialConditions, new { @class = "form-control", rows = "3" })
+            </div>
+
+            <hr />
+
+            <div class="mb-3">
+                @Html.LabelFor(m => m.ReviewNotes, new { @class = "form-label fw-bold" })
+                @Html.TextAreaFor(m => m.ReviewNotes, new { @class = "form-control", rows = "2", placeholder = "Optional internal notes about this review (visible to Admin, not the client)" })
+            </div>
+
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Finalizing will notify and email the client that the contract is ready to sign. Make sure all clauses above are correct.
+            </div>
+
+            <div class="d-flex gap-2 mt-3">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-paper-plane"></i> Finalize &amp; Send to Client
+                </button>
+                <a href="@Url.Action("ContractDetails", new { id = Model.ContractId })" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Cancel
+                </a>
+            </div>
+        }
+    </div>
+</div>
