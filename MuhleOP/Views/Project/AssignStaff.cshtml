@@ -38,6 +38,20 @@
     </div>
 }
 
+@if (Model.ConflictWarnings != null && Model.ConflictWarnings.Any())
+{
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i><strong>Scheduling conflict detected:</strong>
+        <ul class="mb-0 mt-2">
+            @foreach (var warning in Model.ConflictWarnings)
+            {
+                <li>@warning</li>
+            }
+        </ul>
+        <div class="mt-2">Tick <strong>Override Conflict</strong> below and provide a justification if you have permission to proceed anyway.</div>
+    </div>
+}
+
 <div class="row">
     <div class="col-lg-7">
         <!-- Assign New Staff -->
@@ -56,8 +70,27 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 @Html.LabelFor(m => m.StaffId, new { @class = "form-label fw-bold" })
-                                @Html.DropDownListFor(m => m.StaffId, Model.AvailableStaff, "-- Select Staff --", new { @class = "form-select" })
+                                <select name="StaffId" id="StaffId" class="form-select">
+                                    <option value="">-- Select Staff --</option>
+                                    @foreach (var group in Model.AvailableStaffByRole)
+                                    {
+                                        <optgroup label="@group.Role (@group.Staff.Count available)">
+                                            @foreach (var item in group.Staff)
+                                            {
+                                                if (item.Value == Model.StaffId.ToString())
+                                                {
+                                                    <option value="@item.Value" selected="selected">@item.Text</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="@item.Value">@item.Text</option>
+                                                }
+                                            }
+                                        </optgroup>
+                                    }
+                                </select>
                                 @Html.ValidationMessageFor(m => m.StaffId, "", new { @class = "text-danger" })
+                                <small class="text-muted d-block mt-1">Grouped by role - Site Managers, Crew Members, Finance Officers, Procurement Officers, Project Managers. "CONFLICT" means they're already booked on another project for these dates.</small>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -65,6 +98,7 @@
                                 @Html.LabelFor(m => m.Role, new { @class = "form-label fw-bold" })
                                 @Html.DropDownListFor(m => m.Role, Model.AvailableRoles, "-- Select Role --", new { @class = "form-select" })
                                 @Html.ValidationMessageFor(m => m.Role, "", new { @class = "text-danger" })
+                                <small class="text-muted d-block mt-1">Only one active Project Manager and one active Site Manager per project</small>
                             </div>
                         </div>
                     </div>
@@ -100,6 +134,17 @@
                         @Html.ValidationMessageFor(m => m.Notes, "", new { @class = "text-danger" })
                     </div>
 
+                    <div class="form-check mb-2">
+                        @Html.CheckBoxFor(m => m.OverrideConflict, new { @class = "form-check-input" })
+                        @Html.LabelFor(m => m.OverrideConflict, "Override Conflict (I have permission to assign this staff member despite the scheduling conflict shown above)", new { @class = "form-check-label" })
+                    </div>
+
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.OverrideReason, "Override Justification (required if overriding)", new { @class = "form-label fw-bold" })
+                        @Html.TextAreaFor(m => m.OverrideReason, new { @class = "form-control", rows = "2", placeholder = "e.g. Approved by Admin - staff will split time between projects" })
+                        @Html.ValidationMessageFor(m => m.OverrideReason, "", new { @class = "text-danger" })
+                    </div>
+
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-user-plus"></i> Assign Staff
                     </button>
@@ -117,7 +162,7 @@
             <div class="card-body">
                 @if (Model.CurrentAssignments != null && Model.CurrentAssignments.Any())
                 {
-                    @foreach (var assignment in Model.CurrentAssignments)
+                    foreach (var assignment in Model.CurrentAssignments)
                     {
                         <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
                             <div>
@@ -129,6 +174,16 @@
                                 <span class="badge bg-info">@assignment.AllocationPercentage%</span>
                                 <br />
                                 <small class="text-muted">@assignment.StartDate.ToString("dd MMM") - @(assignment.EndDate?.ToString("dd MMM yyyy") ?? "Ongoing")</small>
+                                <br />
+                                @using (Html.BeginForm("DeassignStaff", "Project", FormMethod.Post, new { @class = "deassign-form" }))
+                                {
+                                    @Html.AntiForgeryToken()
+                                    @Html.Hidden("allocationId", assignment.Id)
+                                    @Html.Hidden("projectId", Model.ProjectId)
+                                    <button type="submit" class="btn btn-sm btn-outline-danger mt-1" data-staff-name="@assignment.StaffName">
+                                        <i class="fas fa-user-minus"></i> Deassign
+                                    </button>
+                                }
                             </div>
                         </div>
                     }
@@ -201,4 +256,32 @@
 
 @section Scripts {
     @Scripts.Render("~/bundles/jqueryval")
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.deassign-form').forEach(function (form) {
+                form.addEventListener('submit', function (e) {
+                    var btn = form.querySelector('button[type="submit"]');
+                    var name = btn ? btn.getAttribute('data-staff-name') : 'this staff member';
+                    if (!confirm('Remove ' + name + ' from this project? They will become available for other assignments.')) {
+                        e.preventDefault();
+                    }
+                });
+            });
+
+            // Only require/reveal the override justification once a conflict
+            // exists or the checkbox is actually ticked.
+            var overrideCheckbox = document.getElementById('OverrideConflict');
+            var overrideReason = document.getElementById('OverrideReason');
+            function syncOverrideState() {
+                if (overrideCheckbox && overrideReason) {
+                    overrideReason.closest('.mb-3').style.display = overrideCheckbox.checked ? '' : 'none';
+                }
+            }
+            if (overrideCheckbox) {
+                overrideCheckbox.addEventListener('change', syncOverrideState);
+                syncOverrideState();
+            }
+        });
+    </script>
 }

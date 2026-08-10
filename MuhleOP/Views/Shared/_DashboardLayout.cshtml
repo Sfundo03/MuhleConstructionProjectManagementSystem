@@ -1,4 +1,4 @@
-﻿﻿
+﻿
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -54,12 +54,24 @@
             box-sizing: border-box;
         }
 
+        a:focus-visible,
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible,
+        .nav-item:focus-visible {
+            outline: 2px solid var(--primary-gold);
+            outline-offset: 2px;
+        }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: var(--bg-body);
             color: var(--text-primary);
             overflow-x: hidden;
             transition: background 0.3s ease, color 0.3s ease;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         /* Sidebar */
@@ -161,6 +173,34 @@
                     color: var(--primary-gold);
                 }
 
+                .sidebar-menu .nav-item.disabled {
+                    cursor: default;
+                    opacity: 0.45;
+                }
+
+                    .sidebar-menu .nav-item.disabled:hover {
+                        background: transparent;
+                        color: var(--text-sidebar);
+                        border-left-color: transparent;
+                    }
+
+                        .sidebar-menu .nav-item.disabled:hover i {
+                            color: rgba(255,255,255,0.5);
+                        }
+
+                .sidebar-menu .nav-item .soon-pill {
+                    margin-left: auto;
+                    font-size: 9px;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    padding: 2px 6px;
+                    border-radius: 10px;
+                    background: rgba(255,255,255,0.08);
+                    color: rgba(255,255,255,0.5);
+                    flex-shrink: 0;
+                }
+
         .sidebar-footer {
             padding: 16px 24px;
             border-top: 1px solid rgba(255,255,255,0.08);
@@ -194,6 +234,47 @@
             .sidebar-footer .user-email {
                 font-size: 11px;
                 color: rgba(255,255,255,0.5);
+            }
+
+            .sidebar-footer .role-pill {
+                display: inline-block;
+                margin-top: 2px;
+                padding: 2px 8px;
+                font-size: 10px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                border-radius: 10px;
+            }
+
+            .sidebar-footer .role-pill-gold {
+                background: rgba(245,166,35,0.18);
+                color: var(--primary-gold);
+            }
+
+            .sidebar-footer .role-pill-primary {
+                background: rgba(78,115,223,0.2);
+                color: #8ba4ec;
+            }
+
+            .sidebar-footer .role-pill-success {
+                background: rgba(28,200,138,0.2);
+                color: #5edcae;
+            }
+
+            .sidebar-footer .role-pill-info {
+                background: rgba(54,185,204,0.2);
+                color: #7bdcea;
+            }
+
+            .sidebar-footer .role-pill-warning {
+                background: rgba(246,194,62,0.2);
+                color: #f6c23e;
+            }
+
+            .sidebar-footer .role-pill-secondary {
+                background: rgba(255,255,255,0.1);
+                color: rgba(255,255,255,0.65);
             }
 
         /* Main Content */
@@ -1243,26 +1324,30 @@
                 </a>
 
                 <div class="menu-label">Operations</div>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
+                <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-clipboard-list"></i>
                     <span>Daily Tasks</span>
-                </a>
+                    <span class="soon-pill">Soon</span>
+                </span>
 
                 <div class="menu-label">Finance</div>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
+                <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-coins"></i>
                     <span>Payroll</span>
-                </a>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
+                    <span class="soon-pill">Soon</span>
+                </span>
+                <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-file-invoice"></i>
                     <span>Invoices</span>
-                </a>
+                    <span class="soon-pill">Soon</span>
+                </span>
 
                 <div class="menu-label">Close Out</div>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
+                <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-flag-checkered"></i>
                     <span>Project Handover</span>
-                </a>
+                    <span class="soon-pill">Soon</span>
+                </span>
             }
             else if (User.IsInRole("Candidate"))
             {
@@ -1327,10 +1412,11 @@
                 </a>
 
                 <div class="menu-label">Operations</div>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
+                <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-clipboard-list"></i>
                     <span>Daily Tasks</span>
-                </a>
+                    <span class="soon-pill">Soon</span>
+                </span>
             }
             else if (User.IsInRole("Site Manager"))
             {
@@ -1341,20 +1427,23 @@
                 </a>
 
                 <div class="menu-label">Site Operations</div>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
+                <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-clipboard-list"></i>
                     <span>Daily Tasks</span>
-                </a>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
+                    <span class="soon-pill">Soon</span>
+                </span>
+                <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-clock"></i>
                     <span>Record Timesheet</span>
-                </a>
+                    <span class="soon-pill">Soon</span>
+                </span>
 
                 <div class="menu-label">Quality</div>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
+                <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-check-double"></i>
                     <span>Conduct Inspection</span>
-                </a>
+                    <span class="soon-pill">Soon</span>
+                </span>
             }
             else if (User.IsInRole("Finance Officer"))
             {
@@ -1365,14 +1454,16 @@
                 </a>
 
                 <div class="menu-label">Finance</div>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
+                <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-coins"></i>
                     <span>Process Payroll</span>
-                </a>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
+                    <span class="soon-pill">Soon</span>
+                </span>
+                <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-file-invoice"></i>
                     <span>Generate Invoice</span>
-                </a>
+                    <span class="soon-pill">Soon</span>
+                </span>
             }
             else if (User.IsInRole("Procurement Officer"))
             {
@@ -1383,14 +1474,16 @@
                 </a>
 
                 <div class="menu-label">Procurement</div>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
+                <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-truck"></i>
                     <span>Manage Suppliers</span>
-                </a>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
+                    <span class="soon-pill">Soon</span>
+                </span>
+                <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-file-signature"></i>
                     <span>Supplier Contracts</span>
-                </a>
+                    <span class="soon-pill">Soon</span>
+                </span>
             }
             else if (User.IsInRole("Client"))
             {
@@ -1414,10 +1507,11 @@
                     <span>Dashboard</span>
                 </a>
                 <div class="menu-label">My Work</div>
-                <a href="#" class="nav-item" onclick="alert('Coming soon!')">
+                <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-tasks"></i>
                     <span>My Tasks</span>
-                </a>
+                    <span class="soon-pill">Soon</span>
+                </span>
             }
         </nav>
 
@@ -1427,22 +1521,19 @@
                 <div>
                     <div class="user-name">@User.Identity.Name</div>
                     <div class="user-email">
-                        @if (User.IsInRole("Admin"))
-                        {<text>Administrator</text> }
-                    else if (User.IsInRole("Candidate"))
-                    { <text>Candidate</text> }
-                else if (User.IsInRole("Project Manager"))
-                { <text>Project Manager</text> }
-            else if (User.IsInRole("Site Manager"))
-            { <text>Site Manager</text> }
-        else if (User.IsInRole("Finance Officer"))
-        { <text>Finance Officer</text> }
-    else if (User.IsInRole("Procurement Officer"))
-    { <text>Procurement Officer</text> }
-else if (User.IsInRole("Client"))
-{ <text>Client</text> }
-else
-{ <text>Staff</text>}
+                        @{
+                            var roleLabel = "Staff";
+                            var rolePillClass = "secondary";
+                            if (User.IsInRole("Admin")) { roleLabel = "Administrator"; rolePillClass = "gold"; }
+                            else if (User.IsInRole("Candidate")) { roleLabel = "Candidate"; rolePillClass = "info"; }
+                            else if (User.IsInRole("Project Manager")) { roleLabel = "Project Manager"; rolePillClass = "primary"; }
+                            else if (User.IsInRole("Site Manager")) { roleLabel = "Site Manager"; rolePillClass = "info"; }
+                            else if (User.IsInRole("Finance Officer")) { roleLabel = "Finance Officer"; rolePillClass = "warning"; }
+                            else if (User.IsInRole("Procurement Officer")) { roleLabel = "Procurement Officer"; rolePillClass = "secondary"; }
+                            else if (User.IsInRole("Crew Member")) { roleLabel = "Crew Member"; rolePillClass = "primary"; }
+                            else if (User.IsInRole("Client")) { roleLabel = "Client"; rolePillClass = "success"; }
+                        }
+                        <span class="role-pill role-pill-@rolePillClass">@roleLabel</span>
                     </div>
                 </div>
             </div>
@@ -1460,11 +1551,11 @@ else
                 <span class="page-title">@ViewBag.Title</span>
             </div>
             <div class="header-right">
-                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme" title="Toggle dark / light mode">
                     <i class="fas fa-moon"></i>
                 </button>
                 <div class="notification-dropdown">
-                    <button class="notification-btn" id="notificationToggle" aria-label="Notifications">
+                    <button class="notification-btn" id="notificationToggle" aria-label="Notifications" title="Notifications">
                         <i class="fas fa-bell"></i>
                         <span class="badge-count" id="notificationBadge"></span>
                     </button>
@@ -1600,32 +1691,32 @@ else
                             updateBadge(data.unreadCount);
                         } else {
                             notificationList.innerHTML = `
-                                                    <div class="notification-empty">
-                                                        <i class="fas fa-exclamation-circle"></i>
-                                                        <p>Failed to load notifications</p>
-                                                    </div>
-                                                `;
+                                                        <div class="notification-empty">
+                                                            <i class="fas fa-exclamation-circle"></i>
+                                                            <p>Failed to load notifications</p>
+                                                        </div>
+                                                    `;
                         }
                     })
                     .catch(error => {
                         console.error('Error loading notifications:', error);
                         notificationList.innerHTML = `
-                                                <div class="notification-empty">
-                                                    <i class="fas fa-exclamation-circle"></i>
-                                                    <p>Error loading notifications</p>
-                                                </div>
-                                            `;
+                                                    <div class="notification-empty">
+                                                        <i class="fas fa-exclamation-circle"></i>
+                                                        <p>Error loading notifications</p>
+                                                    </div>
+                                                `;
                     });
             }
 
             function renderNotifications(notifications, unreadCount) {
                 if (!notifications || notifications.length === 0) {
                     notificationList.innerHTML = `
-                                            <div class="notification-empty">
-                                                <i class="fas fa-bell-slash"></i>
-                                                <p>No notifications</p>
-                                            </div>
-                                        `;
+                                                <div class="notification-empty">
+                                                    <i class="fas fa-bell-slash"></i>
+                                                    <p>No notifications</p>
+                                                </div>
+                                            `;
                     updateBadge(0);
                     return;
                 }
@@ -1637,17 +1728,17 @@ else
                     const link = notification.link || '#';
 
                     html += `
-                                            <div class="notification-item ${unreadClass}" data-id="${notification.id}" data-link="${link}">
-                                                <div class="icon ${iconClass}">
-                                                    <i class="fas fa-${getIcon(notification.type)}"></i>
+                                                <div class="notification-item ${unreadClass}" data-id="${notification.id}" data-link="${link}">
+                                                    <div class="icon ${iconClass}">
+                                                        <i class="fas fa-${getIcon(notification.type)}"></i>
+                                                    </div>
+                                                    <div class="content">
+                                                        <div class="title">${escapeHtml(notification.title)}</div>
+                                                        <div class="message">${escapeHtml(notification.message)}</div>
+                                                        <div class="time">${notification.timeAgo}</div>
+                                                    </div>
                                                 </div>
-                                                <div class="content">
-                                                    <div class="title">${escapeHtml(notification.title)}</div>
-                                                    <div class="message">${escapeHtml(notification.message)}</div>
-                                                    <div class="time">${notification.timeAgo}</div>
-                                                </div>
-                                            </div>
-                                        `;
+                                            `;
                 });
 
                 notificationList.innerHTML = html;

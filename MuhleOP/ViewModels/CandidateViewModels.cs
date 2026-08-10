@@ -856,21 +856,58 @@ namespace MuhleOP.ViewModels
         [DataType(DataType.MultilineText)]
         public string Notes { get; set; }
 
+        // Set to true (via the "override" checkbox) when the Project Manager has permission
+        // to assign staff despite a detected role or time-overlap conflict.
+        [Display(Name = "Override Conflict")]
+        public bool OverrideConflict { get; set; }
+
+        // Required whenever OverrideConflict is true - captures who authorised the
+        // override and why, so it is auditable from the assignment Notes.
+        [Display(Name = "Override Justification")]
+        [DataType(DataType.MultilineText)]
+        public string OverrideReason { get; set; }
+
         public List<SelectListItem> AvailableStaff { get; set; }
         public List<SelectListItem> AvailableRoles { get; set; }
         public List<AssignedStaffViewModel> CurrentAssignments { get; set; }
+
+        // Staff grouped by role (Site Manager, Crew Member, Finance Officer,
+        // Procurement Officer, Project Manager) for the "who is available" view.
+        // Client and Candidate accounts are never staff records, so they never
+        // appear here.
+        public List<StaffRoleGroupViewModel> AvailableStaffByRole { get; set; }
+
+        // Populated by the controller after a failed availability check so the
+        // view can explain exactly why a conflict was raised and let the PM
+        // decide whether to check "Override Conflict".
+        public List<string> ConflictWarnings { get; set; }
 
         public AssignStaffViewModel()
         {
             AvailableStaff = new List<SelectListItem>();
             AvailableRoles = new List<SelectListItem>();
             CurrentAssignments = new List<AssignedStaffViewModel>();
+            AvailableStaffByRole = new List<StaffRoleGroupViewModel>();
+            ConflictWarnings = new List<string>();
+            AllocationPercentage = 100;
+        }
+    }
+
+    public class StaffRoleGroupViewModel
+    {
+        public string Role { get; set; }
+        public List<SelectListItem> Staff { get; set; }
+
+        public StaffRoleGroupViewModel()
+        {
+            Staff = new List<SelectListItem>();
         }
     }
 
     public class AssignedStaffViewModel
     {
         public int Id { get; set; }
+        public int StaffId { get; set; }
         public string StaffName { get; set; }
         public string Role { get; set; }
         public int AllocationPercentage { get; set; }
