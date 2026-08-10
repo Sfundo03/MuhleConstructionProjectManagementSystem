@@ -37,7 +37,9 @@ namespace MuhleOP
                         "Crew Member",
                         "Project Manager",
                         "Finance Officer",
-                        "Site Manager"
+                        "Site Manager",
+                        "Procurement Officer",
+                        "Client"
                     };
 
                     foreach (var roleName in roleNames)

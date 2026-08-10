@@ -785,6 +785,171 @@
             </div>
         </div>
     }
+    else if (User.IsInRole("Client"))
+    {
+        int clientTotalContracts = ViewBag.TotalContracts != null ? (int)ViewBag.TotalContracts : 0;
+        int clientPendingSignatureCount = ViewBag.PendingSignatureCount != null ? (int)ViewBag.PendingSignatureCount : 0;
+        int clientActiveContractsCount = ViewBag.ActiveContractsCount != null ? (int)ViewBag.ActiveContractsCount : 0;
+        int clientTotalProjects = ViewBag.TotalProjects != null ? (int)ViewBag.TotalProjects : 0;
+        var clientRecentContracts = ViewBag.RecentContracts as System.Collections.Generic.List<MuhleOP.Models.Contract>;
+        <div class="row">
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Total Contracts</h6>
+                                <h3 class="mb-0">@clientTotalContracts</h3>
+                            </div>
+                            <div class="icon-circle bg-primary text-white">
+                                <i class="fas fa-file-contract"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Awaiting Your Signature</h6>
+                                <h3 class="mb-0">@clientPendingSignatureCount</h3>
+                            </div>
+                            <div class="icon-circle bg-warning text-white">
+                                <i class="fas fa-signature"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Active Contracts</h6>
+                                <h3 class="mb-0">@clientActiveContractsCount</h3>
+                            </div>
+                            <div class="icon-circle bg-success text-white">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">My Projects</h6>
+                                <h3 class="mb-0">@clientTotalProjects</h3>
+                            </div>
+                            <div class="icon-circle bg-info text-white">
+                                <i class="fas fa-folder-open"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        if (clientPendingSignatureCount > 0)
+        {
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap" role="alert">
+                        <div>
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            You have <strong>@clientPendingSignatureCount</strong> contract(s) waiting for your signature.
+                        </div>
+                        <a href="@Url.Action("MyContracts", "Client")" class="btn btn-sm btn-warning mt-2 mt-sm-0">
+                            Review &amp; Sign
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Quick Actions -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0">
+                        <h6 class="mb-0"><i class="fas fa-bolt text-gold me-2"></i>Quick Actions</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-md-4 col-6">
+                                <a href="@Url.Action("MyContracts", "Client")" class="btn btn-outline-primary w-100 text-start">
+                                    <i class="fas fa-file-contract me-2"></i>My Contracts
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Contracts -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="fas fa-file-contract text-gold me-2"></i>Recent Contracts</h6>
+                        <a href="@Url.Action("MyContracts", "Client")" class="btn btn-sm btn-outline-secondary">View All</a>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (clientRecentContracts != null && clientRecentContracts.Count > 0)
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0 align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Contract #</th>
+                                            <th>Project</th>
+                                            <th>Status</th>
+                                            <th>Value</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var contract in clientRecentContracts)
+                                        {
+                                            <tr>
+                                                <td>@contract.ContractNumber</td>
+                                                <td>@contract.ProjectName</td>
+                                                <td><span class="badge bg-secondary">@contract.Status</span></td>
+                                                <td>@contract.ContractValue.ToString("C")</td>
+                                                <td class="text-end">
+                                                    @if (contract.Status == MuhleOP.Models.ContractStatus.Sent && !contract.IsSigned)
+                                                    {
+                                                        <a href="@Url.Action("SignContract", "Client", new { id = contract.Id })" class="btn btn-sm btn-warning">Sign</a>
+                                                    }
+                                                    else
+                                                    {
+                                                        <a href="@Url.Action("ContractDetails", "Client", new { id = contract.Id })" class="btn btn-sm btn-outline-primary">View</a>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-5">
+                                <i class="fas fa-file-contract fa-3x text-muted mb-3"></i>
+                                <p class="text-muted mb-0">No contracts yet. You'll see them here once one is sent to you.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
     else
     {
         <!-- ============================================ -->

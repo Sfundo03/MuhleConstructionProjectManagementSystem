@@ -88,6 +88,34 @@ namespace MuhleOP.Controllers
                         .ToList();
                 }
             }
+            else if (User.IsInRole("Client"))
+            {
+                // Was previously missing entirely, so a Client fell through to
+                // GetUserRole() returning "User" and Dashboard()/Dashboard.cshtml
+                // had nothing to render for them - hence no buttons/contracts,
+                // even though notifications (which are role-agnostic) worked fine.
+                var client = db.Clients.FirstOrDefault(c => c.UserId == user.Id);
+                if (client != null)
+                {
+                    var contracts = db.Contracts
+                        .Where(c => c.ClientId == client.Id)
+                        .ToList();
+
+                    ViewBag.ClientRecord = client;
+                    ViewBag.TotalContracts = contracts.Count;
+                    ViewBag.PendingSignatureCount = contracts.Count(c => c.Status == ContractStatus.Sent && !c.IsSigned);
+                    ViewBag.ActiveContractsCount = contracts.Count(c => c.Status == ContractStatus.Active);
+                    ViewBag.SignedContractsCount = contracts.Count(c => c.IsSigned);
+                    ViewBag.RecentContracts = contracts
+                        .OrderByDescending(c => c.CreatedDate)
+                        .Take(5)
+                        .ToList();
+
+                    ViewBag.TotalProjects = db.Projects.Count(p => p.ClientId == client.Id);
+                    ViewBag.ActiveProjects = db.Projects.Count(p => p.ClientId == client.Id &&
+                        (p.Status == "In Progress" || p.Status == "Initiated"));
+                }
+            }
 
             return View();
         }

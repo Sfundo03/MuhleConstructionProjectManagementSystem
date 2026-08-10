@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNet.Identity;
+using Microsoft.AspNet.Identity.EntityFramework;
 using Microsoft.AspNet.Identity.Owin;
 using MuhleOP.Helpers;
 using MuhleOP.Models;
@@ -34,6 +35,20 @@ namespace MuhleOP.Controllers
             private set
             {
                 _userManager = value;
+            }
+        }
+
+        private RoleManager<IdentityRole> _roleManager;
+        public RoleManager<IdentityRole> RoleManager
+        {
+            get
+            {
+                return _roleManager ?? (_roleManager = new RoleManager<IdentityRole>(
+                    new RoleStore<IdentityRole>(db)));
+            }
+            private set
+            {
+                _roleManager = value;
             }
         }
 
@@ -217,16 +232,33 @@ namespace MuhleOP.Controllers
                         db.Clients.Add(client);
                         await db.SaveChangesAsync();
 
-                        // Assign Client role if exists, otherwise just store
-                        if (!UserManager.IsInRole(user.Id, "Client"))
+                        // Assign Client role. The "Client" role is now seeded at
+                        // app startup (Startup.cs), but we also defensively
+                        // create it here if it's somehow still missing, and we
+                        // no longer swallow failures - a client account with no
+                        // Client role silently locks that user out of the
+                        // client dashboard with no visible error anywhere.
+                        if (!await RoleManager.RoleExistsAsync("Client"))
                         {
-                            try
+                            await RoleManager.CreateAsync(new IdentityRole("Client"));
+                        }
+
+                        if (!await UserManager.IsInRoleAsync(user.Id, "Client"))
+                        {
+                            var roleResult = await UserManager.AddToRoleAsync(user.Id, "Client");
+                            if (!roleResult.Succeeded)
                             {
-                                await UserManager.AddToRoleAsync(user.Id, "Client");
-                            }
-                            catch
-                            {
-                                // Role might not exist, continue
+                                var roleErrors = string.Join(", ", roleResult.Errors);
+                                System.Diagnostics.Debug.WriteLine($"Failed to assign Client role to {user.Email}: {roleErrors}");
+
+                                // The user + Client record already exist at this point,
+                                // so we don't fail the whole registration - but we do
+                                // make sure the admin actually finds out, instead of the
+                                // failure disappearing into a swallowed catch block.
+                                TempData["RoleAssignmentWarning"] =
+                                    $"Client '{model.CompanyName}' was registered, but the 'Client' role could not be " +
+                                    $"assigned to {model.ContactEmail} automatically ({roleErrors}). " +
+                                    "Please assign the Client role to this user manually, or they won't be able to access the client dashboard.";
                             }
                         }
 
@@ -322,6 +354,69 @@ namespace MuhleOP.Controllers
 
             ViewBag.ClientName = client.CompanyName;
             return View(viewModels);
+        }
+
+        // GET: Client/MyContracts - the logged-in Client's own contract list.
+        // This is what the "My Contracts" sidebar/dashboard link points to for
+        // the Client role; it resolves the Client record from the current user
+        // instead of trusting a passed-in id, then reuses the same list view
+        // that Admin/Project Manager use via Contracts(int id).
+        [Authorize(Roles = "Client")]
+        public ActionResult MyContracts()
+        {
+            var user = UserManager.FindById(User.Identity.GetUserId());
+            var client = db.Clients.FirstOrDefault(c => c.UserId == user.Id);
+            if (client == null)
+            {
+                TempData["ErrorMessage"] = "No client profile is linked to your account. Please contact an administrator.";
+                return RedirectToAction("Dashboard", "Home");
+            }
+
+            var contracts = db.Contracts
+                .Where(c => c.ClientId == client.Id)
+                .OrderByDescending(c => c.CreatedDate)
+                .ToList();
+
+            var viewModels = contracts.Select(c => new ContractViewModel
+            {
+                Id = c.Id,
+                ContractNumber = c.ContractNumber,
+                ClientId = c.ClientId,
+                ClientName = client.CompanyName,
+                ProjectName = c.ProjectName,
+                ContractType = c.ContractType,
+                ContractValue = c.ContractValue,
+                StartDate = c.StartDate,
+                EndDate = c.EndDate,
+                ProjectScope = c.ProjectScope,
+                Deliverables = c.Deliverables,
+                PaymentTerms = c.PaymentTerms,
+                PaymentSchedule = c.PaymentSchedule,
+                Milestones = c.Milestones,
+                Timeline = c.Timeline,
+                PenaltyClauses = c.PenaltyClauses,
+                TerminationConditions = c.TerminationConditions,
+                SpecialConditions = c.SpecialConditions,
+                Status = c.Status,
+                IsSigned = c.IsSigned,
+                SignatureDate = c.SignatureDate,
+                SignedDocumentPath = c.SignedDocumentPath,
+                CreatedDate = c.CreatedDate,
+                CreatedBy = c.CreatedBy,
+                ContractFilePath = c.ContractFilePath,
+                ReviewedBy = c.ReviewedBy,
+                ReviewedDate = c.ReviewedDate,
+                ReviewNotes = c.ReviewNotes,
+                GeneratedPdfPath = c.GeneratedPdfPath,
+                SignedPdfPath = c.SignedPdfPath,
+                SentForReviewDate = c.SentForReviewDate,
+                SentToClientDate = c.SentToClientDate
+            }).ToList();
+
+            ViewBag.ClientName = client.CompanyName;
+            // Reuses Views/Client/Contracts.cshtml - same shape of data as the
+            // Admin/PM "Contracts(int id)" action above, just scoped to "me".
+            return View("Contracts", viewModels);
         }
 
         // GET: Client/CreateContract/5 - Use Case 7: Create Contract
@@ -756,6 +851,15 @@ namespace MuhleOP.Controllers
             // Check if current user is the client
             var user = UserManager.FindById(User.Identity.GetUserId());
             bool isClient = client != null && client.UserId == user?.Id;
+
+            // A logged-in Client must only ever see their *own* contracts - without
+            // this check any authenticated Client could view another client's
+            // contract just by guessing/incrementing the id in the URL.
+            if (User.IsInRole("Client") && !isClient)
+            {
+                TempData["ErrorMessage"] = "You are not authorized to view this contract.";
+                return RedirectToAction("Dashboard", "Home");
+            }
 
             ViewBag.IsClient = isClient;
             ViewBag.CanSign = isClient && !contract.IsSigned && contract.Status != ContractStatus.Terminated;
