@@ -648,7 +648,7 @@ namespace MuhleOP.Controllers
                 .ToList();
         }
 
-        // GET: Project/AssignEquipment/5 - Use Case 11: Assign Equipment
+        // GET: Project/AssignEquipment/5 - Use Case 13: Assign Equipment
         [Authorize(Roles = "Admin, Project Manager")]
         public ActionResult AssignEquipment(int id)
         {
@@ -668,7 +668,7 @@ namespace MuhleOP.Controllers
             return View(viewModel);
         }
 
-        // POST: Project/AssignEquipment - Use Case 11: Assign Equipment
+        // POST: Project/AssignEquipment - Use Case 13: Assign Equipment
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin, Project Manager")]
@@ -727,6 +727,19 @@ namespace MuhleOP.Controllers
                         "Project",
                         $"/Project/Details/{model.ProjectId}"
                     );
+
+                    // Notify the Project Manager assigned to this project (in-app + email)
+                    var pm = db.Staff.Find(project.ProjectManagerId);
+                    if (pm != null && !string.IsNullOrEmpty(pm.UserId))
+                    {
+                        await NotifyStakeholder(
+                            pm.UserId,
+                            "Equipment Assigned to Your Project",
+                            $"'{equipment.EquipmentName}' has been assigned to project '{project.ProjectName}'.",
+                            "Project",
+                            $"/Project/Details/{model.ProjectId}"
+                        );
+                    }
 
                     TempData["SuccessMessage"] = $"'{equipment.EquipmentName}' assigned successfully to '{project.ProjectName}'.";
                     return RedirectToAction("AssignEquipment", new { id = model.ProjectId });
