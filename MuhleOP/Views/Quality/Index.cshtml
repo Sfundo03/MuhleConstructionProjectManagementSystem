@@ -1,0 +1,86 @@
+﻿
+@model MuhleOP.ViewModels.QualityIndexViewModel
+@{
+    ViewBag.Title = "Quality & Change Control";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">Quality & Change Control</h4>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-secondary small">Total Inspections</div>
+                <div class="fs-3 fw-bold">@Model.TotalInspections</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-secondary small">Variations Pending</div>
+                <div class="fs-3 fw-bold text-warning">@Model.VariationsPending</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-secondary small">Approved This Month</div>
+                <div class="fs-3 fw-bold text-success">@Model.VariationsApprovedThisMonth</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-secondary small">Active Non-Conformances</div>
+                <div class="fs-3 fw-bold text-danger">@Model.ProjectsWithActiveNonConformances</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header fw-semibold">Inspections</div>
+            <div class="card-body d-grid gap-2">
+                @if (User.IsInRole("Admin") || User.IsInRole("Site Manager"))
+                {
+                    <a href="@Url.Action("ConductInspection")" class="btn btn-primary">
+                        <i class="fas fa-clipboard-check me-2"></i>Conduct Inspection
+                    </a>
+                }
+                @if (User.IsInRole("Admin") || User.IsInRole("Project Manager") || User.IsInRole("Site Manager"))
+                {
+                    <a href="@Url.Action("InspectionQueue")" class="btn btn-outline-primary">
+                        <i class="fas fa-list me-2"></i>Inspection Queue
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header fw-semibold">Variations</div>
+            <div class="card-body d-grid gap-2">
+                @if (User.IsInRole("Admin") || User.IsInRole("Project Manager") || User.IsInRole("Site Manager") || User.IsInRole("Client"))
+                {
+                    <a href="@Url.Action("RequestVariation")" class="btn btn-warning">
+                        <i class="fas fa-exchange-alt me-2"></i>Request Variation
+                    </a>
+                }
+                @if (User.IsInRole("Admin") || User.IsInRole("Project Manager") || User.IsInRole("Client"))
+                {
+                    <a href="@Url.Action("VariationQueue")" class="btn btn-outline-warning">
+                        <i class="fas fa-tasks me-2"></i>Variation Queue
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+</div>

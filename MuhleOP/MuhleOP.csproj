@@ -176,10 +176,13 @@
     <Compile Include="Controllers\AccountController.cs" />
     <Compile Include="Controllers\CandidateController.cs" />
     <Compile Include="Controllers\ClientController.cs" />
+    <Compile Include="Controllers\CrewController.cs" />
+    <Compile Include="Controllers\EquipmentController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\JobPostController.cs" />
     <Compile Include="Controllers\NotificationsController.cs" />
     <Compile Include="Controllers\ProjectController.cs" />
+    <Compile Include="Controllers\QualityController.cs" />
     <Compile Include="Controllers\StaffController.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
@@ -205,6 +208,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Startup.cs" />
     <Compile Include="ViewModels\CandidateViewModels.cs" />
+    <Compile Include="ViewModels\CrewViewModels.cs" />
     <Compile Include="ViewModels\EquipmentViewModels.cs" />
     <Compile Include="ViewModels\FinanceViewModels.cs" />
     <Compile Include="ViewModels\HandoverViewModels.cs" />
@@ -313,6 +317,27 @@
     <Content Include="Views\Staff\Index.cshtml" />
     <Content Include="Views\Client\ReviewContract.cshtml" />
     <Content Include="Views\Client\CreateContract.cshtml" />
+    <Content Include="Views\Crew\ClockInOut.cshtml" />
+    <Content Include="Views\Crew\ScanQR.cshtml" />
+    <Content Include="Views\Equipment\Index.cshtml" />
+    <Content Include="Views\Equipment\Create.cshtml" />
+    <Content Include="Views\Equipment\Edit.cshtml" />
+    <Content Include="Views\Equipment\Details.cshtml" />
+    <Content Include="Views\Equipment\MaintenanceDue.cshtml" />
+    <Content Include="Views\Equipment\RepairQueue.cshtml" />
+    <Content Include="Views\Equipment\RepairDetails.cshtml" />
+    <Content Include="Views\Equipment\ReportDamage.cshtml" />
+    <Content Include="Views\Equipment\ScheduleRepair.cshtml" />
+    <Content Include="Views\Equipment\UpdateRepairProgress.cshtml" />
+    <Content Include="Views\Equipment\CheckOutRepair.cshtml" />
+    <Content Include="Views\Quality\Index.cshtml" />
+    <Content Include="Views\Quality\ConductInspection.cshtml" />
+    <Content Include="Views\Quality\InspectionDetails.cshtml" />
+    <Content Include="Views\Quality\InspectionQueue.cshtml" />
+    <Content Include="Views\Quality\RequestVariation.cshtml" />
+    <Content Include="Views\Quality\VariationQueue.cshtml" />
+    <Content Include="Views\Quality\VariationDetails.cshtml" />
+    <Content Include="Views\Quality\ApproveVariation.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />

@@ -1,0 +1,84 @@
+﻿
+@model MuhleOP.ViewModels.ApproveVariationViewModel
+@{
+    ViewBag.Title = "Approve Variation";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">Approve / Reject Variation @Model.VariationNumber</h4>
+    <a href="@Url.Action("VariationDetails", new { id = Model.VariationId })" class="btn btn-outline-secondary btn-sm">Cancel</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row mb-2">
+            <div class="col-sm-3 text-secondary">Project</div>
+            <div class="col-sm-9">@Model.ProjectName</div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-sm-3 text-secondary">Type</div>
+            <div class="col-sm-9">@Model.VariationType</div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-sm-3 text-secondary">Description</div>
+            <div class="col-sm-9">@Model.Description</div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-sm-3 text-secondary">Reason</div>
+            <div class="col-sm-9">@Model.Reason</div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-sm-3 text-secondary">Cost Impact</div>
+            <div class="col-sm-9">@(Model.ImpactOnCost.HasValue ? "R" + Model.ImpactOnCost.Value.ToString("N2") : "—")</div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-sm-3 text-secondary">Timeline Impact</div>
+            <div class="col-sm-9">@(Model.ImpactOnTimelineDays.HasValue ? Model.ImpactOnTimelineDays + " day(s)" : "—")</div>
+        </div>
+    </div>
+</div>
+
+@using (Html.BeginForm("ApproveVariation", "Quality", FormMethod.Post))
+{
+    @Html.AntiForgeryToken()
+    @Html.HiddenFor(m => m.VariationId)
+    @Html.HiddenFor(m => m.VariationNumber)
+    @Html.HiddenFor(m => m.ProjectName)
+    @Html.HiddenFor(m => m.VariationType)
+    @Html.HiddenFor(m => m.Description)
+    @Html.HiddenFor(m => m.Reason)
+    @Html.HiddenFor(m => m.ImpactOnCost)
+    @Html.HiddenFor(m => m.ImpactOnTimelineDays)
+
+    <div class="card">
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Decision</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="Decision" id="decApprove" value="Approve" @(Model.Decision == "Approve" ? "checked" : "") />
+                    <label class="form-check-label" for="decApprove">Approve – update project budget & timeline</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="Decision" id="decReject" value="Reject" @(Model.Decision == "Reject" ? "checked" : "") />
+                    <label class="form-check-label" for="decReject">Reject – no change to project baseline</label>
+                </div>
+                @Html.ValidationMessageFor(m => m.Decision, "", new { @class = "text-danger" })
+            </div>
+            <div class="mb-3">
+                <label class="form-label">@Html.DisplayNameFor(m => m.ImplementationDate)</label>
+                @Html.TextBoxFor(m => m.ImplementationDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                <div class="form-text">Only used when approving.</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">@Html.DisplayNameFor(m => m.Comments)</label>
+                @Html.TextAreaFor(m => m.Comments, new { @class = "form-control", rows = 3, placeholder = "Approval notes or rejection reason (required for reject)" })
+            </div>
+        </div>
+        <div class="card-footer text-end">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-check me-1"></i> Submit Decision
+            </button>
+        </div>
+    </div>
+}

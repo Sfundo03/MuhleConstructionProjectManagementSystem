@@ -1,0 +1,74 @@
+﻿
+@model MuhleOP.ViewModels.UpdateRepairProgressViewModel
+@{
+    ViewBag.Title = "Update Repair Progress";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container py-4" style="max-width: 640px;">
+    <h2 class="mb-4">Update Progress — @Model.EquipmentName</h2>
+
+    @using (Html.BeginForm("UpdateRepairProgress", "Equipment", FormMethod.Post))
+    {
+        @Html.AntiForgeryToken()
+        @Html.HiddenFor(m => m.RepairId)
+        @Html.HiddenFor(m => m.EquipmentName)
+        @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Status <span class="text-danger">*</span></label>
+                    @Html.DropDownListFor(m => m.Status, Model.StatusOptions, new { @class = "form-select", required = "required" })
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Technician Name</label>
+                    @Html.TextBoxFor(m => m.TechnicianName, new { @class = "form-control" })
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Parts Replaced</label>
+                    @Html.TextAreaFor(m => m.PartsReplaced, new { @class = "form-control", rows = 2 })
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Parts Cost</label>
+                        @Html.TextBoxFor(m => m.PartsCost, new { @class = "form-control", type = "number", step = "0.01", id = "partsCost" })
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Labour Cost</label>
+                        @Html.TextBoxFor(m => m.LabourCost, new { @class = "form-control", type = "number", step = "0.01", id = "labourCost" })
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Total Cost</label>
+                        @Html.TextBoxFor(m => m.TotalCost, new { @class = "form-control", type = "number", step = "0.01", id = "totalCost", @readonly = "readonly" })
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Repair Notes</label>
+                    @Html.TextAreaFor(m => m.RepairNotes, new { @class = "form-control", rows = 4 })
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Progress</button>
+        <a href="@Url.Action("RepairDetails", new { id = Model.RepairId })" class="btn btn-outline-secondary">Cancel</a>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var p = document.getElementById('partsCost');
+            var l = document.getElementById('labourCost');
+            var t = document.getElementById('totalCost');
+            function sum() {
+                var a = parseFloat(p.value) || 0;
+                var b = parseFloat(l.value) || 0;
+                t.value = (a + b).toFixed(2);
+            }
+            p.addEventListener('input', sum);
+            l.addEventListener('input', sum);
+            sum();
+        })();
+    </script>
+}

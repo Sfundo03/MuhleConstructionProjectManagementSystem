@@ -6,56 +6,41 @@ using System.Web.Mvc;
 
 namespace MuhleOP.ViewModels
 {
-    public class EquipmentViewModel
+    // ------------------------------------------------------------------
+    // Inventory
+    // ------------------------------------------------------------------
+
+    public class EquipmentIndexViewModel
+    {
+        public List<EquipmentListItemViewModel> Items { get; set; } = new List<EquipmentListItemViewModel>();
+        public int TotalCount { get; set; }
+        public int AvailableCount { get; set; }
+        public int InUseCount { get; set; }
+        public int UnderMaintenanceCount { get; set; }
+        public int DueCount { get; set; }
+        public string ActiveFilter { get; set; }
+        public List<SelectListItem> Categories { get; set; } = new List<SelectListItem>();
+        public List<SelectListItem> Statuses { get; set; } = new List<SelectListItem>();
+        public string SearchTerm { get; set; }
+        public bool DueOnly { get; set; }
+    }
+
+    public class EquipmentListItemViewModel
     {
         public int Id { get; set; }
         public string EquipmentName { get; set; }
         public string EquipmentCode { get; set; }
         public string SerialNumber { get; set; }
         public string Category { get; set; }
-        public string SubCategory { get; set; }
-        public string Make { get; set; }
-        public string Model { get; set; }
-        public int? Year { get; set; }
-        public DateTime? PurchaseDate { get; set; }
-        public decimal? PurchaseCost { get; set; }
-        public decimal? CurrentValue { get; set; }
         public string Status { get; set; }
+        public string StatusBadgeColor { get; set; }
         public string Condition { get; set; }
+        public string ConditionBadgeColor { get; set; }
         public string Location { get; set; }
-        public bool IsActive { get; set; }
-        public DateTime? LastMaintenanceDate { get; set; }
-        public DateTime? NextMaintenanceDate { get; set; }
-        public string Notes { get; set; }
-        public int? AssignedProjectId { get; set; }
         public string AssignedProjectName { get; set; }
-
-        public string StatusBadgeColor => GetStatusColor();
-        public string ConditionBadgeColor => GetConditionColor();
-
-        private string GetStatusColor()
-        {
-            switch (Status)
-            {
-                case "Available": return "success";
-                case "In Use": return "primary";
-                case "Under Maintenance": return "warning";
-                case "Retired": return "danger";
-                default: return "secondary";
-            }
-        }
-
-        private string GetConditionColor()
-        {
-            switch (Condition)
-            {
-                case "Excellent": return "success";
-                case "Good": return "info";
-                case "Fair": return "warning";
-                case "Poor": return "danger";
-                default: return "secondary";
-            }
-        }
+        public DateTime? NextMaintenanceDate { get; set; }
+        public string MaintenanceBadgeColor { get; set; }
+        public string MaintenanceBadgeText { get; set; }
     }
 
     public class CreateEquipmentViewModel
@@ -75,6 +60,7 @@ namespace MuhleOP.ViewModels
         public string Category { get; set; }
 
         [Display(Name = "Sub-Category")]
+        [StringLength(50)]
         public string SubCategory { get; set; }
 
         [Display(Name = "Make")]
@@ -105,6 +91,7 @@ namespace MuhleOP.ViewModels
         public string Condition { get; set; }
 
         [Display(Name = "Location")]
+        [StringLength(100)]
         public string Location { get; set; }
 
         [Display(Name = "Maintenance Frequency (Days)")]
@@ -113,6 +100,11 @@ namespace MuhleOP.ViewModels
         [Display(Name = "Notes")]
         [DataType(DataType.MultilineText)]
         public string Notes { get; set; }
+
+        public List<SelectListItem> Categories { get; set; } = new List<SelectListItem>();
+        public List<SelectListItem> Conditions { get; set; } = new List<SelectListItem>();
+        public List<SelectListItem> Statuses { get; set; } = new List<SelectListItem>();
+        public List<SelectListItem> MaintenanceFrequencies { get; set; } = new List<SelectListItem>();
     }
 
     public class EditEquipmentViewModel
@@ -124,6 +116,9 @@ namespace MuhleOP.ViewModels
         [StringLength(100)]
         public string EquipmentName { get; set; }
 
+        [Display(Name = "Equipment Code")]
+        public string EquipmentCode { get; set; }
+
         [Required(ErrorMessage = "Serial number is required")]
         [Display(Name = "Serial Number")]
         [StringLength(50)]
@@ -134,6 +129,7 @@ namespace MuhleOP.ViewModels
         public string Category { get; set; }
 
         [Display(Name = "Sub-Category")]
+        [StringLength(50)]
         public string SubCategory { get; set; }
 
         [Display(Name = "Make")]
@@ -164,107 +160,108 @@ namespace MuhleOP.ViewModels
         public string Condition { get; set; }
 
         [Display(Name = "Location")]
+        [StringLength(100)]
         public string Location { get; set; }
 
         [Display(Name = "Maintenance Frequency (Days)")]
         public int? MaintenanceFrequencyDays { get; set; }
 
-        [Display(Name = "Notes")]
-        [DataType(DataType.MultilineText)]
-        public string Notes { get; set; }
-    }
-
-    public class EquipmentMaintenanceViewModel
-    {
-        public int Id { get; set; }
-        public int EquipmentId { get; set; }
-        public string EquipmentName { get; set; }
-        public DateTime MaintenanceDate { get; set; }
-        public DateTime? ScheduledDate { get; set; }
-        public string MaintenanceType { get; set; }
-        public string Description { get; set; }
-        public decimal Cost { get; set; }
-        public int? DurationHours { get; set; }
-        public string TechnicianName { get; set; }
-        public string ServiceProvider { get; set; }
-        public DateTime? NextMaintenanceDate { get; set; }
-        public string Status { get; set; }
-        public string CompletionNotes { get; set; }
-        public string PerformedBy { get; set; }
-        public DateTime CreatedDate { get; set; }
-
-        public string StatusBadgeColor => GetStatusColor();
-
-        private string GetStatusColor()
-        {
-            switch (Status)
-            {
-                case "Scheduled": return "info";
-                case "In Progress": return "warning";
-                case "Completed": return "success";
-                case "Cancelled": return "danger";
-                default: return "secondary";
-            }
-        }
-    }
-
-    public class ScheduleMaintenanceViewModel
-    {
-        [Required(ErrorMessage = "Equipment is required")]
-        [Display(Name = "Equipment")]
-        public int EquipmentId { get; set; }
-
-        [Required(ErrorMessage = "Maintenance date is required")]
-        [Display(Name = "Maintenance Date")]
-        [DataType(DataType.Date)]
-        public DateTime MaintenanceDate { get; set; }
-
-        [Display(Name = "Scheduled Date")]
-        [DataType(DataType.Date)]
-        public DateTime? ScheduledDate { get; set; }
-
-        [Required(ErrorMessage = "Maintenance type is required")]
-        [Display(Name = "Maintenance Type")]
-        public string MaintenanceType { get; set; }
-
-        [Required(ErrorMessage = "Description is required")]
-        [Display(Name = "Description")]
-        [DataType(DataType.MultilineText)]
-        public string Description { get; set; }
-
-        [Display(Name = "Cost")]
-        public decimal Cost { get; set; }
-
-        [Display(Name = "Duration Hours")]
-        public int? DurationHours { get; set; }
-
-        [Display(Name = "Technician Name")]
-        [StringLength(100)]
-        public string TechnicianName { get; set; }
-
-        [Display(Name = "Service Provider")]
-        [StringLength(100)]
-        public string ServiceProvider { get; set; }
-
         [Display(Name = "Next Maintenance Date")]
         [DataType(DataType.Date)]
         public DateTime? NextMaintenanceDate { get; set; }
 
-        public List<SelectListItem> EquipmentList { get; set; }
-        public List<SelectListItem> MaintenanceTypes { get; set; }
+        [Display(Name = "Notes")]
+        [DataType(DataType.MultilineText)]
+        public string Notes { get; set; }
 
-        public ScheduleMaintenanceViewModel()
-        {
-            EquipmentList = new List<SelectListItem>();
-            MaintenanceTypes = new List<SelectListItem>();
-        }
+        public List<SelectListItem> Categories { get; set; } = new List<SelectListItem>();
+        public List<SelectListItem> Conditions { get; set; } = new List<SelectListItem>();
+        public List<SelectListItem> Statuses { get; set; } = new List<SelectListItem>();
+        public List<SelectListItem> MaintenanceFrequencies { get; set; } = new List<SelectListItem>();
     }
 
-    public class EquipmentRepairViewModel
+    public class EquipmentDetailsViewModel
+    {
+        public int Id { get; set; }
+        public string EquipmentName { get; set; }
+        public string EquipmentCode { get; set; }
+        public string SerialNumber { get; set; }
+        public string Category { get; set; }
+        public string SubCategory { get; set; }
+        public string Make { get; set; }
+        public string Model { get; set; }
+        public int? Year { get; set; }
+        public DateTime? PurchaseDate { get; set; }
+        public decimal? PurchaseCost { get; set; }
+        public decimal? CurrentValue { get; set; }
+        public string Status { get; set; }
+        public string Condition { get; set; }
+        public string Location { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime? LastMaintenanceDate { get; set; }
+        public DateTime? NextMaintenanceDate { get; set; }
+        public int? MaintenanceFrequencyDays { get; set; }
+        public string Notes { get; set; }
+        public int? AssignedProjectId { get; set; }
+        public string AssignedProjectName { get; set; }
+        public string AssignedProjectManager { get; set; }
+        public DateTime? AssignedDate { get; set; }
+
+        public List<EquipmentMaintenanceListItemViewModel> MaintenanceHistory { get; set; } = new List<EquipmentMaintenanceListItemViewModel>();
+        public List<EquipmentRepairListItemViewModel> RepairHistory { get; set; } = new List<EquipmentRepairListItemViewModel>();
+    }
+
+    public class EquipmentMaintenanceListItemViewModel
+    {
+        public int Id { get; set; }
+        public DateTime MaintenanceDate { get; set; }
+        public string MaintenanceType { get; set; }
+        public string Description { get; set; }
+        public string TechnicianName { get; set; }
+        public string Status { get; set; }
+        public string StatusBadgeColor { get; set; }
+    }
+
+    // ------------------------------------------------------------------
+    // Repair lifecycle
+    // ------------------------------------------------------------------
+
+    public class EquipmentRepairQueueViewModel
+    {
+        public List<EquipmentRepairListItemViewModel> Items { get; set; } = new List<EquipmentRepairListItemViewModel>();
+        public int ReportedCount { get; set; }
+        public int InRepairCount { get; set; }
+        public int ReadyForVerificationCount { get; set; }
+        public int VerifiedCount { get; set; }
+        public string ActiveFilter { get; set; }
+    }
+
+    public class EquipmentRepairListItemViewModel
+    {
+        public int RepairId { get; set; }
+        public string TicketLabel { get; set; }
+        public string EquipmentName { get; set; }
+        public string EquipmentCode { get; set; }
+        public string ProjectName { get; set; }
+        public string ReportedBy { get; set; }
+        public DateTime ReportedDate { get; set; }
+        public string Status { get; set; }
+        public string StatusBadgeColor { get; set; }
+        public string TechnicianName { get; set; }
+        public decimal TotalCost { get; set; }
+    }
+
+    public class EquipmentRepairDetailsViewModel
     {
         public int Id { get; set; }
         public int EquipmentId { get; set; }
         public string EquipmentName { get; set; }
+        public string EquipmentCode { get; set; }
+        public string EquipmentCategory { get; set; }
+        public string EquipmentStatus { get; set; }
+        public string EquipmentCondition { get; set; }
+        public string AssignedProjectName { get; set; }
+
         public DateTime RepairDate { get; set; }
         public string IssueDescription { get; set; }
         public string PartsReplaced { get; set; }
@@ -273,42 +270,69 @@ namespace MuhleOP.ViewModels
         public decimal TotalCost { get; set; }
         public string TechnicianName { get; set; }
         public string Status { get; set; }
+        public string StatusBadgeColor { get; set; }
         public string RepairNotes { get; set; }
         public string VerifiedBy { get; set; }
         public DateTime? VerificationDate { get; set; }
         public string ReportedBy { get; set; }
         public DateTime CreatedDate { get; set; }
-
-        public string StatusBadgeColor => GetStatusColor();
-
-        private string GetStatusColor()
-        {
-            switch (Status)
-            {
-                case "Reported": return "danger";
-                case "In Progress": return "warning";
-                case "Completed": return "info";
-                case "Verified": return "success";
-                default: return "secondary";
-            }
-        }
     }
 
-    public class RecordRepairViewModel
+    public class ReportDamageViewModel
     {
-        [Required(ErrorMessage = "Equipment is required")]
+        [Required(ErrorMessage = "Please select the equipment")]
         [Display(Name = "Equipment")]
         public int EquipmentId { get; set; }
 
-        [Required(ErrorMessage = "Repair date is required")]
-        [Display(Name = "Repair Date")]
-        [DataType(DataType.Date)]
-        public DateTime RepairDate { get; set; }
-
-        [Required(ErrorMessage = "Issue description is required")]
+        [Required(ErrorMessage = "Please describe the damage / issue")]
         [Display(Name = "Issue Description")]
         [DataType(DataType.MultilineText)]
         public string IssueDescription { get; set; }
+
+        [Display(Name = "Photo (optional)")]
+        public HttpPostedFileBase Photo { get; set; }
+
+        public List<SelectListItem> AvailableEquipment { get; set; } = new List<SelectListItem>();
+    }
+
+    public class ScheduleRepairViewModel
+    {
+        public int RepairId { get; set; }
+        public string EquipmentName { get; set; }
+        public string CurrentStatus { get; set; }
+
+        [Required(ErrorMessage = "Technician name is required")]
+        [Display(Name = "Technician Name")]
+        [StringLength(100)]
+        public string TechnicianName { get; set; }
+
+        [Required(ErrorMessage = "Workshop start date is required")]
+        [Display(Name = "Workshop Slot Start")]
+        [DataType(DataType.Date)]
+        public DateTime WorkshopSlotStart { get; set; }
+
+        [Required(ErrorMessage = "Workshop end date is required")]
+        [Display(Name = "Workshop Slot End")]
+        [DataType(DataType.Date)]
+        public DateTime WorkshopSlotEnd { get; set; }
+
+        [Display(Name = "Required Parts")]
+        [DataType(DataType.MultilineText)]
+        public string RequiredParts { get; set; }
+
+        [Display(Name = "Check-In Notes")]
+        [DataType(DataType.MultilineText)]
+        public string CheckInNotes { get; set; }
+    }
+
+    public class UpdateRepairProgressViewModel
+    {
+        public int RepairId { get; set; }
+        public string EquipmentName { get; set; }
+
+        [Display(Name = "Technician Name")]
+        [StringLength(100)]
+        public string TechnicianName { get; set; }
 
         [Display(Name = "Parts Replaced")]
         [DataType(DataType.MultilineText)]
@@ -320,27 +344,40 @@ namespace MuhleOP.ViewModels
         [Display(Name = "Labour Cost")]
         public decimal LabourCost { get; set; }
 
-        [Display(Name = "Technician Name")]
-        [StringLength(100)]
-        public string TechnicianName { get; set; }
+        [Display(Name = "Total Cost")]
+        public decimal TotalCost { get; set; }
 
         [Display(Name = "Repair Notes")]
         [DataType(DataType.MultilineText)]
         public string RepairNotes { get; set; }
 
+        [Required(ErrorMessage = "Status is required")]
         [Display(Name = "Status")]
         public string Status { get; set; }
 
-        [Display(Name = "Reported By")]
-        public string ReportedBy { get; set; }
+        public List<SelectListItem> StatusOptions { get; set; } = new List<SelectListItem>();
+    }
 
-        public List<SelectListItem> EquipmentList { get; set; }
-        public List<SelectListItem> RepairStatuses { get; set; }
+    public class CheckOutRepairViewModel
+    {
+        public int RepairId { get; set; }
+        public string EquipmentName { get; set; }
+        public string EquipmentCode { get; set; }
+        public string TechnicianName { get; set; }
+        public string RepairSummary { get; set; }
 
-        public RecordRepairViewModel()
-        {
-            EquipmentList = new List<SelectListItem>();
-            RepairStatuses = new List<SelectListItem>();
-        }
+        [Required(ErrorMessage = "Final condition is required")]
+        [Display(Name = "Final Condition")]
+        public string FinalCondition { get; set; }
+
+        [Display(Name = "Final Verification Notes")]
+        [DataType(DataType.MultilineText)]
+        public string FinalVerificationNotes { get; set; }
+
+        [Required]
+        [Display(Name = "I confirm the equipment passed the final safety/load test")]
+        public bool FinalVerified { get; set; }
+
+        public List<SelectListItem> ConditionOptions { get; set; } = new List<SelectListItem>();
     }
 }

@@ -1,0 +1,44 @@
+﻿
+@model MuhleOP.ViewModels.EquipmentIndexViewModel
+@{
+    ViewBag.Title = "Maintenance Due";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0"><i class="fa-solid fa-calendar-exclamation me-2"></i>Equipment Due for Maintenance</h2>
+        <a href="@Url.Action("Index")" class="btn btn-outline-secondary">Back to Inventory</a>
+    </div>
+
+    @if (Model.Items == null || !Model.Items.Any())
+    {
+        <div class="alert alert-success">No equipment is due for maintenance in the next 14 days.</div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var item in Model.Items)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <h5 class="card-title mb-1">@item.EquipmentName</h5>
+                            <div class="small text-muted mb-2">@item.EquipmentCode · SN: @item.SerialNumber</div>
+                            <p class="mb-1">
+                                <span class="badge bg-@item.StatusBadgeColor">@item.Status</span>
+                                <span class="badge bg-@item.ConditionBadgeColor">@item.Condition</span>
+                            </p>
+                            <p class="mb-2">
+                                Next: <strong>@(item.NextMaintenanceDate.HasValue ? item.NextMaintenanceDate.Value.ToString("dd MMM yyyy") : "—")</strong>
+                                <span class="badge bg-@item.MaintenanceBadgeColor ms-1">@item.MaintenanceBadgeText</span>
+                            </p>
+                            <p class="small text-muted mb-3">@(item.AssignedProjectName ?? "Unassigned") · @(item.Location ?? "—")</p>
+                            <a href="@Url.Action("Details", new { id = item.Id })" class="btn btn-sm btn-outline-primary">View Details</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

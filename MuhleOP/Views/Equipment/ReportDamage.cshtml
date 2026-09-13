@@ -1,0 +1,51 @@
+﻿
+@model MuhleOP.ViewModels.ReportDamageViewModel
+@{
+    ViewBag.Title = "Report Damaged Equipment";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container py-4" style="max-width: 640px;">
+    <h2 class="mb-4"><i class="fa-solid fa-triangle-exclamation me-2 text-danger"></i>Report Damaged Equipment</h2>
+
+    @if (Model.AvailableEquipment == null || !Model.AvailableEquipment.Any())
+    {
+        <div class="alert alert-warning">
+            <strong>No equipment available to report.</strong><br />
+            You can only report damage on equipment that is Available or assigned to one of your active projects.
+        </div>
+        <a href="@Url.Action("Dashboard", "Home")" class="btn btn-outline-secondary">Back to Dashboard</a>
+    }
+    else
+    {
+        using (Html.BeginForm("ReportDamage", "Equipment", FormMethod.Post, new { enctype = "multipart/form-data" }))
+        {
+            @Html.AntiForgeryToken()
+            @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
+
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Equipment <span class="text-danger">*</span></label>
+                        @Html.DropDownListFor(m => m.EquipmentId, Model.AvailableEquipment, "Select equipment...", new { @class = "form-select", required = "required" })
+                        @Html.ValidationMessageFor(m => m.EquipmentId, "", new { @class = "text-danger small" })
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Issue Description <span class="text-danger">*</span></label>
+                        @Html.TextAreaFor(m => m.IssueDescription, new { @class = "form-control", rows = 5, required = "required", placeholder = "Describe the damage or problem clearly..." })
+                        @Html.ValidationMessageFor(m => m.IssueDescription, "", new { @class = "text-danger small" })
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Photo (optional)</label>
+                        <input type="file" name="Photo" class="form-control" accept="image/*" />
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-danger w-100 mb-2">
+                <i class="fa-solid fa-paper-plane me-1"></i> Submit Damage Report
+            </button>
+            <a href="@Url.Action("Dashboard", "Home")" class="btn btn-outline-secondary w-100">Cancel</a>
+        }
+    }
+</div>

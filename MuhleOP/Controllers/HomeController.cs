@@ -50,6 +50,10 @@ namespace MuhleOP.Controllers
                     .OrderByDescending(p => p.CreatedDate)
                     .Take(5)
                     .ToList();
+
+                // Equipment maintenance dashboard widgets
+                ViewBag.EquipmentDueCount = db.Equipment.Count(e => e.IsActive && e.NextMaintenanceDate != null && e.NextMaintenanceDate <= DateTime.Today.AddDays(14));
+                ViewBag.OverdueEquipmentCount = db.Equipment.Count(e => e.IsActive && e.NextMaintenanceDate != null && e.NextMaintenanceDate < DateTime.Today);
             }
             else if (User.IsInRole("Candidate"))
             {

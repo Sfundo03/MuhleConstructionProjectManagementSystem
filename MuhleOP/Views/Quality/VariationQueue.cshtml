@@ -1,0 +1,79 @@
+﻿
+@model MuhleOP.ViewModels.VariationQueueViewModel
+@{
+    ViewBag.Title = "Variation Queue";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">Variation Queue</h4>
+    @if (User.IsInRole("Admin") || User.IsInRole("Project Manager") || User.IsInRole("Site Manager") || User.IsInRole("Client"))
+    {
+        <a href="@Url.Action("RequestVariation")" class="btn btn-warning btn-sm">
+            <i class="fas fa-plus me-1"></i> Request Variation
+        </a>
+    }
+</div>
+
+<form method="get" class="card mb-3">
+    <div class="card-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small">Project</label>
+                @Html.DropDownList("projectId", Model.Projects, "All Projects", new { @class = "form-select form-select-sm" })
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Status</label>
+                @Html.DropDownList("status", Model.Statuses, new { @class = "form-select form-select-sm" })
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Type</label>
+                @Html.DropDownList("type", Model.VariationTypes, "All Types", new { @class = "form-select form-select-sm" })
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary btn-sm w-100">Filter</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Number</th>
+                    <th>Project</th>
+                    <th>Type</th>
+                    <th>Requested</th>
+                    <th>Cost Impact</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Items == null || !Model.Items.Any())
+                {
+                    <tr><td colspan="7" class="text-center text-secondary py-4">No variations found.</td></tr>
+                }
+                else
+                {
+                    foreach (var item in Model.Items)
+                    {
+                        <tr>
+                            <td><strong>@item.VariationNumber</strong></td>
+                            <td>@item.ProjectName</td>
+                            <td>@item.VariationType</td>
+                            <td>@item.RequestDate.ToString("dd MMM yyyy")</td>
+                            <td>@(item.ImpactOnCost.HasValue ? "R" + item.ImpactOnCost.Value.ToString("N2") : "—")</td>
+                            <td><span class="badge bg-@item.StatusBadgeColor">@item.Status</span></td>
+                            <td class="text-end">
+                                <a href="@Url.Action("VariationDetails", new { id = item.Id })" class="btn btn-sm btn-outline-primary">View</a>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

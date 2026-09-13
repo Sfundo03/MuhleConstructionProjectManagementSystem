@@ -1,0 +1,170 @@
+﻿
+@model MuhleOP.ViewModels.EquipmentDetailsViewModel
+@{
+    ViewBag.Title = Model.EquipmentName;
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h2 class="mb-0">@Model.EquipmentName</h2>
+            <div class="text-muted">@Model.EquipmentCode · SN: @Model.SerialNumber</div>
+        </div>
+        <div class="d-flex gap-2">
+            @if (User.IsInRole("Admin"))
+            {
+                <a href="@Url.Action("Edit", new { id = Model.Id })" class="btn btn-outline-primary"><i class="fa-solid fa-pen me-1"></i> Edit</a>
+            }
+            @if (User.IsInRole("Crew Member"))
+            {
+                <a href="@Url.Action("ReportDamage")" class="btn btn-outline-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i> Report Damage</a>
+            }
+            @if (User.IsInRole("Admin") || User.IsInRole("Site Manager"))
+            {
+                <a href="@Url.Action("MaintenanceDue")" class="btn btn-outline-warning"><i class="fa-solid fa-calendar-check me-1"></i> Maintenance Due</a>
+            }
+            <a href="@Url.Action("Index")" class="btn btn-outline-secondary">Back</a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white fw-semibold">Equipment Summary</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Category</dt>
+                        <dd class="col-sm-8">@Model.Category @(string.IsNullOrEmpty(Model.SubCategory) ? "" : " / " + Model.SubCategory)</dd>
+                        <dt class="col-sm-4">Make / Model</dt>
+                        <dd class="col-sm-8">@(Model.Make ?? "—") @(Model.Model ?? "") @(Model.Year.HasValue ? "(" + Model.Year + ")" : "")</dd>
+                        <dt class="col-sm-4">Status</dt>
+                        <dd class="col-sm-8"><span class="badge bg-secondary">@Model.Status</span></dd>
+                        <dt class="col-sm-4">Condition</dt>
+                        <dd class="col-sm-8">@Model.Condition</dd>
+                        <dt class="col-sm-4">Location</dt>
+                        <dd class="col-sm-8">@(Model.Location ?? "—")</dd>
+                        <dt class="col-sm-4">Purchase</dt>
+                        <dd class="col-sm-8">
+                            @(Model.PurchaseDate.HasValue ? Model.PurchaseDate.Value.ToString("dd MMM yyyy") : "—")
+                            · R@(Model.PurchaseCost?.ToString("N2") ?? "0.00")
+                        </dd>
+                        <dt class="col-sm-4">Current Value</dt>
+                        <dd class="col-sm-8">R@(Model.CurrentValue?.ToString("N2") ?? "0.00")</dd>
+                        <dt class="col-sm-4">Last Maintenance</dt>
+                        <dd class="col-sm-8">@(Model.LastMaintenanceDate.HasValue ? Model.LastMaintenanceDate.Value.ToString("dd MMM yyyy") : "—")</dd>
+                        <dt class="col-sm-4">Next Maintenance</dt>
+                        <dd class="col-sm-8">@(Model.NextMaintenanceDate.HasValue ? Model.NextMaintenanceDate.Value.ToString("dd MMM yyyy") : "—")</dd>
+                        <dt class="col-sm-4">Frequency</dt>
+                        <dd class="col-sm-8">@(Model.MaintenanceFrequencyDays.HasValue ? Model.MaintenanceFrequencyDays + " days" : "Never")</dd>
+                        <dt class="col-sm-4">Notes</dt>
+                        <dd class="col-sm-8">@(Model.Notes ?? "—")</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white fw-semibold">Current Assignment</div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(Model.AssignedProjectName))
+                    {
+                        <p class="mb-1"><strong>Project:</strong> @Model.AssignedProjectName</p>
+                        <p class="mb-1"><strong>Project Manager:</strong> @(Model.AssignedProjectManager ?? "—")</p>
+                        <p class="mb-0"><strong>Assigned:</strong> @(Model.AssignedDate.HasValue ? Model.AssignedDate.Value.ToString("dd MMM yyyy") : "—")</p>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0">Not currently assigned to a project.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white fw-semibold">Maintenance History</div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                                <th>Technician</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.MaintenanceHistory == null || !Model.MaintenanceHistory.Any())
+                            {
+                                <tr><td colspan="5" class="text-center text-muted py-3">No maintenance records.</td></tr>
+                            }
+                            else
+                            {
+                                foreach (var m in Model.MaintenanceHistory)
+                                {
+                                    <tr>
+                                        <td>@m.MaintenanceDate.ToString("dd MMM yyyy")</td>
+                                        <td>@m.MaintenanceType</td>
+                                        <td>@m.Description</td>
+                                        <td>@(m.TechnicianName ?? "—")</td>
+                                        <td><span class="badge bg-@m.StatusBadgeColor">@m.Status</span></td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white fw-semibold">Repair History</div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ticket</th>
+                                <th>Reported</th>
+                                <th>By</th>
+                                <th>Status</th>
+                                <th>Technician</th>
+                                <th>Total Cost</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.RepairHistory == null || !Model.RepairHistory.Any())
+                            {
+                                <tr><td colspan="7" class="text-center text-muted py-3">No repair records.</td></tr>
+                            }
+                            else
+                            {
+                                foreach (var r in Model.RepairHistory)
+                                {
+                                    <tr>
+                                        <td>@r.TicketLabel</td>
+                                        <td>@r.ReportedDate.ToString("dd MMM yyyy")</td>
+                                        <td>@(r.ReportedBy ?? "—")</td>
+                                        <td><span class="badge bg-@r.StatusBadgeColor">@r.Status</span></td>
+                                        <td>@(r.TechnicianName ?? "—")</td>
+                                        <td>R@r.TotalCost.ToString("N2")</td>
+                                        <td>
+                                            @if (User.IsInRole("Admin") || User.IsInRole("Site Manager"))
+                                            {
+                                                <a href="@Url.Action("RepairDetails", new { id = r.RepairId })" class="btn btn-sm btn-outline-secondary">View</a>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

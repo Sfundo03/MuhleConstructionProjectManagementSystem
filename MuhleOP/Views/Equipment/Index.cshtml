@@ -1,0 +1,159 @@
+﻿@model MuhleOP.ViewModels.EquipmentIndexViewModel
+@{
+    ViewBag.Title = "Equipment Inventory";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0"><i class="fa-solid fa-screwdriver-wrench me-2"></i>Equipment Inventory</h2>
+        <a href="@Url.Action("Create")" class="btn btn-primary">
+            <i class="fa-solid fa-plus me-1"></i> Register New Equipment
+        </a>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Stat cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="fs-3 fw-bold text-primary">@Model.TotalCount</div>
+                    <div class="text-muted small">Total Equipment</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="fs-3 fw-bold text-success">@Model.AvailableCount</div>
+                    <div class="text-muted small">Available</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="fs-3 fw-bold text-primary">@Model.InUseCount</div>
+                    <div class="text-muted small">In Use</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="fs-3 fw-bold text-warning">@Model.DueCount</div>
+                    <div class="text-muted small">Due for Maintenance</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Category</label>
+                    @Html.DropDownList("category", Model.Categories, "All Categories", new { @class = "form-select" })
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    @Html.DropDownList("status", Model.Statuses, "All Statuses", new { @class = "form-select" })
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Search</label>
+                    <input type="text" name="search" value="@Request.QueryString["search"]" class="form-control" placeholder="Name or Serial..." />
+                </div>
+                <div class="col-md-2">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" name="dueOnly" value="true" id="dueOnly" @(Request.QueryString["dueOnly"] == "true" ? "checked" : "") />
+                        <label class="form-check-label" for="dueOnly">Due only</label>
+                    </div>
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-outline-primary w-100">Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Serial Number</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Condition</th>
+                        <th>Location</th>
+                        <th>Assigned Project</th>
+                        <th>Next Maintenance</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Items == null || !Model.Items.Any())
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">No equipment found.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@item.EquipmentName</strong>
+                                    <div class="small text-muted">@item.EquipmentCode</div>
+                                </td>
+                                <td>@item.SerialNumber</td>
+                                <td>@item.Category</td>
+                                <td><span class="badge bg-@item.StatusBadgeColor">@item.Status</span></td>
+                                <td><span class="badge bg-@item.ConditionBadgeColor">@item.Condition</span></td>
+                                <td>@(item.Location ?? "—")</td>
+                                <td>@(item.AssignedProjectName ?? "—")</td>
+                                <td>
+                                    @if (item.NextMaintenanceDate.HasValue)
+                                    {
+                                        <span>@item.NextMaintenanceDate.Value.ToString("dd MMM yyyy")</span>
+                                        <span class="badge bg-@item.MaintenanceBadgeColor ms-1">@item.MaintenanceBadgeText</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    <a href="@Url.Action("Details", new { id = item.Id })" class="btn btn-sm btn-outline-secondary" title="View"><i class="fa-solid fa-eye"></i></a>
+                                    <a href="@Url.Action("Edit", new { id = item.Id })" class="btn btn-sm btn-outline-primary" title="Edit"><i class="fa-solid fa-pen"></i></a>
+                                    <form action="@Url.Action("Remove", new { id = item.Id })" method="post" class="d-inline" onsubmit="return confirm('Retire this equipment? It will be marked inactive.');">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Retire"><i class="fa-solid fa-trash"></i></button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

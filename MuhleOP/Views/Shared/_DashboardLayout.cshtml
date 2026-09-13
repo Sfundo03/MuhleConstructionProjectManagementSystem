@@ -516,6 +516,10 @@
                     background: #9b59b6;
                 }
 
+                .notification-item .icon.maintenance {
+                    background: #f6c23e;
+                }
+
             .notification-item .content {
                 flex: 1;
                 min-width: 0;
@@ -887,6 +891,20 @@
                     <span>Dashboard</span>
                 </a>
 
+                <div class="menu-label">Recruitment</div>
+                <a href="@Url.Action("Index", "JobPost")" class="nav-item">
+                    <i class="fas fa-briefcase"></i>
+                    <span>Job Posts</span>
+                </a>
+                <a href="@Url.Action("Index", "Candidate")" class="nav-item">
+                    <i class="fas fa-users"></i>
+                    <span>Candidates</span>
+                </a>
+                <a href="@Url.Action("Index", "Application")" class="nav-item">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Applications</span>
+                </a>
+
                 <div class="menu-label">Projects</div>
                 <a href="@Url.Action("Initiate", "Project")" class="nav-item">
                     <i class="fas fa-rocket"></i>
@@ -895,14 +913,6 @@
                 <a href="@Url.Action("Index", "Project")" class="nav-item">
                     <i class="fas fa-folder-open"></i>
                     <span>All Projects</span>
-                </a>
-                <a href="@Url.Action("Index", "Project")" class="nav-item">
-                    <i class="fas fa-user-friends"></i>
-                    <span>Assign Staff</span>
-                </a>
-                <a href="@Url.Action("Index", "Project")" class="nav-item">
-                    <i class="fas fa-tools"></i>
-                    <span>Assign Equipment</span>
                 </a>
 
                 <div class="menu-label">Clients</div>
@@ -915,73 +925,46 @@
                     <span>Contracts</span>
                 </a>
 
-                <div class="menu-label">HR & Recruitment</div>
-                <a href="@Url.Action("Index", "JobPost")" class="nav-item">
-                    <i class="fas fa-briefcase"></i>
-                    <span>Job Posts</span>
-                </a>
-                <a href="@Url.Action("Index", "Candidate")" class="nav-item">
-                    <i class="fas fa-users"></i>
-                    <span>Candidates</span>
-                </a>
-
                 <div class="menu-label">Equipment</div>
                 <a href="@Url.Action("Index", "Equipment")" class="nav-item">
-                    <i class="fas fa-cogs"></i>
-                    <span>Equipment</span>
+                    <i class="fas fa-tools"></i>
+                    <span>Inventory</span>
+                </a>
+                <a href="@Url.Action("MaintenanceDue", "Equipment")" class="nav-item">
+                    <i class="fas fa-calendar-exclamation"></i>
+                    <span>Maintenance Due</span>
+                </a>
+                <a href="@Url.Action("RepairQueue", "Equipment")" class="nav-item">
+                    <i class="fas fa-wrench"></i>
+                    <span>Repair Queue</span>
                 </a>
 
-                <div class="menu-label">Finance</div>
-                <span class="nav-item disabled" title="Coming soon">
-                    <i class="fas fa-coins"></i>
-                    <span>Payroll</span>
-                    <span class="soon-pill">Soon</span>
-                </span>
-                <span class="nav-item disabled" title="Coming soon">
-                    <i class="fas fa-file-invoice"></i>
-                    <span>Invoices</span>
-                    <span class="soon-pill">Soon</span>
-                </span>
-
-                <div class="menu-label">Close Out</div>
-                <span class="nav-item disabled" title="Coming soon">
-                    <i class="fas fa-flag-checkered"></i>
-                    <span>Project Handover</span>
-                    <span class="soon-pill">Soon</span>
-                </span>
-            }
-            else if (User.IsInRole("Candidate"))
-            {
-                <!-- Candidate Menu -->
-                <a href="@Url.Action("Dashboard", "Home")" class="nav-item @(ViewContext.RouteData.Values["action"]?.ToString() == "Dashboard" ? "active" : "")">
-                    <i class="fas fa-home"></i>
-                    <span>Dashboard</span>
+                <div class="menu-label">Quality</div>
+                <a href="@Url.Action("Index", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>Quality Dashboard</span>
                 </a>
-
-                <div class="menu-label">Job Search</div>
-                <a href="@Url.Action("BrowseJobs", "Candidate")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Candidate" && ViewContext.RouteData.Values["action"]?.ToString() == "BrowseJobs" ? "active" : "")">
+                <a href="@Url.Action("ConductInspection", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && ViewContext.RouteData.Values["action"]?.ToString() == "ConductInspection" ? "active" : "")">
                     <i class="fas fa-search"></i>
-                    <span>Browse Jobs</span>
+                    <span>Conduct Inspection</span>
                 </a>
-                <a href="@Url.Action("AllApplications", "Candidate")" class="nav-item">
-                    <i class="fas fa-file-alt"></i>
-                    <span>My Applications</span>
+                <a href="@Url.Action("InspectionQueue", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && (ViewContext.RouteData.Values["action"]?.ToString() == "InspectionQueue" || ViewContext.RouteData.Values["action"]?.ToString() == "InspectionDetails") ? "active" : "")">
+                    <i class="fas fa-list"></i>
+                    <span>Inspection Queue</span>
+                </a>
+                <a href="@Url.Action("RequestVariation", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && ViewContext.RouteData.Values["action"]?.ToString() == "RequestVariation" ? "active" : "")">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>Request Variation</span>
+                </a>
+                <a href="@Url.Action("VariationQueue", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && (ViewContext.RouteData.Values["action"]?.ToString() == "VariationQueue" || ViewContext.RouteData.Values["action"]?.ToString() == "VariationDetails" || ViewContext.RouteData.Values["action"]?.ToString() == "ApproveVariation") ? "active" : "")">
+                    <i class="fas fa-tasks"></i>
+                    <span>Variation Queue</span>
                 </a>
 
-                <!-- Quiz Button for Candidate -->
-                <a href="@Url.Action("MyQuizzes", "Candidate")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Candidate" && ViewContext.RouteData.Values["action"]?.ToString() == "MyQuizzes" ? "active" : "")">
-                    <i class="fas fa-brain"></i>
-                    <span>My Quizzes</span>
-                </a>
-
-                <div class="menu-label">Profile</div>
-                <a href="@Url.Action("Dashboard", "Home")" class="nav-item">
-                    <i class="fas fa-user"></i>
-                    <span>My Profile</span>
-                </a>
-                <a href="@Url.Action("Dashboard", "Home")" class="nav-item">
-                    <i class="fas fa-file-upload"></i>
-                    <span>Upload Documents</span>
+                <div class="menu-label">Staff</div>
+                <a href="@Url.Action("Index", "Staff")" class="nav-item">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Staff Directory</span>
                 </a>
             }
             else if (User.IsInRole("Project Manager"))
@@ -1016,6 +999,24 @@
                     <span>Create Contract</span>
                 </a>
 
+                <div class="menu-label">Quality</div>
+                <a href="@Url.Action("Index", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>Quality Dashboard</span>
+                </a>
+                <a href="@Url.Action("InspectionQueue", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && (ViewContext.RouteData.Values["action"]?.ToString() == "InspectionQueue" || ViewContext.RouteData.Values["action"]?.ToString() == "InspectionDetails") ? "active" : "")">
+                    <i class="fas fa-list"></i>
+                    <span>Inspection Queue</span>
+                </a>
+                <a href="@Url.Action("RequestVariation", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && ViewContext.RouteData.Values["action"]?.ToString() == "RequestVariation" ? "active" : "")">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>Request Variation</span>
+                </a>
+                <a href="@Url.Action("VariationQueue", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && (ViewContext.RouteData.Values["action"]?.ToString() == "VariationQueue" || ViewContext.RouteData.Values["action"]?.ToString() == "VariationDetails" || ViewContext.RouteData.Values["action"]?.ToString() == "ApproveVariation") ? "active" : "")">
+                    <i class="fas fa-tasks"></i>
+                    <span>Variation Queue</span>
+                </a>
+
                 <div class="menu-label">Operations</div>
                 <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-clipboard-list"></i>
@@ -1032,6 +1033,10 @@
                 </a>
 
                 <div class="menu-label">Site Operations</div>
+                <a href="@Url.Action("ScanQR", "Crew")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Crew" && ViewContext.RouteData.Values["action"]?.ToString() == "ScanQR" ? "active" : "")">
+                    <i class="fas fa-camera"></i>
+                    <span>Scan Crew QR</span>
+                </a>
                 <span class="nav-item disabled" title="Coming soon">
                     <i class="fas fa-clipboard-list"></i>
                     <span>Daily Tasks</span>
@@ -1043,12 +1048,33 @@
                     <span class="soon-pill">Soon</span>
                 </span>
 
+                <div class="menu-label">Equipment</div>
+                <a href="@Url.Action("MaintenanceDue", "Equipment")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Equipment" && ViewContext.RouteData.Values["action"]?.ToString() == "MaintenanceDue" ? "active" : "")">
+                    <i class="fas fa-calendar-exclamation"></i>
+                    <span>Maintenance Due</span>
+                </a>
+                <a href="@Url.Action("RepairQueue", "Equipment")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Equipment" && (ViewContext.RouteData.Values["action"]?.ToString() == "RepairQueue" || ViewContext.RouteData.Values["action"]?.ToString() == "RepairDetails") ? "active" : "")">
+                    <i class="fas fa-wrench"></i>
+                    <span>Repair Queue</span>
+                </a>
+
                 <div class="menu-label">Quality</div>
-                <span class="nav-item disabled" title="Coming soon">
-                    <i class="fas fa-check-double"></i>
+                <a href="@Url.Action("Index", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>Quality Dashboard</span>
+                </a>
+                <a href="@Url.Action("ConductInspection", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && ViewContext.RouteData.Values["action"]?.ToString() == "ConductInspection" ? "active" : "")">
+                    <i class="fas fa-search"></i>
                     <span>Conduct Inspection</span>
-                    <span class="soon-pill">Soon</span>
-                </span>
+                </a>
+                <a href="@Url.Action("InspectionQueue", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && (ViewContext.RouteData.Values["action"]?.ToString() == "InspectionQueue" || ViewContext.RouteData.Values["action"]?.ToString() == "InspectionDetails") ? "active" : "")">
+                    <i class="fas fa-list"></i>
+                    <span>My Inspections</span>
+                </a>
+                <a href="@Url.Action("RequestVariation", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && ViewContext.RouteData.Values["action"]?.ToString() == "RequestVariation" ? "active" : "")">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>Request Variation</span>
+                </a>
             }
             else if (User.IsInRole("Finance Officer"))
             {
@@ -1103,6 +1129,47 @@
                     <i class="fas fa-file-contract"></i>
                     <span>My Contracts</span>
                 </a>
+
+                <div class="menu-label">Quality</div>
+                <a href="@Url.Action("Index", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>Quality Dashboard</span>
+                </a>
+                <a href="@Url.Action("RequestVariation", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && ViewContext.RouteData.Values["action"]?.ToString() == "RequestVariation" ? "active" : "")">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>Request Variation</span>
+                </a>
+                <a href="@Url.Action("VariationQueue", "Quality")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Quality" && (ViewContext.RouteData.Values["action"]?.ToString() == "VariationQueue" || ViewContext.RouteData.Values["action"]?.ToString() == "VariationDetails") ? "active" : "")">
+                    <i class="fas fa-tasks"></i>
+                    <span>My Variations</span>
+                </a>
+            }
+            else if (User.IsInRole("Crew Member"))
+            {
+                <!-- Crew Member Menu -->
+                <a href="@Url.Action("Dashboard", "Home")" class="nav-item @(ViewContext.RouteData.Values["action"]?.ToString() == "Dashboard" ? "active" : "")">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+
+                <div class="menu-label">Attendance</div>
+                <a href="@Url.Action("ClockInOut", "Crew")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Crew" && ViewContext.RouteData.Values["action"]?.ToString() == "ClockInOut" ? "active" : "")">
+                    <i class="fas fa-qrcode"></i>
+                    <span>Clock In / Out</span>
+                </a>
+
+                <div class="menu-label">Equipment</div>
+                <a href="@Url.Action("ReportDamage", "Equipment")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Equipment" && ViewContext.RouteData.Values["action"]?.ToString() == "ReportDamage" ? "active" : "")">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    <span>Report Damage</span>
+                </a>
+
+                <div class="menu-label">My Work</div>
+                <span class="nav-item disabled" title="Coming soon">
+                    <i class="fas fa-tasks"></i>
+                    <span>My Tasks</span>
+                    <span class="soon-pill">Soon</span>
+                </span>
             }
             else
             {
@@ -1296,32 +1363,32 @@
                             updateBadge(data.unreadCount);
                         } else {
                             notificationList.innerHTML = `
-                                                        <div class="notification-empty">
-                                                            <i class="fas fa-exclamation-circle"></i>
-                                                            <p>Failed to load notifications</p>
-                                                        </div>
-                                                    `;
+                                                                    <div class="notification-empty">
+                                                                        <i class="fas fa-exclamation-circle"></i>
+                                                                        <p>Failed to load notifications</p>
+                                                                    </div>
+                                                                `;
                         }
                     })
                     .catch(error => {
                         console.error('Error loading notifications:', error);
                         notificationList.innerHTML = `
-                                                    <div class="notification-empty">
-                                                        <i class="fas fa-exclamation-circle"></i>
-                                                        <p>Error loading notifications</p>
-                                                    </div>
-                                                `;
+                                                                <div class="notification-empty">
+                                                                    <i class="fas fa-exclamation-circle"></i>
+                                                                    <p>Error loading notifications</p>
+                                                                </div>
+                                                            `;
                     });
             }
 
             function renderNotifications(notifications, unreadCount) {
                 if (!notifications || notifications.length === 0) {
                     notificationList.innerHTML = `
-                                                <div class="notification-empty">
-                                                    <i class="fas fa-bell-slash"></i>
-                                                    <p>No notifications</p>
-                                                </div>
-                                            `;
+                                                            <div class="notification-empty">
+                                                                <i class="fas fa-bell-slash"></i>
+                                                                <p>No notifications</p>
+                                                            </div>
+                                                        `;
                     updateBadge(0);
                     return;
                 }
@@ -1333,17 +1400,17 @@
                     const link = notification.link || '#';
 
                     html += `
-                                                <div class="notification-item ${unreadClass}" data-id="${notification.id}" data-link="${link}">
-                                                    <div class="icon ${iconClass}">
-                                                        <i class="fas fa-${getIcon(notification.type)}"></i>
-                                                    </div>
-                                                    <div class="content">
-                                                        <div class="title">${escapeHtml(notification.title)}</div>
-                                                        <div class="message">${escapeHtml(notification.message)}</div>
-                                                        <div class="time">${notification.timeAgo}</div>
-                                                    </div>
-                                                </div>
-                                            `;
+                                                            <div class="notification-item ${unreadClass}" data-id="${notification.id}" data-link="${link}">
+                                                                <div class="icon ${iconClass}">
+                                                                    <i class="fas fa-${getIcon(notification.type)}"></i>
+                                                                </div>
+                                                                <div class="content">
+                                                                    <div class="title">${escapeHtml(notification.title)}</div>
+                                                                    <div class="message">${escapeHtml(notification.message)}</div>
+                                                                    <div class="time">${notification.timeAgo}</div>
+                                                                </div>
+                                                            </div>
+                                                        `;
                 });
 
                 notificationList.innerHTML = html;
@@ -1420,7 +1487,8 @@
                     'Interview': 'interview',
                     'Status': 'status',
                     'System': 'system',
-                    'Quiz': 'quiz'
+                    'Quiz': 'quiz',
+                    'Maintenance': 'maintenance'
                 };
                 return types[type] || 'system';
             }
@@ -1431,7 +1499,8 @@
                     'Interview': 'calendar-check',
                     'Status': 'clock',
                     'System': 'cog',
-                    'Quiz': 'brain'
+                    'Quiz': 'brain',
+                    'Maintenance': 'wrench'
                 };
                 return icons[type] || 'bell';
             }

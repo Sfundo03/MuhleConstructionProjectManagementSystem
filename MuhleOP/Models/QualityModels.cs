@@ -104,6 +104,12 @@ namespace MuhleOP.Models
         [ForeignKey("ProjectId")]
         public virtual Project Project { get; set; }
 
+        // Link back to the inspection that triggered this variation (optional)
+        public int? SiteInspectionId { get; set; }
+
+        [ForeignKey("SiteInspectionId")]
+        public virtual SiteInspection SiteInspection { get; set; }
+
         [Required]
         [Display(Name = "Variation Number")]
         [StringLength(50)]

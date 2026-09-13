@@ -1,0 +1,54 @@
+﻿
+@model MuhleOP.ViewModels.CheckOutRepairViewModel
+@{
+    ViewBag.Title = "Check-Out Repair";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container py-4" style="max-width: 640px;">
+    <h2 class="mb-4">Check-Out Fixed Equipment</h2>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h5>@Model.EquipmentName <span class="text-muted">(@Model.EquipmentCode)</span></h5>
+            <p class="mb-1"><strong>Technician:</strong> @(Model.TechnicianName ?? "—")</p>
+            <p class="mb-0 small text-muted">@Model.RepairSummary</p>
+        </div>
+    </div>
+
+    @using (Html.BeginForm("CheckOutRepair", "Equipment", FormMethod.Post))
+    {
+        @Html.AntiForgeryToken()
+        @Html.HiddenFor(m => m.RepairId)
+        @Html.HiddenFor(m => m.EquipmentName)
+        @Html.HiddenFor(m => m.EquipmentCode)
+        @Html.HiddenFor(m => m.TechnicianName)
+        @Html.HiddenFor(m => m.RepairSummary)
+        @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Final Condition <span class="text-danger">*</span></label>
+                    @Html.DropDownListFor(m => m.FinalCondition, Model.ConditionOptions, new { @class = "form-select", required = "required" })
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Final Verification Notes</label>
+                    @Html.TextAreaFor(m => m.FinalVerificationNotes, new { @class = "form-control", rows = 3 })
+                </div>
+                <div class="form-check mb-3">
+                    @Html.CheckBoxFor(m => m.FinalVerified, new { @class = "form-check-input", id = "FinalVerified" })
+                    <label class="form-check-label" for="FinalVerified">
+                        I confirm the equipment passed the final safety/load test
+                    </label>
+                    @Html.ValidationMessageFor(m => m.FinalVerified, "", new { @class = "text-danger small d-block" })
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-success w-100 mb-2">
+            <i class="fa-solid fa-check-double me-1"></i> Check-Out &amp; Return to Service
+        </button>
+        <a href="@Url.Action("RepairDetails", new { id = Model.RepairId })" class="btn btn-outline-secondary w-100">Cancel</a>
+    }
+</div>

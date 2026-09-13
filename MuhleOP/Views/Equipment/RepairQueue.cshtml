@@ -1,0 +1,129 @@
+﻿
+@model MuhleOP.ViewModels.EquipmentRepairQueueViewModel
+@{
+    ViewBag.Title = "Repair Queue";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid py-4">
+    <h2 class="mb-4"><i class="fa-solid fa-wrench me-2"></i>Repair Queue</h2>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="fs-3 fw-bold text-danger">@Model.ReportedCount</div>
+                    <div class="small text-muted">Reported</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="fs-3 fw-bold text-warning">@Model.InRepairCount</div>
+                    <div class="small text-muted">In Repair</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="fs-3 fw-bold text-primary">@Model.ReadyForVerificationCount</div>
+                    <div class="small text-muted">Ready for Verification</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="fs-3 fw-bold text-success">@Model.VerifiedCount</div>
+                    <div class="small text-muted">Verified</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <a class="nav-link @(Model.ActiveFilter == "all" || string.IsNullOrEmpty(Model.ActiveFilter) ? "active" : "")" href="@Url.Action("RepairQueue")">All</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Model.ActiveFilter == "Reported" ? "active" : "")" href="@Url.Action("RepairQueue", new { status = "Reported" })">Reported</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Model.ActiveFilter == "In Repair" ? "active" : "")" href="@Url.Action("RepairQueue", new { status = "In Repair" })">In Repair</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Model.ActiveFilter == "Awaiting Parts" ? "active" : "")" href="@Url.Action("RepairQueue", new { status = "Awaiting Parts" })">Awaiting Parts</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Model.ActiveFilter == "Ready for Verification" ? "active" : "")" href="@Url.Action("RepairQueue", new { status = "Ready for Verification" })">Ready for Verification</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Model.ActiveFilter == "Verified" ? "active" : "")" href="@Url.Action("RepairQueue", new { status = "Verified" })">Verified</a>
+        </li>
+    </ul>
+
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Ticket</th>
+                        <th>Equipment</th>
+                        <th>Project</th>
+                        <th>Reported By</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Technician</th>
+                        <th>Total Cost</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Items == null || !Model.Items.Any())
+                    {
+                        <tr><td colspan="9" class="text-center text-muted py-4">No repair tickets.</td></tr>
+                    }
+                    else
+                    {
+                        foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td>@item.TicketLabel</td>
+                                <td>
+                                    <strong>@item.EquipmentName</strong>
+                                    <div class="small text-muted">@item.EquipmentCode</div>
+                                </td>
+                                <td>@(item.ProjectName ?? "—")</td>
+                                <td>@(item.ReportedBy ?? "—")</td>
+                                <td>@item.ReportedDate.ToString("dd MMM yyyy")</td>
+                                <td><span class="badge bg-@item.StatusBadgeColor">@item.Status</span></td>
+                                <td>@(item.TechnicianName ?? "—")</td>
+                                <td>R@item.TotalCost.ToString("N2")</td>
+                                <td>
+                                    <a href="@Url.Action("RepairDetails", new { id = item.RepairId })" class="btn btn-sm btn-outline-primary">View</a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
