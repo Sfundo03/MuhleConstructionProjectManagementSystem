@@ -6,7 +6,7 @@ using System.Web.Mvc;
 
 namespace MuhleOP.ViewModels
 {
-    public class PayrollViewModel
+    public class PayrollViewModels
     {
         public int Id { get; set; }
         public int StaffId { get; set; }
@@ -52,64 +52,7 @@ namespace MuhleOP.ViewModels
         }
     }
 
-    public class ProcessPayrollViewModel
-    {
-        [Required(ErrorMessage = "Staff is required")]
-        [Display(Name = "Staff")]
-        public int StaffId { get; set; }
-
-        [Required(ErrorMessage = "Pay period start is required")]
-        [Display(Name = "Pay Period Start")]
-        [DataType(DataType.Date)]
-        public DateTime PayPeriodStart { get; set; }
-
-        [Required(ErrorMessage = "Pay period end is required")]
-        [Display(Name = "Pay Period End")]
-        [DataType(DataType.Date)]
-        public DateTime PayPeriodEnd { get; set; }
-
-        [Required(ErrorMessage = "Regular hours are required")]
-        [Display(Name = "Regular Hours")]
-        public decimal RegularHours { get; set; }
-
-        [Display(Name = "Overtime Hours")]
-        public decimal OvertimeHours { get; set; }
-
-        [Required(ErrorMessage = "Hourly rate is required")]
-        [Display(Name = "Hourly Rate")]
-        public decimal HourlyRate { get; set; }
-
-        [Display(Name = "Overtime Rate")]
-        public decimal OvertimeRate { get; set; }
-
-        [Display(Name = "Bonus")]
-        public decimal Bonus { get; set; }
-
-        [Display(Name = "Deductions")]
-        public decimal Deductions { get; set; }
-
-        [Display(Name = "Tax")]
-        public decimal Tax { get; set; }
-
-        [Display(Name = "Notes")]
-        [DataType(DataType.MultilineText)]
-        public string Notes { get; set; }
-
-        [Display(Name = "Payment Method")]
-        public string PaymentMethod { get; set; }
-
-        [Display(Name = "Bank Account")]
-        public string BankAccount { get; set; }
-
-        public List<SelectListItem> StaffList { get; set; }
-        public List<SelectListItem> PaymentMethods { get; set; }
-
-        public ProcessPayrollViewModel()
-        {
-            StaffList = new List<SelectListItem>();
-            PaymentMethods = new List<SelectListItem>();
-        }
-    }
+   
 
     public class ApprovePayrollViewModel
     {

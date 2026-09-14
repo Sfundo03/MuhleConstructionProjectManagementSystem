@@ -1,0 +1,94 @@
+﻿
+@model MuhleOP.ViewModels.ProcessPayrollViewModel
+@{
+    ViewBag.Title = "Process Payment";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div>
+            <h1 class="h3 mb-1"><i class="fa-solid fa-credit-card me-2"></i>Process Payment</h1>
+            <p class="text-muted mb-0">@Model.StaffName · @Model.PeriodLabel</p>
+        </div>
+        <a href="@Url.Action("Details", new { id = Model.Id })" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-arrow-left me-1"></i> Back
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <div class="text-muted small">Net amount to pay</div>
+                            <div class="display-6 fw-bold text-success">R @Model.NetPay.ToString("N2")</div>
+                        </div>
+                        <div class="text-end small text-muted">
+                            <div>@Model.StaffName</div>
+                            <div>@Model.EmployeeId</div>
+                        </div>
+                    </div>
+
+                    @using (Html.BeginForm("Process", "Payroll", FormMethod.Post))
+                    {
+                        @Html.AntiForgeryToken()
+                        @Html.HiddenFor(m => m.Id)
+                        @Html.HiddenFor(m => m.StaffName)
+                        @Html.HiddenFor(m => m.EmployeeId)
+                        @Html.HiddenFor(m => m.PeriodLabel)
+                        @Html.HiddenFor(m => m.NetPay)
+                        @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
+
+                        <div class="mb-3">
+                            <label class="form-label">@Html.DisplayNameFor(m => m.PaymentMethod)</label>
+                            @Html.DropDownListFor(m => m.PaymentMethod, Model.PaymentMethods, new { @class = "form-select" })
+                            @Html.ValidationMessageFor(m => m.PaymentMethod, "", new { @class = "text-danger" })
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">@Html.DisplayNameFor(m => m.PaymentDate)</label>
+                            @Html.TextBoxFor(m => m.PaymentDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                            @Html.ValidationMessageFor(m => m.PaymentDate, "", new { @class = "text-danger" })
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">@Html.DisplayNameFor(m => m.BankAccount)</label>
+                            @Html.TextBoxFor(m => m.BankAccount, new { @class = "form-control", placeholder = "Account number / reference" })
+                            @Html.ValidationMessageFor(m => m.BankAccount, "", new { @class = "text-danger" })
+                            @if (!string.IsNullOrEmpty(Model.CurrentBankAccount))
+                            {
+                                <div class="form-text">Staff default: @Model.CurrentBankAccount</div>
+                            }
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">@Html.DisplayNameFor(m => m.Notes)</label>
+                            @Html.TextAreaFor(m => m.Notes, new { @class = "form-control", rows = 3 })
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fa-solid fa-check me-1"></i> Confirm Processing
+                            </button>
+                            <a href="@Url.Action("Details", new { id = Model.Id })" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="alert alert-info">
+                <h6 class="alert-heading"><i class="fa-solid fa-circle-info me-1"></i> Next steps</h6>
+                <ol class="mb-0 small">
+                    <li>Confirm payment method, date and bank details.</li>
+                    <li>Click <strong>Confirm Processing</strong> — status becomes <em>Processed</em>.</li>
+                    <li>After the actual bank transfer / cash payout, open the record and click <strong>Mark as Paid</strong>.</li>
+                    <li>The staff member will receive an in-app notification when marked Paid.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>

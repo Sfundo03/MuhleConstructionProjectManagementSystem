@@ -1,0 +1,255 @@
+﻿
+@model MuhleOP.ViewModels.HandoverDetailsViewModel
+@{
+    ViewBag.Title = "Handover Details";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var canManage = User.IsInRole("Admin") || User.IsInRole("Project Manager") || User.IsInRole("Site Manager");
+    var canClose = User.IsInRole("Admin") || User.IsInRole("Project Manager");
+    var isClient = User.IsInRole("Client");
+}
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1">@Model.ProjectName</h4>
+        <p class="text-muted mb-0">
+            @Model.ProjectCode
+            <span class="badge bg-@Model.StatusBadgeColor ms-2">@Model.Status</span>
+            <span class="badge bg-@Model.ClientSignOffBadgeColor ms-1">Sign-off: @Model.ClientSignOffStatus</span>
+        </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        @if (canManage && Model.Status != "Closed")
+        {
+            if (Model.ClientSignOffStatus == "Pending")
+            {
+                using (Html.BeginForm("InviteClientToSignOff", "Handover", FormMethod.Post, new { @class = "d-inline" }))
+                {
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-envelope me-1"></i> Invite Client to Sign Off
+                    </button>
+                }
+            }
+            <a href="@Url.Action("UploadDocument", new { id = Model.Id })" class="btn btn-outline-primary">
+                <i class="fas fa-upload me-1"></i> Upload Document
+            </a>
+        }
+        @if (isClient && Model.ClientSignOffStatus == "Pending")
+        {
+            <a href="@Url.Action("ClientSignOff", new { id = Model.Id })" class="btn btn-success">
+                <i class="fas fa-signature me-1"></i> Sign Off
+            </a>
+        }
+        @if (canClose && Model.ClientSignOffStatus == "Signed" && Model.Documents != null && Model.Documents.Any() && Model.Status != "Closed")
+        {
+            using (Html.BeginForm("CloseProject", "Handover", FormMethod.Post, new { @class = "d-inline", onsubmit = "return confirm('Close this project permanently? This cannot be undone.');" }))
+            {
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-lock me-1"></i> Close Project
+                </button>
+            }
+        }
+        @if (canManage)
+        {
+            <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Back
+            </a>
+        }
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-header fw-semibold">Handover Summary</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="text-muted small">Client</div>
+                        <div>@(Model.ClientName ?? "—")</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">Project Manager</div>
+                        <div>@(Model.ProjectManagerName ?? "—")</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-muted small">Handover Type</div>
+                        <div>@Model.HandoverType</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-muted small">Handover Date</div>
+                        <div>@Model.HandoverDate.ToString("dd MMM yyyy HH:mm")</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-muted small">Final Inspection</div>
+                        <div>@(Model.FinalInspectionDate.HasValue ? Model.FinalInspectionDate.Value.ToString("dd MMM yyyy") : "—")</div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.FinalInspectionFindings))
+                    {
+                        <div class="col-12">
+                            <div class="text-muted small">Inspection Findings</div>
+                            <div>@Model.FinalInspectionFindings</div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.CompletionNotes))
+                    {
+                        <div class="col-12">
+                            <div class="text-muted small">Completion Notes</div>
+                            <div style="white-space: pre-wrap;">@Model.CompletionNotes</div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.LessonsLearned))
+                    {
+                        <div class="col-md-6">
+                            <div class="text-muted small">Lessons Learned</div>
+                            <div>@Model.LessonsLearned</div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.Recommendations))
+                    {
+                        <div class="col-md-6">
+                            <div class="text-muted small">Recommendations</div>
+                            <div>@Model.Recommendations</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">Handover Documents</span>
+                <span class="badge bg-secondary">@(Model.Documents?.Count ?? 0)</span>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.Documents == null || !Model.Documents.Any())
+                {
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-folder-open fa-2x mb-2 opacity-50"></i>
+                        <p class="mb-0">No documents uploaded yet.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Uploaded</th>
+                                    <th>By</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var doc in Model.Documents)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">@doc.DocumentName</div>
+                                            @if (!string.IsNullOrWhiteSpace(doc.Description))
+                                            {
+                                                <small class="text-muted">@doc.Description</small>
+                                            }
+                                        </td>
+                                        <td>@doc.DocumentType</td>
+                                        <td>@doc.UploadDate.ToString("dd MMM yyyy")</td>
+                                        <td>@doc.UploadedBy</td>
+                                        <td class="text-end">
+                                            <a href="@Url.Action("DownloadDocument", new { id = doc.Id })" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header fw-semibold">Sign-off Status</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="text-muted small">Client Sign-off</div>
+                    <span class="badge bg-@Model.ClientSignOffBadgeColor">@Model.ClientSignOffStatus</span>
+                    @if (Model.ClientSignOffDate.HasValue)
+                    {
+                        <div class="small text-muted mt-1">@Model.ClientSignOffDate.Value.ToString("dd MMM yyyy HH:mm")</div>
+                    }
+                </div>
+                @if (!string.IsNullOrWhiteSpace(Model.ClientFeedback))
+                {
+                    <div class="mb-3">
+                        <div class="text-muted small">Client Feedback</div>
+                        <div>@Model.ClientFeedback</div>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.ClientSignOffNotes))
+                {
+                    <div class="mb-3">
+                        <div class="text-muted small">Sign-off Notes</div>
+                        <div>@Model.ClientSignOffNotes</div>
+                    </div>
+                }
+                <div class="mb-0">
+                    <div class="text-muted small">Project Manager Sign-off</div>
+                    <div>@(Model.ProjectManagerSignOff ? "Yes" : "No")</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header fw-semibold">Warranty</div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <div class="text-muted small">Period</div>
+                    <div>@(Model.WarrantyPeriodDays.HasValue ? Model.WarrantyPeriodDays + " days" : "—")</div>
+                </div>
+                <div class="mb-2">
+                    <div class="text-muted small">Start</div>
+                    <div>@(Model.WarrantyStartDate.HasValue ? Model.WarrantyStartDate.Value.ToString("dd MMM yyyy") : "—")</div>
+                </div>
+                <div>
+                    <div class="text-muted small">End</div>
+                    <div>@(Model.WarrantyEndDate.HasValue ? Model.WarrantyEndDate.Value.ToString("dd MMM yyyy") : "—")</div>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.CertificatePath))
+        {
+            <div class="card">
+                <div class="card-header fw-semibold">Certificate</div>
+                <div class="card-body">
+                    <a href="@Model.CertificatePath" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-file-pdf me-1"></i> View Certificate
+                    </a>
+                </div>
+            </div>
+        }
+    </div>
+</div>

@@ -1,0 +1,89 @@
+﻿
+@model MuhleOP.ViewModels.InitiateHandoverViewModel
+@{
+    ViewBag.Title = "Initiate Handover";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1">Initiate Project Handover</h4>
+        <p class="text-muted mb-0">Start the final inspection and handover process</p>
+    </div>
+    <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        @using (Html.BeginForm("InitiateHandover", "Handover", FormMethod.Post, new { enctype = "multipart/form-data" }))
+        {
+            @Html.AntiForgeryToken()
+            @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.ProjectId) <span class="text-danger">*</span></label>
+                    @Html.DropDownListFor(m => m.ProjectId, Model.Projects, "-- Select project --", new { @class = "form-select" })
+                    @Html.ValidationMessageFor(m => m.ProjectId, "", new { @class = "text-danger small" })
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.HandoverType) <span class="text-danger">*</span></label>
+                    @Html.DropDownListFor(m => m.HandoverType, Model.HandoverTypes, new { @class = "form-select" })
+                    @Html.ValidationMessageFor(m => m.HandoverType, "", new { @class = "text-danger small" })
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.FinalInspectionDate)</label>
+                    @Html.TextBoxFor(m => m.FinalInspectionDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.CertificateFile)</label>
+                    <input type="file" name="CertificateFile" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.FinalInspectionFindings)</label>
+                    @Html.TextAreaFor(m => m.FinalInspectionFindings, new { @class = "form-control", rows = 3 })
+                </div>
+                <div class="col-12">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.CompletionNotes)</label>
+                    @Html.TextAreaFor(m => m.CompletionNotes, new { @class = "form-control", rows = 3 })
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.LessonsLearned)</label>
+                    @Html.TextAreaFor(m => m.LessonsLearned, new { @class = "form-control", rows = 3 })
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.Recommendations)</label>
+                    @Html.TextAreaFor(m => m.Recommendations, new { @class = "form-control", rows = 3 })
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.WarrantyPeriodDays)</label>
+                    @Html.TextBoxFor(m => m.WarrantyPeriodDays, new { @class = "form-control", type = "number", min = "0" })
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.WarrantyStartDate)</label>
+                    @Html.TextBoxFor(m => m.WarrantyStartDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-play me-1"></i> Initiate Handover
+                </button>
+                <a href="@Url.Action("Index")" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        }
+    </div>
+</div>

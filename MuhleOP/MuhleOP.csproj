@@ -178,9 +178,11 @@
     <Compile Include="Controllers\ClientController.cs" />
     <Compile Include="Controllers\CrewController.cs" />
     <Compile Include="Controllers\EquipmentController.cs" />
+    <Compile Include="Controllers\HandoverController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\JobPostController.cs" />
     <Compile Include="Controllers\NotificationsController.cs" />
+    <Compile Include="Controllers\PayrollController.cs" />
     <Compile Include="Controllers\ProjectController.cs" />
     <Compile Include="Controllers\QualityController.cs" />
     <Compile Include="Controllers\StaffController.cs" />
@@ -213,6 +215,7 @@
     <Compile Include="ViewModels\FinanceViewModels.cs" />
     <Compile Include="ViewModels\HandoverViewModels.cs" />
     <Compile Include="ViewModels\JobPostViewModels.cs" />
+    <Compile Include="ViewModels\PayrollViewModels.cs" />
     <Compile Include="ViewModels\QualityViewModels.cs" />
     <Compile Include="ViewModels\StaffViewModels.cs" />
   </ItemGroup>
@@ -338,6 +341,15 @@
     <Content Include="Views\Quality\VariationQueue.cshtml" />
     <Content Include="Views\Quality\VariationDetails.cshtml" />
     <Content Include="Views\Quality\ApproveVariation.cshtml" />
+    <Content Include="Views\Payroll\Index.cshtml" />
+    <Content Include="Views\Payroll\Generate.cshtml" />
+    <Content Include="Views\Payroll\Details.cshtml" />
+    <Content Include="Views\Payroll\Process.cshtml" />
+    <Content Include="Views\Handover\Index.cshtml" />
+    <Content Include="Views\Handover\InitiateHandover.cshtml" />
+    <Content Include="Views\Handover\HandoverDetails.cshtml" />
+    <Content Include="Views\Handover\UploadDocument.cshtml" />
+    <Content Include="Views\Handover\ClientSignOff.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />

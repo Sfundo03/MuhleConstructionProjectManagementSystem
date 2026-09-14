@@ -1,0 +1,93 @@
+﻿
+@model MuhleOP.ViewModels.GeneratePayrollViewModel
+@{
+    ViewBag.Title = "Generate Payroll";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div>
+            <h1 class="h3 mb-1"><i class="fa-solid fa-file-invoice-dollar me-2"></i>Generate Payroll</h1>
+            <p class="text-muted mb-0">Create draft payroll records for a monthly period</p>
+        </div>
+        <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-arrow-left me-1"></i> Back to list
+        </a>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    @using (Html.BeginForm("Generate", "Payroll", FormMethod.Post))
+                    {
+                        @Html.AntiForgeryToken()
+                        @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
+
+                        <div class="mb-3">
+                            <label class="form-label">@Html.DisplayNameFor(m => m.Year)</label>
+                            @Html.DropDownListFor(m => m.Year, Model.Years, new { @class = "form-select" })
+                            @Html.ValidationMessageFor(m => m.Year, "", new { @class = "text-danger" })
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">@Html.DisplayNameFor(m => m.Month)</label>
+                            @Html.DropDownListFor(m => m.Month, Model.Months, new { @class = "form-select" })
+                            @Html.ValidationMessageFor(m => m.Month, "", new { @class = "text-danger" })
+                        </div>
+
+                        <div class="alert alert-info small">
+                            <i class="fa-solid fa-circle-info me-1"></i>
+                            Draft records will be created for all <strong>active</strong> staff who have a pay rate set.
+                            Existing payrolls for the same period are skipped. Hours are pulled from <strong>Approved</strong> timesheets.
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fa-solid fa-magic me-1"></i> Generate Drafts
+                            </button>
+                            <a href="@Url.Action("Index")" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (Model.Messages != null && Model.Messages.Any())
+        {
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white">
+                        <strong>Generation log</strong>
+                        <span class="badge bg-success ms-2">@Model.GeneratedCount created</span>
+                        <span class="badge bg-secondary ms-1">@Model.SkippedCount skipped</span>
+                    </div>
+                    <div class="card-body" style="max-height: 320px; overflow-y: auto;">
+                        <ul class="list-unstyled mb-0 small">
+                            @foreach (var msg in Model.Messages)
+                            {
+                                <li class="mb-1"><i class="fa-solid fa-angle-right me-1 text-muted"></i>@msg</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>

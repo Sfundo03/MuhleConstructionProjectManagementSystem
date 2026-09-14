@@ -1,0 +1,60 @@
+﻿
+@model MuhleOP.ViewModels.UploadHandoverDocumentViewModel
+@{
+    ViewBag.Title = "Upload Handover Document";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1">Upload Document</h4>
+        <p class="text-muted mb-0">Project: @Model.ProjectName</p>
+    </div>
+    <a href="@Url.Action("HandoverDetails", new { id = Model.HandoverId })" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        @using (Html.BeginForm("UploadDocument", "Handover", FormMethod.Post, new { enctype = "multipart/form-data" }))
+        {
+            @Html.AntiForgeryToken()
+            @Html.HiddenFor(m => m.HandoverId)
+            @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.DocumentName) <span class="text-danger">*</span></label>
+                    @Html.TextBoxFor(m => m.DocumentName, new { @class = "form-control" })
+                    @Html.ValidationMessageFor(m => m.DocumentName, "", new { @class = "text-danger small" })
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.DocumentType) <span class="text-danger">*</span></label>
+                    @Html.DropDownListFor(m => m.DocumentType, Model.DocumentTypes, "-- Select type --", new { @class = "form-select" })
+                    @Html.ValidationMessageFor(m => m.DocumentType, "", new { @class = "text-danger small" })
+                </div>
+                <div class="col-12">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.Description)</label>
+                    @Html.TextAreaFor(m => m.Description, new { @class = "form-control", rows = 2 })
+                </div>
+                <div class="col-12">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.File) <span class="text-danger">*</span></label>
+                    <input type="file" name="File" class="form-control" required />
+                    @Html.ValidationMessageFor(m => m.File, "", new { @class = "text-danger small" })
+                </div>
+                <div class="col-12">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.Notes)</label>
+                    @Html.TextAreaFor(m => m.Notes, new { @class = "form-control", rows = 2 })
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-upload me-1"></i> Upload
+                </button>
+                <a href="@Url.Action("HandoverDetails", new { id = Model.HandoverId })" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        }
+    </div>
+</div>

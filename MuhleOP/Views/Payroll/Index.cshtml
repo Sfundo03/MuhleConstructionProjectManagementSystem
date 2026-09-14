@@ -1,0 +1,191 @@
+﻿
+@model MuhleOP.ViewModels.PayrollIndexViewModel
+@{
+    ViewBag.Title = "Payroll";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div>
+            <h1 class="h3 mb-1"><i class="fa-solid fa-money-check-dollar me-2"></i>Payroll</h1>
+            <p class="text-muted mb-0">Process monthly staff salaries</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="@Url.Action("Generate")" class="btn btn-primary">
+                <i class="fa-solid fa-plus me-1"></i> Generate Payroll
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-4 col-xl">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Total</div>
+                    <div class="fs-4 fw-semibold">@Model.TotalCount</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Draft</div>
+                    <div class="fs-4 fw-semibold text-secondary">@Model.DraftCount</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Calculated</div>
+                    <div class="fs-4 fw-semibold text-info">@Model.CalculatedCount</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Approved</div>
+                    <div class="fs-4 fw-semibold text-primary">@Model.ApprovedCount</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Processed</div>
+                    <div class="fs-4 fw-semibold text-warning">@Model.ProcessedCount</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Paid</div>
+                    <div class="fs-4 fw-semibold text-success">@Model.PaidCount</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            @using (Html.BeginForm("Index", "Payroll", FormMethod.Get, new { @class = "row g-3 align-items-end" }))
+            {
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    @Html.DropDownList("status", Model.Statuses, "All statuses", new { @class = "form-select" })
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Year</label>
+                    @Html.DropDownList("year", Model.Years, "All years", new { @class = "form-select" })
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Month</label>
+                    @Html.DropDownList("month", Model.Months, "All months", new { @class = "form-select" })
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-outline-primary">
+                        <i class="fa-solid fa-filter me-1"></i> Filter
+                    </button>
+                    <a href="@Url.Action("Index")" class="btn btn-outline-secondary">Clear</a>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (Model.FilterYear.HasValue && Model.FilterMonth.HasValue && Model.DraftCount + Model.CalculatedCount > 0)
+    {
+        <div class="mb-3">
+            @using (Html.BeginForm("BulkCalculate", "Payroll", FormMethod.Post))
+            {
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="year" value="@Model.FilterYear" />
+                <input type="hidden" name="month" value="@Model.FilterMonth" />
+                <button type="submit" class="btn btn-info" onclick="return confirm('Calculate all Draft/Calculated payrolls for this period?');">
+                    <i class="fa-solid fa-calculator me-1"></i> Bulk Calculate Period
+                </button>
+            }
+        </div>
+    }
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            @if (Model.Items == null || !Model.Items.Any())
+            {
+                <div class="p-5 text-center text-muted">
+                    <i class="fa-solid fa-inbox fa-3x mb-3"></i>
+                    <p class="mb-0">No payroll records found.</p>
+                    <a href="@Url.Action("Generate")" class="btn btn-primary mt-3">Generate Payroll</a>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Staff</th>
+                                <th>Period</th>
+                                <th class="text-end">Reg. Hrs</th>
+                                <th class="text-end">OT Hrs</th>
+                                <th class="text-end">Gross</th>
+                                <th class="text-end">Net</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">@item.StaffName</div>
+                                        <div class="small text-muted">@item.EmployeeId · @item.Role</div>
+                                    </td>
+                                    <td>@item.PeriodLabel</td>
+                                    <td class="text-end">@item.RegularHours.ToString("N2")</td>
+                                    <td class="text-end">@item.OvertimeHours.ToString("N2")</td>
+                                    <td class="text-end">R @item.GrossPay.ToString("N2")</td>
+                                    <td class="text-end fw-semibold">R @item.NetPay.ToString("N2")</td>
+                                    <td>
+                                        <span class="badge bg-@item.StatusBadgeColor">@item.Status</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="@Url.Action("Details", new { id = item.Id })" class="btn btn-sm btn-outline-primary">
+                                            <i class="fa-solid fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="4" class="text-end fw-semibold">Page totals</td>
+                                <td class="text-end fw-semibold">R @Model.TotalGross.ToString("N2")</td>
+                                <td class="text-end fw-semibold">R @Model.TotalNet.ToString("N2")</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>

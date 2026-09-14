@@ -54,6 +54,17 @@ namespace MuhleOP.Models
         [Display(Name = "Profile Picture")]
         public string ProfilePicturePath { get; set; }
 
+        // ---------------------------------------------------------------
+        // Payroll fields (Use Case 23)
+        // ---------------------------------------------------------------
+
+        [Display(Name = "Pay Rate Per Hour")]
+        public decimal PayRatePerHour { get; set; }
+
+        [Display(Name = "Bank Account")]
+        [StringLength(100)]
+        public string BankAccount { get; set; }
+
         // Navigation Properties
         public virtual ICollection<ProjectResourceAllocation> ProjectAllocations { get; set; }
         public virtual ICollection<DailyTask> AssignedTasks { get; set; }
