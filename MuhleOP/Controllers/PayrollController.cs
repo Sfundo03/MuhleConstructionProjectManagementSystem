@@ -1,4 +1,5 @@
-﻿using System;
+﻿// ============ Controllers/PayrollController.cs ============
+using System;
 using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
@@ -18,11 +19,15 @@ namespace MuhleOP.Controllers
         private readonly ApplicationDbContext db = new ApplicationDbContext();
 
         private ApplicationUserManager _userManager;
-        private ApplicationUserManager UserManager
+        public ApplicationUserManager UserManager
         {
             get
             {
                 return _userManager ?? HttpContext.GetOwinContext().GetUserManager<ApplicationUserManager>();
+            }
+            private set
+            {
+                _userManager = value;
             }
         }
 

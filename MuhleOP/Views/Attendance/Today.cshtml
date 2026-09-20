@@ -1,0 +1,123 @@
+﻿
+@model MuhleOP.ViewModels.AttendanceTodayViewModel
+@{
+    ViewBag.Title = "Today's Attendance";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="fas fa-calendar-day me-2"></i>Today's Attendance</h4>
+    <a href="@Url.Action("Scan")" class="btn btn-primary">
+        <i class="fas fa-qrcode me-1"></i> Scan QR
+    </a>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible">@TempData["SuccessMessage"]</div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible">@TempData["ErrorMessage"]</div>
+}
+
+<!-- Summary cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <div class="text-muted small">Currently IN</div>
+                <div class="h3 text-success mb-0">@Model.CurrentlyInCount</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <div class="text-muted small">Checked OUT</div>
+                <div class="h3 text-secondary mb-0">@Model.CheckedOutCount</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <div class="text-muted small">Total Sessions</div>
+                <div class="h3 mb-0">@Model.TotalSessions</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        @using (Html.BeginForm("Today", "Attendance", FormMethod.Get, new { @class = "row g-2 align-items-end" }))
+        {
+            <div class="col-md-4">
+                <label class="form-label">Project</label>
+                @Html.DropDownList("projectId", Model.Projects, "All projects", new { @class = "form-control" })
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-control">
+                    <option value="">All</option>
+                    <option value="IN" @(Model.FilterStatus == "IN" ? "selected" : "")>Currently IN</option>
+                    <option value="OUT" @(Model.FilterStatus == "OUT" ? "selected" : "")>Checked OUT</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">Filter</button>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Crew Member</th>
+                        <th>Project</th>
+                        <th>Check-In</th>
+                        <th>Check-Out</th>
+                        <th>Hours</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Records.Any())
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">No attendance records for today.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var r in Model.Records)
+                        {
+                            <tr>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(r.StaffPhotoUrl))
+                                    {
+                                        <img src="@r.StaffPhotoUrl" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;margin-right:8px;" />
+                                    }
+                                    @r.StaffName
+                                </td>
+                                <td>@r.ProjectName</td>
+                                <td>@r.CheckInTime.ToString("HH:mm:ss")</td>
+                                <td>@(r.CheckOutTime.HasValue ? r.CheckOutTime.Value.ToString("HH:mm:ss") : "—")</td>
+                                <td>@(r.TotalHours.HasValue ? r.TotalHours.Value.ToString("N2") + " h" : "—")</td>
+                                <td>
+                                    <span class="badge bg-@r.StatusBadgeColor">@r.Status</span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNet.Identity;
+﻿// ============ Models/IdentityModels.cs ============
+using Microsoft.AspNet.Identity;
 using Microsoft.AspNet.Identity.EntityFramework;
 using System;
 using System.Data.Entity;
@@ -38,6 +39,9 @@ namespace MuhleOP.Models
         public DbSet<JobApplication> JobApplications { get; set; }
         public DbSet<ApplicationStatusHistory> ApplicationStatusHistories { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+
+        // Attendance
+        public DbSet<AttendanceRecord> AttendanceRecords { get; set; }
 
         // Client & Contract Tables
         public DbSet<Client> Clients { get; set; }
@@ -183,6 +187,28 @@ namespace MuhleOP.Models
             modelBuilder.Entity<EquipmentRepair>()
                 .Property(e => e.TotalCost)
                 .HasPrecision(18, 2);
+
+            // Staff – pay rate precision
+            modelBuilder.Entity<Staff>()
+                .Property(s => s.PayRatePerHour)
+                .HasPrecision(18, 2);
+
+            // AttendanceRecord
+            modelBuilder.Entity<AttendanceRecord>()
+                .HasRequired(ar => ar.Staff)
+                .WithMany()
+                .HasForeignKey(ar => ar.StaffId)
+                .WillCascadeOnDelete(false);
+
+            modelBuilder.Entity<AttendanceRecord>()
+                .HasRequired(ar => ar.Project)
+                .WithMany()
+                .HasForeignKey(ar => ar.ProjectId)
+                .WillCascadeOnDelete(false);
+
+            modelBuilder.Entity<AttendanceRecord>()
+                .Property(ar => ar.TotalHours)
+                .HasPrecision(10, 2);
 
             // ============================================
             // One-to-One relationships with shared primary key

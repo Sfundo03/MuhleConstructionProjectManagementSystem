@@ -1,0 +1,177 @@
+﻿
+@model dynamic
+@{
+    ViewBag.Title = "Scan Attendance";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-qrcode me-2"></i>Scan Crew Member QR</h5>
+        <a href="@Url.Action("Today")" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-list me-1"></i> Today's Attendance
+        </a>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">
+            Point the camera at a Crew Member's QR code. The first scan checks them <strong>IN</strong>;
+            the next scan checks them <strong>OUT</strong> and records hours worked.
+        </p>
+
+        <!-- Scanner region -->
+        <div id="reader" style="width:100%; max-width:480px; margin:0 auto;"></div>
+
+        <!-- Result panel (hidden until a scan happens) -->
+        <div id="scanResult" class="mt-4" style="display:none;">
+            <div id="resultCard" class="p-4 rounded text-center" style="max-width:480px; margin:0 auto;">
+                <div id="resultIcon" style="font-size:48px;"></div>
+                <h3 id="resultName" class="mt-2 mb-1"></h3>
+                <p id="resultAction" class="mb-1 fw-bold" style="font-size:1.25rem;"></p>
+                <p id="resultProject" class="text-muted mb-1"></p>
+                <p id="resultTime" class="text-muted mb-1"></p>
+                <p id="resultHours" class="mb-2" style="display:none;"></p>
+                <p id="resultMessage" class="mb-0"></p>
+            </div>
+            <div class="text-center mt-3">
+                <button type="button" id="btnScanAgain" class="btn btn-primary">
+                    <i class="fas fa-camera me-1"></i> Scan Another
+                </button>
+            </div>
+        </div>
+
+        <div id="scanError" class="alert alert-danger mt-3" style="display:none;"></div>
+    </div>
+</div>
+
+@section scripts {
+    <!-- html5-qrcode from CDN – works in modern mobile browsers -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script>
+        (function () {
+            var html5QrCode = null;
+            var isProcessing = false;
+            var antiForgeryToken = '@Html.AntiForgeryToken()'.match(/value="([^"]+)"/)[1];
+
+            function startScanner() {
+                document.getElementById('scanResult').style.display = 'none';
+                document.getElementById('scanError').style.display = 'none';
+                document.getElementById('reader').style.display = 'block';
+
+                html5QrCode = new Html5Qrcode("reader");
+                var config = {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0
+                };
+
+                html5QrCode.start(
+                    { facingMode: "environment" }, // back camera on phones
+                    config,
+                    onScanSuccess,
+                    function (err) { /* ignore continuous "not found" messages */ }
+                ).catch(function (err) {
+                    document.getElementById('scanError').style.display = 'block';
+                    document.getElementById('scanError').textContent =
+                        'Could not start camera: ' + err +
+                        '. Please allow camera access and use HTTPS (or localhost).';
+                });
+            }
+
+            function stopScanner() {
+                if (html5QrCode) {
+                    html5QrCode.stop().then(function () {
+                        html5QrCode.clear();
+                    }).catch(function () { });
+                    html5QrCode = null;
+                }
+                document.getElementById('reader').style.display = 'none';
+            }
+
+            function onScanSuccess(decodedText) {
+                if (isProcessing) return;
+                isProcessing = true;
+                stopScanner();
+
+                // Optional haptic / sound feedback
+                try {
+                    if (navigator.vibrate) navigator.vibrate(200);
+                    // short beep via Web Audio if available
+                    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    var osc = ctx.createOscillator();
+                    osc.frequency.value = 880;
+                    osc.connect(ctx.destination);
+                    osc.start();
+                    setTimeout(function () { osc.stop(); }, 120);
+                } catch (e) { }
+
+                var formData = new FormData();
+                formData.append('token', decodedText);
+                formData.append('__RequestVerificationToken', antiForgeryToken);
+
+                fetch('@Url.Action("Scan", "Attendance")', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    showResult(data);
+                    isProcessing = false;
+                })
+                .catch(function (err) {
+                    showResult({ success: false, message: 'Network error: ' + err });
+                    isProcessing = false;
+                });
+            }
+
+            function showResult(data) {
+                var panel = document.getElementById('scanResult');
+                var card = document.getElementById('resultCard');
+                panel.style.display = 'block';
+
+                if (data.success) {
+                    var isIn = data.action === 'CheckIn';
+                    card.style.background = isIn ? 'rgba(28,200,138,0.15)' : 'rgba(78,115,223,0.15)';
+                    card.style.border = '2px solid ' + (isIn ? '#1cc88a' : '#4e73df');
+                    document.getElementById('resultIcon').innerHTML =
+                        isIn ? '<i class="fas fa-sign-in-alt text-success"></i>'
+                             : '<i class="fas fa-sign-out-alt text-primary"></i>';
+                    document.getElementById('resultName').textContent = data.staffName || '';
+                    document.getElementById('resultAction').textContent =
+                        isIn ? 'CHECKED IN' : 'CHECKED OUT';
+                    document.getElementById('resultAction').style.color = isIn ? '#1cc88a' : '#4e73df';
+                    document.getElementById('resultProject').textContent = data.projectName || '';
+                    document.getElementById('resultTime').textContent = data.timestamp || '';
+                    document.getElementById('resultMessage').textContent = data.message || '';
+
+                    var hoursEl = document.getElementById('resultHours');
+                    if (data.hoursWorked != null) {
+                        hoursEl.style.display = 'block';
+                        hoursEl.innerHTML = '<strong>' + data.hoursWorked + ' hours</strong> worked';
+                    } else {
+                        hoursEl.style.display = 'none';
+                    }
+                } else {
+                    card.style.background = 'rgba(231,74,59,0.12)';
+                    card.style.border = '2px solid #e74a3b';
+                    document.getElementById('resultIcon').innerHTML =
+                        '<i class="fas fa-times-circle text-danger"></i>';
+                    document.getElementById('resultName').textContent = '';
+                    document.getElementById('resultAction').textContent = 'FAILED';
+                    document.getElementById('resultAction').style.color = '#e74a3b';
+                    document.getElementById('resultProject').textContent = '';
+                    document.getElementById('resultTime').textContent = '';
+                    document.getElementById('resultHours').style.display = 'none';
+                    document.getElementById('resultMessage').textContent = data.message || 'Unknown error';
+                }
+            }
+
+            document.getElementById('btnScanAgain').addEventListener('click', function () {
+                startScanner();
+            });
+
+            // Auto-start on page load
+            document.addEventListener('DOMContentLoaded', startScanner);
+        })();
+    </script>
+}
