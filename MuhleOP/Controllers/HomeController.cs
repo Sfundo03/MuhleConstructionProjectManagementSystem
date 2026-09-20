@@ -51,9 +51,24 @@ namespace MuhleOP.Controllers
                     .Take(5)
                     .ToList();
 
-                // Equipment maintenance dashboard widgets
-                ViewBag.EquipmentDueCount = db.Equipment.Count(e => e.IsActive && e.NextMaintenanceDate != null && e.NextMaintenanceDate <= DateTime.Today.AddDays(14));
-                ViewBag.OverdueEquipmentCount = db.Equipment.Count(e => e.IsActive && e.NextMaintenanceDate != null && e.NextMaintenanceDate < DateTime.Today);
+                // Equipment maintenance dashboard widgets.
+                // IMPORTANT: DateTime.Today.AddDays(14) cannot be translated by
+                // LINQ to Entities ("LINQ to Entities does not recognize the method
+                // 'System.DateTime AddDays(Double)'"). The boundary dates must be
+                // computed in C# first and passed in as local variables, which EF
+                // then treats as parameters/constants.
+                var today = DateTime.Today;
+                var maintenanceWindowEnd = today.AddDays(14);
+
+                ViewBag.EquipmentDueCount = db.Equipment.Count(e =>
+                    e.IsActive &&
+                    e.NextMaintenanceDate != null &&
+                    e.NextMaintenanceDate <= maintenanceWindowEnd);
+
+                ViewBag.OverdueEquipmentCount = db.Equipment.Count(e =>
+                    e.IsActive &&
+                    e.NextMaintenanceDate != null &&
+                    e.NextMaintenanceDate < today);
             }
             else if (User.IsInRole("Candidate"))
             {
