@@ -1,1 +1,180 @@
-﻿
+﻿@model MuhleOP.ViewModels.MyQrViewModel
+@{
+    ViewBag.Title = "My QR Code";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<style>
+    .qr-card {
+        max-width: 480px;
+        margin: 0 auto;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: 0 4px 24px var(--shadow-color);
+        padding: 28px 24px 32px;
+        text-align: center;
+    }
+
+    .qr-title {
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+        color: var(--text-primary);
+    }
+
+    .qr-subtitle {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-bottom: 16px;
+    }
+
+    #qrImg {
+        width: 100%;
+        max-width: 320px;
+        height: auto;
+        background: #fff;
+        border-radius: 8px;
+        margin: 12px auto;
+        display: block;
+        border: 4px solid var(--border-color);
+    }
+
+    .live-time {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 10px 0 4px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .qr-meta {
+        font-size: 0.95rem;
+        color: var(--text-secondary);
+        margin-top: 12px;
+        line-height: 1.6;
+    }
+
+        .qr-meta strong {
+            color: var(--text-primary);
+        }
+
+    .issued-date {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-top: 6px;
+    }
+
+    .info-box {
+        max-width: 480px;
+        margin: 20px auto 0;
+        padding: 14px 16px;
+        border-radius: 8px;
+        background: var(--bg-hover);
+        border: 1px solid var(--border-color);
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        text-align: left;
+        line-height: 1.5;
+    }
+
+        .info-box i {
+            color: var(--primary-gold);
+            margin-right: 6px;
+        }
+
+    .btn-row {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 18px;
+    }
+</style>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible">@TempData["SuccessMessage"]</div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible">@TempData["ErrorMessage"]</div>
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="fas fa-qrcode me-2"></i>My QR Code</h4>
+</div>
+
+<div class="qr-card">
+    <div class="qr-title">ATTENDANCE QR</div>
+    <p class="qr-subtitle">Show this to your Site Manager</p>
+
+    @if (Model.HasToken && !string.IsNullOrEmpty(Model.QrImageBase64))
+    {
+        <img id="qrImg" src="@Model.QrImageBase64" alt="Attendance QR Code" width="320" height="320" />
+    }
+    else
+    {
+        <div class="text-muted py-5">QR code could not be generated.</div>
+    }
+
+    <div class="live-time" id="liveTime">--:--:--</div>
+
+    <div class="qr-meta">
+        <strong>@Model.StaffName</strong><br />
+        @if (!string.IsNullOrEmpty(Model.EmployeeId))
+        {
+            <text>Employee ID: @Model.EmployeeId</text><br />
+        }
+    </div>
+
+    @if (Model.TokenCreatedDate.HasValue)
+    {
+        <div class="issued-date">
+            Issued: @Model.TokenCreatedDate.Value.ToString("dd MMM yyyy HH:mm")
+        </div>
+    }
+
+    <div class="btn-row">
+        <button type="button" class="btn btn-outline-secondary" onclick="window.location.reload();">
+            <i class="fas fa-sync-alt me-1"></i> Refresh
+        </button>
+
+        @using (Html.BeginForm("RegenerateToken", "Attendance", FormMethod.Post, new { id = "regenerateForm", style = "display:inline;" }))
+        {
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn btn-outline-warning"
+                    onclick="return confirm('Regenerate your QR code? The old code will stop working immediately. Anyone who still has a screenshot of the old code will no longer be able to check you in or out.');">
+                <i class="fas fa-key me-1"></i> Regenerate QR Code
+            </button>
+        }
+    </div>
+</div>
+
+<div class="info-box">
+    <i class="fas fa-info-circle"></i>
+    Show this to your Site Manager at the start and end of your shift.
+    First scan = check <strong>IN</strong>, second scan = check <strong>OUT</strong>.
+    Keep this private — anyone with this QR can check you in or out.
+</div>
+
+@section scripts {
+    <script>
+        (function () {
+            function pad(n) { return n < 10 ? '0' + n : '' + n; }
+            function updateLiveTime() {
+                var d = new Date();
+                var el = document.getElementById('liveTime');
+                if (el) {
+                    el.textContent =
+                        pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+                }
+            }
+            document.addEventListener('DOMContentLoaded', function () {
+                updateLiveTime();
+                setInterval(updateLiveTime, 1000);
+            });
+        })();
+    </script>
+}

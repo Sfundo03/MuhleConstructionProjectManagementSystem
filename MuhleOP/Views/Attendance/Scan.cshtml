@@ -1,5 +1,4 @@
-﻿
-@model dynamic
+﻿@model dynamic
 @{
     ViewBag.Title = "Scan Attendance";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -65,7 +64,7 @@
                 };
 
                 html5QrCode.start(
-                    { facingMode: "environment" }, // back camera on phones
+                    { facingMode: "environment" },
                     config,
                     onScanSuccess,
                     function (err) { /* ignore continuous "not found" messages */ }
@@ -92,10 +91,8 @@
                 isProcessing = true;
                 stopScanner();
 
-                // Optional haptic / sound feedback
                 try {
                     if (navigator.vibrate) navigator.vibrate(200);
-                    // short beep via Web Audio if available
                     var ctx = new (window.AudioContext || window.webkitAudioContext)();
                     var osc = ctx.createOscillator();
                     osc.frequency.value = 880;
@@ -113,7 +110,12 @@
                     body: formData,
                     credentials: 'same-origin'
                 })
-                .then(function (r) { return r.json(); })
+                .then(function (r) {
+                    if (!r.ok) {
+                        throw new Error('HTTP ' + r.status);
+                    }
+                    return r.json();
+                })
                 .then(function (data) {
                     showResult(data);
                     isProcessing = false;
@@ -125,29 +127,39 @@
             }
 
             function showResult(data) {
+                // Support both PascalCase (MVC Json default) and camelCase
+                var success = data.success === true || data.Success === true;
+                var action = data.action || data.Action || '';
+                var staffName = data.staffName || data.StaffName || '';
+                var projectName = data.projectName || data.ProjectName || '';
+                var timestamp = data.timestamp || data.Timestamp || '';
+                var hoursWorked = (data.hoursWorked != null) ? data.hoursWorked
+                    : ((data.HoursWorked != null) ? data.HoursWorked : null);
+                var message = data.message || data.Message || 'Unknown error';
+
                 var panel = document.getElementById('scanResult');
                 var card = document.getElementById('resultCard');
                 panel.style.display = 'block';
 
-                if (data.success) {
-                    var isIn = data.action === 'CheckIn';
+                if (success) {
+                    var isIn = action === 'CheckIn';
                     card.style.background = isIn ? 'rgba(28,200,138,0.15)' : 'rgba(78,115,223,0.15)';
                     card.style.border = '2px solid ' + (isIn ? '#1cc88a' : '#4e73df');
                     document.getElementById('resultIcon').innerHTML =
                         isIn ? '<i class="fas fa-sign-in-alt text-success"></i>'
                              : '<i class="fas fa-sign-out-alt text-primary"></i>';
-                    document.getElementById('resultName').textContent = data.staffName || '';
+                    document.getElementById('resultName').textContent = staffName;
                     document.getElementById('resultAction').textContent =
                         isIn ? 'CHECKED IN' : 'CHECKED OUT';
                     document.getElementById('resultAction').style.color = isIn ? '#1cc88a' : '#4e73df';
-                    document.getElementById('resultProject').textContent = data.projectName || '';
-                    document.getElementById('resultTime').textContent = data.timestamp || '';
-                    document.getElementById('resultMessage').textContent = data.message || '';
+                    document.getElementById('resultProject').textContent = projectName;
+                    document.getElementById('resultTime').textContent = timestamp;
+                    document.getElementById('resultMessage').textContent = message;
 
                     var hoursEl = document.getElementById('resultHours');
-                    if (data.hoursWorked != null) {
+                    if (hoursWorked != null) {
                         hoursEl.style.display = 'block';
-                        hoursEl.innerHTML = '<strong>' + data.hoursWorked + ' hours</strong> worked';
+                        hoursEl.innerHTML = '<strong>' + hoursWorked + ' hours</strong> worked';
                     } else {
                         hoursEl.style.display = 'none';
                     }
@@ -162,7 +174,7 @@
                     document.getElementById('resultProject').textContent = '';
                     document.getElementById('resultTime').textContent = '';
                     document.getElementById('resultHours').style.display = 'none';
-                    document.getElementById('resultMessage').textContent = data.message || 'Unknown error';
+                    document.getElementById('resultMessage').textContent = message;
                 }
             }
 
@@ -170,7 +182,6 @@
                 startScanner();
             });
 
-            // Auto-start on page load
             document.addEventListener('DOMContentLoaded', startScanner);
         })();
     </script>
