@@ -1,0 +1,108 @@
+﻿
+@model MuhleOP.ViewModels.MyHoursViewModel
+@{
+    ViewBag.Title = "My Hours";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="fas fa-clock me-2"></i>My Hours</h4>
+    <a href="@Url.Action("MyQr")" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-qrcode me-1"></i> My QR Code
+    </a>
+</div>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible">@TempData["ErrorMessage"]</div>
+}
+
+<div class="card mb-4">
+    <div class="card-body">
+        @using (Html.BeginForm("MyHours", "Attendance", FormMethod.Get, new { @class = "row g-2 align-items-end" }))
+        {
+            <div class="col-md-3">
+                <label class="form-label">Year</label>
+                @Html.DropDownList("year", Model.Years, new { @class = "form-control" })
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Month</label>
+                @Html.DropDownList("month", Model.Months, new { @class = "form-control" })
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">Filter</button>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <div class="text-muted small">Hours this month</div>
+                <div class="h4 mb-0">@Model.MonthHoursTotal.ToString("N2") h</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <div class="text-muted small">Sessions</div>
+                <div class="h4 mb-0">@Model.SessionCount</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <div class="text-muted small">Still checked IN</div>
+                <div class="h4 mb-0 text-success">@Model.OpenSessionCount</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <strong>@Model.StaffName</strong> — @new DateTime(Model.Year, Model.Month, 1).ToString("MMMM yyyy")
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Project</th>
+                        <th>Check-In</th>
+                        <th>Check-Out</th>
+                        <th>Hours</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Records.Any())
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">No attendance records for this month.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var r in Model.Records)
+                        {
+                            <tr>
+                                <td>@r.CheckInTime.ToString("dd MMM yyyy")</td>
+                                <td>@r.ProjectName</td>
+                                <td>@r.CheckInTime.ToString("HH:mm")</td>
+                                <td>@(r.CheckOutTime.HasValue ? r.CheckOutTime.Value.ToString("HH:mm") : "—")</td>
+                                <td>@(r.TotalHours.HasValue ? r.TotalHours.Value.ToString("N2") : "—")</td>
+                                <td><span class="badge bg-@r.StatusBadgeColor">@r.Status</span></td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

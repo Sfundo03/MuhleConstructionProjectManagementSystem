@@ -1,6 +1,7 @@
 ﻿// ============ Controllers/PayrollController.cs ============
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Data.Entity;
 using System.Linq;
 using System.Threading.Tasks;
@@ -530,33 +531,86 @@ namespace MuhleOP.Controllers
         // Helpers
         // ------------------------------------------------------------------
 
+        /// <summary>
+        /// Aggregates hours for a payroll period.
+        /// When UseAttendanceForPayroll is true (default), sums closed AttendanceRecords.
+        /// Otherwise falls back to approved TimesheetEntries.
+        /// Regular vs overtime is split using PayrollRegularHoursPerPeriod (default 176).
+        /// </summary>
         private void AggregateHours(Payroll payroll, int staffId, DateTime periodStart, DateTime periodEnd)
         {
-            var entries = db.TimesheetEntries
-                .Include(e => e.Timesheet)
-                .Where(e => e.Timesheet.StaffId == staffId &&
-                            e.Timesheet.Status == "Approved" &&
-                            e.Date >= periodStart &&
-                            e.Date <= periodEnd)
-                .ToList();
+            // Feature flag: UseAttendanceForPayroll (default true). Set to "false" in web.config to fall back to TimesheetEntries.
+            var useAttendance = true;
+            var flag = ConfigurationManager.AppSettings["UseAttendanceForPayroll"];
+            if (!string.IsNullOrWhiteSpace(flag) &&
+                (flag.Equals("false", StringComparison.OrdinalIgnoreCase) || flag == "0"))
+            {
+                useAttendance = false;
+            }
 
             decimal regular = 0;
             decimal overtime = 0;
 
-            foreach (var e in entries)
+            if (useAttendance)
             {
-                if (e.OvertimeHours > 0)
+                // Closed attendance sessions only (CheckOutTime not null)
+                var records = db.AttendanceRecords
+                    .Where(r => r.StaffId == staffId
+                                && r.CheckOutTime != null
+                                && r.CheckInTime >= periodStart
+                                && r.CheckInTime <= periodEnd
+                                && r.TotalHours != null)
+                    .ToList();
+
+                decimal totalHours = records.Sum(r => r.TotalHours.Value);
+
+                // Regular hours threshold for the period (default 176 = 22 × 8)
+                decimal regularCap = 176m;
+                var capSetting = ConfigurationManager.AppSettings["PayrollRegularHoursPerPeriod"];
+                if (!string.IsNullOrWhiteSpace(capSetting))
                 {
-                    overtime += e.OvertimeHours;
-                    regular += Math.Max(0, e.HoursWorked - e.OvertimeHours);
+                    decimal parsed;
+                    if (decimal.TryParse(capSetting, out parsed) && parsed > 0)
+                        regularCap = parsed;
                 }
-                else if (e.IsOvertime)
+
+                if (totalHours <= regularCap)
                 {
-                    overtime += e.HoursWorked;
+                    regular = totalHours;
+                    overtime = 0;
                 }
                 else
                 {
-                    regular += e.HoursWorked;
+                    regular = regularCap;
+                    overtime = totalHours - regularCap;
+                }
+            }
+            else
+            {
+                // Legacy path: TimesheetEntries
+                var entries = db.TimesheetEntries
+                    .Include(e => e.Timesheet)
+                    .Where(e => e.Timesheet.StaffId == staffId &&
+                                e.Timesheet.Status == "Approved" &&
+                                e.Date >= periodStart &&
+                                e.Date <= periodEnd)
+                    .ToList();
+
+                foreach (var e in entries)
+                {
+                    if (e.OvertimeHours > 0)
+                    {
+                        overtime += e.OvertimeHours;
+                        regular += Math.Max(0, e.HoursWorked - e.OvertimeHours);
+                    }
+                    else if (e.IsOvertime)
+                    {
+                        overtime += e.HoursWorked;
+                    }
+                    else
+                    {
+                        regular += e.HoursWorked;
+                    }
                 }
             }
 

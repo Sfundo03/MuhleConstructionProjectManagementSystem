@@ -24,6 +24,9 @@ namespace MuhleOP.Controllers
     {
         private readonly ApplicationDbContext db = new ApplicationDbContext();
 
+        /// <summary>Rolling QR window length in seconds (5 minutes).</summary>
+        private const int QrWindowSeconds = 300;
+
         private ApplicationUserManager _userManager;
         public ApplicationUserManager UserManager
         {
@@ -50,6 +53,7 @@ namespace MuhleOP.Controllers
         /// <summary>
         /// Processes a scanned QR token. Returns JSON for the client-side scanner.
         /// POST body: token=...  (or form field "token")
+        /// Accepts current 5-minute window token OR previous window (edge-of-window).
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -66,12 +70,31 @@ namespace MuhleOP.Controllers
                     return Json(result);
                 }
 
-                token = token.Trim();
+                token = token.Trim().ToLowerInvariant();
 
-                var staff = db.Staff.FirstOrDefault(s => s.QrToken == token);
+                // Resolve staff by validating rolling token against active, non-revoked crew
+                var crewCandidates = db.Staff
+                    .Where(s => s.IsActive
+                                && !s.QrTokenRevoked
+                                && s.Role == "Crew Member"
+                                && s.QrToken != null
+                                && s.QrToken != "")
+                    .ToList();
+
+                Staff staff = null;
+                DateTime? matchedWindowStart = null;
+                foreach (var candidate in crewCandidates)
+                {
+                    if (IsTokenValidForStaff(candidate, token, out matchedWindowStart))
+                    {
+                        staff = candidate;
+                        break;
+                    }
+                }
+
                 if (staff == null)
                 {
-                    result.Message = "Unknown or invalid QR code.";
+                    result.Message = "Unknown, expired, or invalid QR code.";
                     return Json(result);
                 }
 
@@ -96,7 +119,6 @@ namespace MuhleOP.Controllers
                 var scannerUserId = User.Identity.GetUserId();
                 var isAdmin = User.IsInRole("Admin");
 
-                // Resolve the Site Manager's Staff record (Admins may not have one)
                 Staff scannerStaff = null;
                 if (!isAdmin)
                 {
@@ -109,10 +131,6 @@ namespace MuhleOP.Controllers
                 }
 
                 // ---- Project eligibility ----
-                // A crew member may be scanned if they have an ACTIVE allocation on a
-                // project that the Site Manager supervises (Project.SiteManagerId) OR
-                // on which the Site Manager has an active "Site Manager" allocation.
-                // Admin may scan anyone on any of their active projects.
                 var today = DateTime.Today;
                 var eligibleProjectIds = GetEligibleProjectIdsForScanner(scannerStaff, isAdmin);
 
@@ -133,7 +151,6 @@ namespace MuhleOP.Controllers
                     return Json(result);
                 }
 
-                // Prefer the project that already has an open check-in; otherwise the most recent allocation
                 var openRecord = db.AttendanceRecords
                     .Where(r => r.StaffId == staff.Id && r.CheckOutTime == null)
                     .OrderByDescending(r => r.CheckInTime)
@@ -143,7 +160,6 @@ namespace MuhleOP.Controllers
                 if (openRecord != null)
                 {
                     projectId = openRecord.ProjectId;
-                    // Still verify the open session is on an eligible project
                     if (!eligibleProjectIds.Contains(projectId) && !isAdmin)
                     {
                         result.Message = "Open check-in is on a project you do not supervise.";
@@ -158,7 +174,7 @@ namespace MuhleOP.Controllers
                 var project = db.Projects.Find(projectId);
                 var projectName = project?.ProjectName ?? "Unknown Project";
 
-                // ---- Idempotency: same token + same scanner within 30 seconds ----
+                // ---- Idempotency: same staff + same scanner within 30 seconds ----
                 var thirtySecondsAgo = DateTime.Now.AddSeconds(-30);
                 var recentSame = db.AttendanceRecords
                     .Where(r => r.StaffId == staff.Id
@@ -172,7 +188,6 @@ namespace MuhleOP.Controllers
 
                 if (recentSame != null)
                 {
-                    // Return the same result without toggling
                     bool wasCheckOut = recentSame.CheckOutTime.HasValue
                                        && recentSame.CheckOutTime >= thirtySecondsAgo;
                     result.Success = true;
@@ -192,7 +207,6 @@ namespace MuhleOP.Controllers
                 // ---- Check-in or Check-out ----
                 if (openRecord == null)
                 {
-                    // CHECK-IN
                     var record = new AttendanceRecord
                     {
                         StaffId = staff.Id,
@@ -218,7 +232,6 @@ namespace MuhleOP.Controllers
                 }
                 else
                 {
-                    // CHECK-OUT
                     openRecord.CheckOutTime = DateTime.Now;
                     openRecord.CheckOutByUserId = scannerUserId;
                     openRecord.CheckOutMethod = "QR";
@@ -252,21 +265,97 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Today's Attendance – Site Manager + Admin
+        // Rolling QR token – Crew Member JSON endpoints
         // ------------------------------------------------------------------
 
-        [Authorize(Roles = "Site Manager, Admin")]
-        public ActionResult Today(int? projectId = null, string status = null)
+        /// <summary>
+        /// Returns the current rolling QR payload + seconds remaining in the window.
+        /// </summary>
+        [HttpGet]
+        [Authorize(Roles = "Crew Member")]
+        public ActionResult GetCurrentQrToken()
         {
-            var isAdmin = User.IsInRole("Admin");
-            Staff scannerStaff = null;
-            if (!isAdmin)
+            var userId = User.Identity.GetUserId();
+            var staff = db.Staff.FirstOrDefault(s => s.UserId == userId && s.IsActive);
+            if (staff == null || string.IsNullOrEmpty(staff.QrToken) || staff.QrTokenRevoked)
             {
-                var userId = User.Identity.GetUserId();
-                scannerStaff = db.Staff.FirstOrDefault(s => s.UserId == userId && s.IsActive);
+                return Json(new
+                {
+                    success = false,
+                    message = "No valid QR seed. Please regenerate your QR code."
+                }, JsonRequestBehavior.AllowGet);
             }
 
-            var eligibleProjectIds = GetEligibleProjectIdsForScanner(scannerStaff, isAdmin);
+            var utcNow = DateTime.UtcNow;
+            var token = GenerateRollingToken(staff, utcNow);
+            var secondsRemaining = GetSecondsRemainingInWindow(utcNow);
+
+            return Json(new
+            {
+                success = true,
+                token = token,
+                secondsRemaining = secondsRemaining,
+                windowSeconds = QrWindowSeconds
+            }, JsonRequestBehavior.AllowGet);
+        }
+
+        /// <summary>
+        /// Lightweight status for crew-member polling (real-time confirmation overlay).
+        /// Returns the most recent attendance event for the current user.
+        /// </summary>
+        [HttpGet]
+        [Authorize(Roles = "Crew Member")]
+        public ActionResult GetAttendanceStatus()
+        {
+            var userId = User.Identity.GetUserId();
+            var staff = db.Staff.FirstOrDefault(s => s.UserId == userId && s.IsActive);
+            if (staff == null)
+            {
+                return Json(new { success = false }, JsonRequestBehavior.AllowGet);
+            }
+
+            var last = db.AttendanceRecords
+                .Include(r => r.Project)
+                .Where(r => r.StaffId == staff.Id)
+                .OrderByDescending(r => r.CheckOutTime ?? r.CheckInTime)
+                .FirstOrDefault();
+
+            if (last == null)
+            {
+                return Json(new
+                {
+                    success = true,
+                    hasEvent = false,
+                    eventKey = (string)null
+                }, JsonRequestBehavior.AllowGet);
+            }
+
+            var isOut = last.CheckOutTime.HasValue;
+            var eventTime = isOut ? last.CheckOutTime.Value : last.CheckInTime;
+            // Unique key so the client can detect a new scan without storing server state
+            var eventKey = last.Id + ":" + (isOut ? "OUT" : "IN") + ":" + eventTime.Ticks;
+
+            return Json(new
+            {
+                success = true,
+                hasEvent = true,
+                eventKey = eventKey,
+                action = isOut ? "CheckOut" : "CheckIn",
+                projectName = last.Project != null ? last.Project.ProjectName : "Unknown Project",
+                timestamp = eventTime.ToString("HH:mm"),
+                fullTimestamp = eventTime.ToString("dd MMM yyyy HH:mm:ss"),
+                hoursWorked = isOut ? last.TotalHours : (decimal?)null
+            }, JsonRequestBehavior.AllowGet);
+        }
+
+        // ------------------------------------------------------------------
+        // Today's Attendance – Site Manager, Admin, Project Manager
+        // ------------------------------------------------------------------
+
+        [Authorize(Roles = "Site Manager, Admin, Project Manager")]
+        public ActionResult Today(int? projectId = null, string status = null)
+        {
+            var eligibleProjectIds = GetEligibleProjectIdsForViewer();
 
             var startOfDay = DateTime.Today;
             var endOfDay = startOfDay.AddDays(1);
@@ -326,28 +415,7 @@ namespace MuhleOP.Controllers
         [Authorize(Roles = "Site Manager, Admin, Project Manager")]
         public ActionResult History(DateTime? from = null, DateTime? to = null, int? projectId = null)
         {
-            var isAdmin = User.IsInRole("Admin");
-            var isPm = User.IsInRole("Project Manager");
-            Staff currentStaff = null;
-            var userId = User.Identity.GetUserId();
-            currentStaff = db.Staff.FirstOrDefault(s => s.UserId == userId && s.IsActive);
-
-            List<int> eligibleProjectIds;
-            if (isAdmin)
-            {
-                eligibleProjectIds = db.Projects.Where(p => p.IsActive).Select(p => p.Id).ToList();
-            }
-            else if (isPm && currentStaff != null)
-            {
-                eligibleProjectIds = db.Projects
-                    .Where(p => p.ProjectManagerId == currentStaff.Id && p.IsActive)
-                    .Select(p => p.Id)
-                    .ToList();
-            }
-            else
-            {
-                eligibleProjectIds = GetEligibleProjectIdsForScanner(currentStaff, false);
-            }
+            var eligibleProjectIds = GetEligibleProjectIdsForViewer();
 
             var fromDate = from ?? DateTime.Today.AddDays(-7);
             var toDate = (to ?? DateTime.Today).Date.AddDays(1); // exclusive end
@@ -398,8 +466,76 @@ namespace MuhleOP.Controllers
         [Authorize(Roles = "Admin")]
         public ActionResult AllAttendance(DateTime? from = null, DateTime? to = null, int? projectId = null)
         {
-            // Re-use History view with all projects
             return History(from, to, projectId);
+        }
+
+        // ------------------------------------------------------------------
+        // Crew Member – My Hours
+        // ------------------------------------------------------------------
+
+        [Authorize(Roles = "Crew Member")]
+        public ActionResult MyHours(int? year = null, int? month = null)
+        {
+            var userId = User.Identity.GetUserId();
+            var staff = db.Staff.FirstOrDefault(s => s.UserId == userId && s.IsActive);
+            if (staff == null)
+            {
+                TempData["ErrorMessage"] = "Staff record not found.";
+                return RedirectToAction("Dashboard", "Home");
+            }
+
+            var y = year ?? DateTime.Today.Year;
+            var m = month ?? DateTime.Today.Month;
+            var periodStart = new DateTime(y, m, 1);
+            var periodEnd = periodStart.AddMonths(1);
+
+            var records = db.AttendanceRecords
+                .Include(r => r.Project)
+                .Where(r => r.StaffId == staff.Id
+                            && r.CheckInTime >= periodStart
+                            && r.CheckInTime < periodEnd)
+                .OrderByDescending(r => r.CheckInTime)
+                .ToList()
+                .Select(r => new AttendanceHistoryItemViewModel
+                {
+                    Id = r.Id,
+                    StaffName = staff.FullName,
+                    ProjectName = r.Project?.ProjectName ?? "Unknown",
+                    CheckInTime = r.CheckInTime,
+                    CheckOutTime = r.CheckOutTime,
+                    TotalHours = r.TotalHours,
+                    Status = r.CheckOutTime == null ? "IN" : "OUT",
+                    StatusBadgeColor = r.CheckOutTime == null ? "success" : "secondary"
+                }).ToList();
+
+            var closedHours = records.Where(r => r.TotalHours.HasValue).Sum(r => r.TotalHours.Value);
+
+            var viewModel = new MyHoursViewModel
+            {
+                StaffName = staff.FullName,
+                Year = y,
+                Month = m,
+                Records = records,
+                MonthHoursTotal = closedHours,
+                SessionCount = records.Count,
+                OpenSessionCount = records.Count(r => r.Status == "IN"),
+                Years = Enumerable.Range(DateTime.Today.Year - 2, 5).Reverse()
+                    .Select(yy => new SelectListItem
+                    {
+                        Value = yy.ToString(),
+                        Text = yy.ToString(),
+                        Selected = yy == y
+                    }).ToList(),
+                Months = Enumerable.Range(1, 12)
+                    .Select(mm => new SelectListItem
+                    {
+                        Value = mm.ToString(),
+                        Text = new DateTime(2000, mm, 1).ToString("MMMM"),
+                        Selected = mm == m
+                    }).ToList()
+            };
+
+            return View(viewModel);
         }
 
         // ------------------------------------------------------------------
@@ -417,23 +553,28 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("Dashboard", "Home");
             }
 
-            // Ensure a token exists
             if (string.IsNullOrEmpty(staff.QrToken) || staff.QrTokenRevoked)
             {
                 GenerateNewToken(staff);
                 db.SaveChanges();
             }
 
-            var qrBase64 = GenerateQrPngBase64(staff.QrToken);
+            // Initial token for first paint; client will refresh every window via GetCurrentQrToken
+            var utcNow = DateTime.UtcNow;
+            var rollingToken = GenerateRollingToken(staff, utcNow);
+            var qrBase64 = GenerateQrPngBase64(rollingToken);
+            var secondsRemaining = GetSecondsRemainingInWindow(utcNow);
 
             var viewModel = new MyQrViewModel
             {
                 StaffName = staff.FullName,
                 EmployeeId = staff.EmployeeId,
-                QrToken = staff.QrToken,
+                QrToken = rollingToken,
                 QrImageBase64 = qrBase64,
                 TokenCreatedDate = staff.QrTokenCreatedDate,
-                HasToken = true
+                HasToken = true,
+                SecondsRemaining = secondsRemaining,
+                WindowSeconds = QrWindowSeconds
             };
 
             return View(viewModel);
@@ -452,7 +593,6 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("Dashboard", "Home");
             }
 
-            // Revoke old token then issue a new one
             staff.QrTokenRevoked = true;
             GenerateNewToken(staff);
             await db.SaveChangesAsync();
@@ -462,14 +602,93 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Helpers
+        // Helpers – rolling token
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// Projects the current scanner may operate on.
-        /// Site Manager: projects where they are SiteManagerId OR have an active
-        /// "Site Manager" resource allocation.
-        /// Admin: all active projects.
+        /// Deterministic rolling token for a staff member at a given UTC instant.
+        /// HMAC-SHA256(seed = QrToken + Id, message = floor(unixSeconds / 300)) → 32 hex chars.
+        /// </summary>
+        private static string GenerateRollingToken(Staff staff, DateTime forUtcTime)
+        {
+            if (staff == null || string.IsNullOrEmpty(staff.QrToken))
+                return null;
+
+            var utc = forUtcTime.Kind == DateTimeKind.Utc
+                ? forUtcTime
+                : forUtcTime.ToUniversalTime();
+
+            var unixSeconds = (long)(utc - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
+            var windowIndex = unixSeconds / QrWindowSeconds;
+
+            var keyMaterial = Encoding.UTF8.GetBytes(staff.QrToken + staff.Id.ToString());
+            var message = Encoding.UTF8.GetBytes(windowIndex.ToString());
+
+            using (var hmac = new HMACSHA256(keyMaterial))
+            {
+                var hash = hmac.ComputeHash(message);
+                // First 16 bytes → 32 hex chars (compact QR payload)
+                var sb = new StringBuilder(32);
+                for (int i = 0; i < 16; i++)
+                    sb.Append(hash[i].ToString("x2"));
+                return sb.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Validates token against current window and previous window (edge-of-window scans).
+        /// </summary>
+        private static bool IsTokenValidForStaff(Staff staff, string token, out DateTime? matchedWindowStart)
+        {
+            matchedWindowStart = null;
+            if (staff == null || string.IsNullOrEmpty(staff.QrToken) || staff.QrTokenRevoked)
+                return false;
+            if (string.IsNullOrWhiteSpace(token))
+                return false;
+
+            token = token.Trim().ToLowerInvariant();
+            var utcNow = DateTime.UtcNow;
+
+            // Current window
+            var current = GenerateRollingToken(staff, utcNow);
+            if (string.Equals(current, token, StringComparison.OrdinalIgnoreCase))
+            {
+                matchedWindowStart = GetWindowStartUtc(utcNow);
+                return true;
+            }
+
+            // Previous window (allow scans near rotation)
+            var previousUtc = utcNow.AddSeconds(-QrWindowSeconds);
+            var previous = GenerateRollingToken(staff, previousUtc);
+            if (string.Equals(previous, token, StringComparison.OrdinalIgnoreCase))
+            {
+                matchedWindowStart = GetWindowStartUtc(previousUtc);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static DateTime GetWindowStartUtc(DateTime utc)
+        {
+            var unixSeconds = (long)(utc - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
+            var windowIndex = unixSeconds / QrWindowSeconds;
+            return new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(windowIndex * QrWindowSeconds);
+        }
+
+        private static int GetSecondsRemainingInWindow(DateTime utcNow)
+        {
+            var unixSeconds = (long)(utcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
+            var elapsedInWindow = (int)(unixSeconds % QrWindowSeconds);
+            return QrWindowSeconds - elapsedInWindow;
+        }
+
+        // ------------------------------------------------------------------
+        // Helpers – project eligibility
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Projects the current scanner may operate on (Site Manager / Admin).
         /// </summary>
         private List<int> GetEligibleProjectIdsForScanner(Staff scannerStaff, bool isAdmin)
         {
@@ -496,6 +715,35 @@ namespace MuhleOP.Controllers
             return bySiteManagerId.Union(byAllocation).Distinct().ToList();
         }
 
+        /// <summary>
+        /// Projects the current viewer may see attendance for.
+        /// Admin: all active. Project Manager: managed projects. Site Manager: supervised + allocations.
+        /// </summary>
+        private List<int> GetEligibleProjectIdsForViewer()
+        {
+            var isAdmin = User.IsInRole("Admin");
+            if (isAdmin)
+            {
+                return db.Projects.Where(p => p.IsActive).Select(p => p.Id).ToList();
+            }
+
+            var userId = User.Identity.GetUserId();
+            var currentStaff = db.Staff.FirstOrDefault(s => s.UserId == userId && s.IsActive);
+            if (currentStaff == null)
+                return new List<int>();
+
+            if (User.IsInRole("Project Manager"))
+            {
+                return db.Projects
+                    .Where(p => p.ProjectManagerId == currentStaff.Id && p.IsActive)
+                    .Select(p => p.Id)
+                    .ToList();
+            }
+
+            // Site Manager (and any dual-role users)
+            return GetEligibleProjectIdsForScanner(currentStaff, false);
+        }
+
         private List<SelectListItem> GetProjectSelectList(List<int> projectIds, int? selected)
         {
             return db.Projects
@@ -511,7 +759,6 @@ namespace MuhleOP.Controllers
 
         private void GenerateNewToken(Staff staff)
         {
-            // 32 random bytes → 64 hex chars (unguessable)
             var bytes = new byte[32];
             using (var rng = RandomNumberGenerator.Create())
             {

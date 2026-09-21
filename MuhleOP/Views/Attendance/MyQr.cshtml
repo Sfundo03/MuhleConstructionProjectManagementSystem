@@ -14,6 +14,7 @@
         box-shadow: 0 4px 24px var(--shadow-color);
         padding: 28px 24px 32px;
         text-align: center;
+        position: relative;
     }
 
     .qr-title {
@@ -48,6 +49,17 @@
         margin: 10px 0 4px;
         font-variant-numeric: tabular-nums;
     }
+
+    .refresh-countdown {
+        font-size: 0.95rem;
+        color: var(--text-secondary);
+        margin: 4px 0 8px;
+        font-variant-numeric: tabular-nums;
+    }
+
+        .refresh-countdown strong {
+            color: var(--primary-gold, #c9a227);
+        }
 
     .qr-meta {
         font-size: 0.95rem;
@@ -91,6 +103,48 @@
         flex-wrap: wrap;
         margin-top: 18px;
     }
+
+    /* Real-time scan confirmation overlay */
+    #scanOverlay {
+        display: none;
+        position: absolute;
+        inset: 0;
+        border-radius: 12px;
+        background: rgba(16, 24, 32, 0.92);
+        z-index: 20;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        padding: 24px;
+        animation: overlayIn 0.35s ease;
+    }
+
+        #scanOverlay.show {
+            display: flex;
+        }
+
+    @@keyframes overlayIn {
+        from { opacity: 0; transform: scale(0.96); }
+        to { opacity: 1; transform: scale(1); }
+    }
+
+    #overlayIcon {
+        font-size: 64px;
+        margin-bottom: 12px;
+    }
+
+    #overlayTitle {
+        font-size: 1.6rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+    #overlayDetail {
+        font-size: 1.05rem;
+        color: #cfd8dc;
+        text-align: center;
+        line-height: 1.5;
+    }
 </style>
 
 @if (TempData["SuccessMessage"] != null)
@@ -104,9 +158,19 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="mb-0"><i class="fas fa-qrcode me-2"></i>My QR Code</h4>
+    <a href="@Url.Action("MyHours")" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-clock me-1"></i> My Hours
+    </a>
 </div>
 
-<div class="qr-card">
+<div class="qr-card" id="qrCard">
+    <!-- Success overlay (hidden until Site Manager scans) -->
+    <div id="scanOverlay">
+        <div id="overlayIcon"></div>
+        <div id="overlayTitle"></div>
+        <div id="overlayDetail"></div>
+    </div>
+
     <div class="qr-title">ATTENDANCE QR</div>
     <p class="qr-subtitle">Show this to your Site Manager</p>
 
@@ -120,6 +184,9 @@
     }
 
     <div class="live-time" id="liveTime">--:--:--</div>
+    <div class="refresh-countdown">
+        Refreshes in <strong id="countdownText">--:--</strong>
+    </div>
 
     <div class="qr-meta">
         <strong>@Model.StaffName</strong><br />
@@ -132,7 +199,7 @@
     @if (Model.TokenCreatedDate.HasValue)
     {
         <div class="issued-date">
-            Issued: @Model.TokenCreatedDate.Value.ToString("dd MMM yyyy HH:mm")
+            Seed issued: @Model.TokenCreatedDate.Value.ToString("dd MMM yyyy HH:mm")
         </div>
     }
 
@@ -145,7 +212,7 @@
         {
             @Html.AntiForgeryToken()
             <button type="submit" class="btn btn-outline-warning"
-                    onclick="return confirm('Regenerate your QR code? The old code will stop working immediately. Anyone who still has a screenshot of the old code will no longer be able to check you in or out.');">
+                    onclick="return confirm('Regenerate your QR code? The old seed will stop working immediately. Anyone who still has a screenshot of a previous code will no longer be able to check you in or out.');">
                 <i class="fas fa-key me-1"></i> Regenerate QR Code
             </button>
         }
@@ -154,15 +221,25 @@
 
 <div class="info-box">
     <i class="fas fa-info-circle"></i>
-    Show this to your Site Manager at the start and end of your shift.
+    This QR code changes every <strong>5 minutes</strong>. Screenshots expire automatically.
     First scan = check <strong>IN</strong>, second scan = check <strong>OUT</strong>.
-    Keep this private — anyone with this QR can check you in or out.
+    Keep this private — anyone with a live code can check you in or out.
 </div>
 
 @section scripts {
+    <!-- qrcode.js for client-side QR redraw without a full page reload -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         (function () {
+            var secondsRemaining = @(Model.SecondsRemaining > 0 ? Model.SecondsRemaining : 300);
+            var lastEventKey = null;
+            var overlayTimer = null;
+            var tokenUrl = '@Url.Action("GetCurrentQrToken", "Attendance")';
+            var statusUrl = '@Url.Action("GetAttendanceStatus", "Attendance")';
+            var canvasHost = null;
+
             function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
             function updateLiveTime() {
                 var d = new Date();
                 var el = document.getElementById('liveTime');
@@ -171,9 +248,131 @@
                         pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
                 }
             }
+
+            function formatCountdown(sec) {
+                var m = Math.floor(sec / 60);
+                var s = sec % 60;
+                return m + ':' + pad(s);
+            }
+
+            function tickCountdown() {
+                var el = document.getElementById('countdownText');
+                if (el) el.textContent = formatCountdown(Math.max(0, secondsRemaining));
+                if (secondsRemaining <= 0) {
+                    fetchFreshToken();
+                } else {
+                    secondsRemaining--;
+                }
+            }
+
+            function fetchFreshToken() {
+                fetch(tokenUrl, { credentials: 'same-origin' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (!data.success || !data.token) return;
+                        secondsRemaining = data.secondsRemaining || 300;
+                        redrawQr(data.token);
+                    })
+                    .catch(function () { /* retry next tick */ });
+            }
+
+            function redrawQr(token) {
+                var img = document.getElementById('qrImg');
+                if (!img) return;
+
+                // Use a temporary div + qrcodejs, then copy data URL into the <img>
+                if (!canvasHost) {
+                    canvasHost = document.createElement('div');
+                    canvasHost.style.display = 'none';
+                    document.body.appendChild(canvasHost);
+                }
+                canvasHost.innerHTML = '';
+                try {
+                    new QRCode(canvasHost, {
+                        text: token,
+                        width: 320,
+                        height: 320,
+                        correctLevel: QRCode.CorrectLevel.Q
+                    });
+                    // qrcodejs creates a canvas or img inside
+                    setTimeout(function () {
+                        var canvas = canvasHost.querySelector('canvas');
+                        var nestedImg = canvasHost.querySelector('img');
+                        if (canvas) {
+                            img.src = canvas.toDataURL('image/png');
+                        } else if (nestedImg) {
+                            img.src = nestedImg.src;
+                        }
+                    }, 50);
+                } catch (e) {
+                    // Fallback: reload page if client QR lib fails
+                    console.warn('QR redraw failed', e);
+                }
+            }
+
+            function pollAttendanceStatus() {
+                fetch(statusUrl, { credentials: 'same-origin' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (!data.success || !data.hasEvent || !data.eventKey) return;
+                        if (lastEventKey === null) {
+                            // First poll: remember current state, don't flash overlay for old events
+                            lastEventKey = data.eventKey;
+                            return;
+                        }
+                        if (data.eventKey !== lastEventKey) {
+                            lastEventKey = data.eventKey;
+                            showScanOverlay(data);
+                        }
+                    })
+                    .catch(function () { });
+            }
+
+            function showScanOverlay(data) {
+                var overlay = document.getElementById('scanOverlay');
+                var icon = document.getElementById('overlayIcon');
+                var title = document.getElementById('overlayTitle');
+                var detail = document.getElementById('overlayDetail');
+
+                var isIn = (data.action === 'CheckIn');
+                icon.innerHTML = isIn
+                    ? '<i class="fas fa-sign-in-alt" style="color:#1cc88a;"></i>'
+                    : '<i class="fas fa-sign-out-alt" style="color:#4e73df;"></i>';
+                title.textContent = isIn ? '✓ Checked IN' : '✓ Checked OUT';
+                title.style.color = isIn ? '#1cc88a' : '#4e73df';
+
+                var line = (data.timestamp || '') + ' · ' + (data.projectName || '');
+                if (!isIn && data.hoursWorked != null) {
+                    line += '<br><strong>' + data.hoursWorked + ' hours worked</strong>';
+                }
+                detail.innerHTML = line;
+
+                overlay.classList.add('show');
+
+                try {
+                    if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
+                    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    var osc = ctx.createOscillator();
+                    osc.frequency.value = isIn ? 880 : 660;
+                    osc.connect(ctx.destination);
+                    osc.start();
+                    setTimeout(function () { osc.stop(); }, 150);
+                } catch (e) { }
+
+                if (overlayTimer) clearTimeout(overlayTimer);
+                overlayTimer = setTimeout(function () {
+                    overlay.classList.remove('show');
+                }, 8000);
+            }
+
             document.addEventListener('DOMContentLoaded', function () {
                 updateLiveTime();
                 setInterval(updateLiveTime, 1000);
+                tickCountdown();
+                setInterval(tickCountdown, 1000);
+                // Poll status every 3 seconds for real-time confirmation
+                pollAttendanceStatus();
+                setInterval(pollAttendanceStatus, 3000);
             });
         })();
     </script>

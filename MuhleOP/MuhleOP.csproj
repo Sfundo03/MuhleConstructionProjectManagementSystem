@@ -365,6 +365,7 @@
     <Content Include="Views\Attendance\Today.cshtml" />
     <Content Include="Views\Attendance\History.cshtml" />
     <Content Include="Views\Attendance\MyQr.cshtml" />
+    <Content Include="Views\Attendance\MyHours.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />

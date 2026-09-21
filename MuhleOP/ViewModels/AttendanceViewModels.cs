@@ -73,5 +73,21 @@ namespace MuhleOP.ViewModels
         public string QrImageBase64 { get; set; }   // data:image/png;base64,...
         public DateTime? TokenCreatedDate { get; set; }
         public bool HasToken { get; set; }
+        /// <summary>Seconds left in the current 5-minute rolling window (server-side initial value).</summary>
+        public int SecondsRemaining { get; set; }
+        public int WindowSeconds { get; set; }
+    }
+
+    public class MyHoursViewModel
+    {
+        public string StaffName { get; set; }
+        public int Year { get; set; }
+        public int Month { get; set; }
+        public List<AttendanceHistoryItemViewModel> Records { get; set; } = new List<AttendanceHistoryItemViewModel>();
+        public decimal MonthHoursTotal { get; set; }
+        public int SessionCount { get; set; }
+        public int OpenSessionCount { get; set; }
+        public List<SelectListItem> Years { get; set; } = new List<SelectListItem>();
+        public List<SelectListItem> Months { get; set; } = new List<SelectListItem>();
     }
 }
