@@ -110,6 +110,43 @@ namespace MuhleOP.ViewModels
         public bool CanMarkPaid { get; set; }
     }
 
+    // ------------------------------------------------------------------
+    // Manage Pay Rates
+    // ------------------------------------------------------------------
+
+    public class StaffRateRowViewModel
+    {
+        public int StaffId { get; set; }
+        public string FullName { get; set; }
+        public string EmployeeId { get; set; }
+        public string Role { get; set; }
+        public decimal PayRatePerHour { get; set; }
+        public string BankAccountMasked { get; set; }
+        public DateTime? LastModified { get; set; }
+        public bool IsCurrentUser { get; set; }
+    }
+
+    public class PayRateAuditItemViewModel
+    {
+        public int Id { get; set; }
+        public string StaffName { get; set; }
+        public decimal OldRate { get; set; }
+        public decimal NewRate { get; set; }
+        public string ChangedBy { get; set; }
+        public DateTime ChangedAt { get; set; }
+    }
+
+    public class ManageRatesViewModel
+    {
+        public List<StaffRateRowViewModel> StaffRows { get; set; } = new List<StaffRateRowViewModel>();
+        public List<PayRateAuditItemViewModel> RecentAudits { get; set; } = new List<PayRateAuditItemViewModel>();
+        public string Search { get; set; }
+        public string RoleFilter { get; set; }
+        public string SortBy { get; set; } = "name";
+        public string SortDir { get; set; } = "asc";
+        public List<SelectListItem> Roles { get; set; } = new List<SelectListItem>();
+    }
+
     public class ProcessPayrollViewModel
     {
         public int Id { get; set; }

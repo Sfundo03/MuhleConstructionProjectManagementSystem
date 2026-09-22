@@ -113,6 +113,24 @@ namespace MuhleOP.Helpers
             }
         }
 
+        /// <summary>
+        /// Masks a bank account for display: keeps first 4 and last 4 digits, middle becomes ••••.
+        /// Short values are returned as-is or fully masked.
+        /// </summary>
+        private static string MaskBankAccount(string account)
+        {
+            if (string.IsNullOrWhiteSpace(account))
+                return "—";
+
+            var cleaned = account.Trim().Replace(" ", "");
+            if (cleaned.Length <= 4)
+                return new string('•', cleaned.Length);
+            if (cleaned.Length <= 8)
+                return cleaned.Substring(0, 2) + new string('•', cleaned.Length - 4) + cleaned.Substring(cleaned.Length - 2);
+
+            return cleaned.Substring(0, 4) + "••••" + cleaned.Substring(cleaned.Length - 4);
+        }
+
         private static void AddPartyCell(PdfPTable table, string label, string value, Font labelFont, Font bodyFont)
         {
             var cell = new PdfPCell { Border = Rectangle.NO_BORDER, Padding = 6 };

@@ -7,13 +7,13 @@ namespace MuhleOP.Migrations
     using System.Resources;
     
     [GeneratedCode("EntityFramework.Migrations", "6.4.4")]
-    public sealed partial class AddStaffPayRateAndBankAccount : IMigrationMetadata
+    public sealed partial class AddPayRateAudit : IMigrationMetadata
     {
-        private readonly ResourceManager Resources = new ResourceManager(typeof(AddStaffPayRateAndBankAccount));
+        private readonly ResourceManager Resources = new ResourceManager(typeof(AddPayRateAudit));
         
         string IMigrationMetadata.Id
         {
-            get { return "202609201046533_AddStaffPayRateAndBankAccount"; }
+            get { return "202609221610013_AddPayRateAudit"; }
         }
         
         string IMigrationMetadata.Source

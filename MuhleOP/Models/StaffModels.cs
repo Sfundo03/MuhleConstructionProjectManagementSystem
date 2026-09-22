@@ -131,4 +131,50 @@ namespace MuhleOP.Models
             ResourceAllocations = new List<ProjectResourceAllocation>();
         }
     }
+
+    /// <summary>
+    /// Audit log for every change to Staff.PayRatePerHour.
+    /// New table only — does not alter existing Staff columns.
+    /// </summary>
+    public class PayRateAudit
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        public int StaffId { get; set; }
+
+        [ForeignKey("StaffId")]
+        public virtual Staff Staff { get; set; }
+
+        [Required]
+        [Display(Name = "Old Rate")]
+        public decimal OldRate { get; set; }
+
+        [Required]
+        [Display(Name = "New Rate")]
+        public decimal NewRate { get; set; }
+
+        /// <summary>
+        /// ApplicationUser.UserName (or Name) of the Finance Officer who made the change.
+        /// </summary>
+        [Required]
+        [StringLength(256)]
+        public string ChangedBy { get; set; }
+
+        [Required]
+        [StringLength(128)]
+        public string ChangedByUserId { get; set; }
+
+        [Required]
+        public DateTime ChangedAt { get; set; }
+
+        [StringLength(500)]
+        public string Notes { get; set; }
+
+        public PayRateAudit()
+        {
+            ChangedAt = DateTime.Now;
+        }
+    }
 }

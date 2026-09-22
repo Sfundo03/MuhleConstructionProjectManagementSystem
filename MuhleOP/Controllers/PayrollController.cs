@@ -538,6 +538,234 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
+        // Manage Pay Rates – Finance Officer only
+        // ------------------------------------------------------------------
+
+        [Authorize(Roles = "Finance Officer")]
+        public ActionResult ManageRates(string search = null, string role = null, string sortBy = "name", string sortDir = "asc")
+        {
+            var currentUserId = User.Identity.GetUserId();
+            var currentStaff = db.Staff.FirstOrDefault(s => s.UserId == currentUserId && s.IsActive);
+
+            var query = db.Staff.Where(s => s.IsActive && s.Role != "Admin");
+
+            if (!string.IsNullOrWhiteSpace(role))
+                query = query.Where(s => s.Role == role);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLowerInvariant();
+                query = query.Where(s =>
+                    (s.FirstName + " " + s.LastName).ToLower().Contains(term) ||
+                    (s.EmployeeId != null && s.EmployeeId.ToLower().Contains(term)));
+            }
+
+            var staffList = query.ToList();
+
+            // Latest audit per staff for Last Modified
+            var staffIds = staffList.Select(s => s.Id).ToList();
+            var latestAudits = db.PayRateAudits
+                .Where(a => staffIds.Contains(a.StaffId))
+                .GroupBy(a => a.StaffId)
+                .Select(g => new { StaffId = g.Key, ChangedAt = g.Max(x => x.ChangedAt) })
+                .ToList()
+                .ToDictionary(x => x.StaffId, x => (DateTime?)x.ChangedAt);
+
+            var rows = staffList.Select(s => new StaffRateRowViewModel
+            {
+                StaffId = s.Id,
+                FullName = s.FullName,
+                EmployeeId = s.EmployeeId,
+                Role = s.Role,
+                PayRatePerHour = s.PayRatePerHour,
+                BankAccountMasked = MaskBankAccount(s.BankAccount),
+                LastModified = latestAudits.ContainsKey(s.Id) ? latestAudits[s.Id] : null,
+                IsCurrentUser = currentStaff != null && currentStaff.Id == s.Id
+            }).ToList();
+
+            // Sort
+            sortBy = (sortBy ?? "name").ToLowerInvariant();
+            sortDir = (sortDir ?? "asc").ToLowerInvariant();
+            bool asc = sortDir != "desc";
+
+            switch (sortBy)
+            {
+                case "role":
+                    rows = asc
+                        ? rows.OrderBy(r => r.Role).ThenBy(r => r.FullName).ToList()
+                        : rows.OrderByDescending(r => r.Role).ThenBy(r => r.FullName).ToList();
+                    break;
+                case "rate":
+                    rows = asc
+                        ? rows.OrderBy(r => r.PayRatePerHour).ThenBy(r => r.FullName).ToList()
+                        : rows.OrderByDescending(r => r.PayRatePerHour).ThenBy(r => r.FullName).ToList();
+                    break;
+                default:
+                    rows = asc
+                        ? rows.OrderBy(r => r.FullName).ToList()
+                        : rows.OrderByDescending(r => r.FullName).ToList();
+                    break;
+            }
+
+            var recentAudits = db.PayRateAudits
+                .Include(a => a.Staff)
+                .OrderByDescending(a => a.ChangedAt)
+                .Take(20)
+                .ToList()
+                .Select(a => new PayRateAuditItemViewModel
+                {
+                    Id = a.Id,
+                    StaffName = a.Staff != null ? a.Staff.FullName : "Unknown",
+                    OldRate = a.OldRate,
+                    NewRate = a.NewRate,
+                    ChangedBy = a.ChangedBy,
+                    ChangedAt = a.ChangedAt
+                }).ToList();
+
+            var roles = new[] { "Crew Member", "Site Manager", "Project Manager", "Finance Officer", "Procurement Officer" };
+            var roleItems = new List<SelectListItem>
+            {
+                new SelectListItem { Value = "", Text = "All Roles", Selected = string.IsNullOrEmpty(role) }
+            };
+            roleItems.AddRange(roles.Select(r => new SelectListItem
+            {
+                Value = r,
+                Text = r,
+                Selected = r == role
+            }));
+
+            var vm = new ManageRatesViewModel
+            {
+                StaffRows = rows,
+                RecentAudits = recentAudits,
+                Search = search,
+                RoleFilter = role,
+                SortBy = sortBy,
+                SortDir = sortDir,
+                Roles = roleItems
+            };
+
+            return View(vm);
+        }
+
+        /// <summary>
+        /// AJAX: update a single staff member's hourly rate.
+        /// POST body: staffId, newRate (+ antiforgery token).
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Finance Officer")]
+        public async Task<ActionResult> UpdateRate(int staffId, decimal newRate)
+        {
+            try
+            {
+                newRate = Math.Round(newRate, 2);
+
+                if (newRate < 1.00m || newRate > 10000.00m)
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = "Pay rate must be between R 1.00 and R 10,000.00 per hour."
+                    });
+                }
+
+                var staff = db.Staff.FirstOrDefault(s => s.Id == staffId && s.IsActive);
+                if (staff == null)
+                {
+                    return Json(new { success = false, message = "Staff member not found or inactive." });
+                }
+
+                if (string.Equals(staff.Role, "Admin", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Json(new { success = false, message = "Cannot change the pay rate of an Admin." });
+                }
+
+                var currentUserId = User.Identity.GetUserId();
+                var currentStaff = db.Staff.FirstOrDefault(s => s.UserId == currentUserId && s.IsActive);
+                if (currentStaff != null && currentStaff.Id == staffId)
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = "You cannot change your own pay rate. Please ask another Finance Officer or an Admin."
+                    });
+                }
+
+                var oldRate = staff.PayRatePerHour;
+                if (oldRate == newRate)
+                {
+                    return Json(new
+                    {
+                        success = true,
+                        message = "Rate unchanged.",
+                        newRate = newRate
+                    });
+                }
+
+                staff.PayRatePerHour = newRate;
+
+                var audit = new PayRateAudit
+                {
+                    StaffId = staff.Id,
+                    OldRate = oldRate,
+                    NewRate = newRate,
+                    ChangedBy = User.Identity.Name ?? currentUserId,
+                    ChangedByUserId = currentUserId,
+                    ChangedAt = DateTime.Now
+                };
+                db.PayRateAudits.Add(audit);
+
+                await db.SaveChangesAsync();
+
+                // Notify finance team (skip self)
+                await NotifyFinanceTeam(
+                    "Pay Rate Updated",
+                    $"Pay rate for {staff.FullName} changed from R {oldRate:N2} to R {newRate:N2} by {User.Identity.Name}.",
+                    "/Payroll/ManageRates",
+                    skipUserId: currentUserId
+                );
+
+                return Json(new
+                {
+                    success = true,
+                    message = $"Rate updated to R {newRate:N2}.",
+                    newRate = newRate
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"UpdateRate error: {ex}");
+                return Json(new { success = false, message = "An error occurred while updating the rate." });
+            }
+        }
+
+        /// <summary>
+        /// AJAX: last 20 rate-change audit entries (for refresh without full page reload).
+        /// </summary>
+        [HttpGet]
+        [Authorize(Roles = "Finance Officer")]
+        public ActionResult RateAuditHistory()
+        {
+            var items = db.PayRateAudits
+                .Include(a => a.Staff)
+                .OrderByDescending(a => a.ChangedAt)
+                .Take(20)
+                .ToList()
+                .Select(a => new
+                {
+                    id = a.Id,
+                    staffName = a.Staff != null ? a.Staff.FullName : "Unknown",
+                    oldRate = a.OldRate,
+                    newRate = a.NewRate,
+                    changedBy = a.ChangedBy,
+                    changedAt = a.ChangedAt.ToString("dd MMM yyyy HH:mm")
+                });
+
+            return Json(new { success = true, items = items }, JsonRequestBehavior.AllowGet);
+        }
+
+        // ------------------------------------------------------------------
         // Helpers
         // ------------------------------------------------------------------
 
@@ -628,6 +856,24 @@ namespace MuhleOP.Controllers
             payroll.OvertimeHours = Math.Round(overtime, 2);
         }
 
+        /// <summary>
+        /// Masks a bank account for display: keeps first 4 and last 4 digits, middle becomes ••••.
+        /// Short values are returned as-is or fully masked.
+        /// </summary>
+        private static string MaskBankAccount(string account)
+        {
+            if (string.IsNullOrWhiteSpace(account))
+                return "—";
+
+            var cleaned = account.Trim().Replace(" ", "");
+            if (cleaned.Length <= 4)
+                return new string('•', cleaned.Length);
+            if (cleaned.Length <= 8)
+                return cleaned.Substring(0, 2) + new string('•', cleaned.Length - 4) + cleaned.Substring(cleaned.Length - 2);
+
+            return cleaned.Substring(0, 4) + "••••" + cleaned.Substring(cleaned.Length - 4);
+        }
+
         private PayrollListItemViewModel MapToListItem(Payroll p)
         {
             return new PayrollListItemViewModel
@@ -662,7 +908,7 @@ namespace MuhleOP.Controllers
                 EmployeeId = p.Staff?.EmployeeId,
                 StaffRole = p.Staff?.Role,
                 StaffEmail = p.Staff?.Email,
-                BankAccount = p.BankAccount ?? p.Staff?.BankAccount,
+                BankAccount = MaskBankAccount(p.BankAccount ?? p.Staff?.BankAccount),
                 PayPeriodStart = p.PayPeriodStart,
                 PayPeriodEnd = p.PayPeriodEnd,
                 PeriodLabel = $"{p.PayPeriodStart:MMMM yyyy}",

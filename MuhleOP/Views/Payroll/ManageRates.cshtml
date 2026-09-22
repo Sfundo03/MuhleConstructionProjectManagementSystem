@@ -1,0 +1,397 @@
+﻿
+@model MuhleOP.ViewModels.ManageRatesViewModel
+@{
+    ViewBag.Title = "Manage Pay Rates";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var nextDir = Model.SortDir == "asc" ? "desc" : "asc";
+}
+
+<style>
+    .rate-edit-input {
+        max-width: 120px;
+        display: inline-block;
+    }
+
+    .rate-actions .btn {
+        padding: 0.2rem 0.5rem;
+        font-size: 0.8rem;
+    }
+
+    .audit-panel {
+        max-height: 420px;
+        overflow-y: auto;
+    }
+
+    .sortable-th {
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+    }
+
+        .sortable-th:hover {
+            color: var(--primary-gold, #F5A623);
+        }
+
+    .rate-error {
+        color: #e74a3b;
+        font-size: 0.75rem;
+        margin-top: 2px;
+    }
+
+    .bank-masked {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        letter-spacing: 0.03em;
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1">Manage Pay Rates</h4>
+        <p class="text-muted mb-0 small">Set hourly rates (ZAR) used when generating and calculating payroll.</p>
+    </div>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="row g-3">
+    <!-- Main table -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                <span class="fw-semibold">Active Staff</span>
+                <form method="get" action="@Url.Action("ManageRates")" class="d-flex flex-wrap gap-2 align-items-center mb-0">
+                    <input type="hidden" name="sortBy" value="@Model.SortBy" />
+                    <input type="hidden" name="sortDir" value="@Model.SortDir" />
+                    <div class="input-group input-group-sm" style="width: 220px;">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" name="search" class="form-control" placeholder="Name or Employee ID"
+                               value="@Model.Search" />
+                    </div>
+                    <select name="role" class="form-select form-select-sm" style="width: 160px;" onchange="this.form.submit()">
+                        @foreach (var r in Model.Roles)
+                        {
+                            <option value="@r.Value" @(r.Selected ? "selected" : "")>@r.Text</option>
+                        }
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                    @if (!string.IsNullOrEmpty(Model.Search) || !string.IsNullOrEmpty(Model.RoleFilter))
+                    {
+                        <a href="@Url.Action("ManageRates")" class="btn btn-sm btn-outline-secondary">Clear</a>
+                    }
+                </form>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="sortable-th">
+                                    <a href="@Url.Action("ManageRates", new { search = Model.Search, role = Model.RoleFilter, sortBy = "name", sortDir = Model.SortBy == "name" ? nextDir : "asc" })"
+                                       class="text-decoration-none text-reset">
+                                        Name
+                                        @if (Model.SortBy == "name")
+                                        {
+                                            <i class="fas fa-sort-@(Model.SortDir == "asc" ? "up" : "down") ms-1"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="fas fa-sort ms-1 text-muted"></i>
+                                        }
+                                    </a>
+                                </th>
+                                <th>Employee ID</th>
+                                <th class="sortable-th">
+                                    <a href="@Url.Action("ManageRates", new { search = Model.Search, role = Model.RoleFilter, sortBy = "role", sortDir = Model.SortBy == "role" ? nextDir : "asc" })"
+                                       class="text-decoration-none text-reset">
+                                        Role
+                                        @if (Model.SortBy == "role")
+                                        {
+                                            <i class="fas fa-sort-@(Model.SortDir == "asc" ? "up" : "down") ms-1"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="fas fa-sort ms-1 text-muted"></i>
+                                        }
+                                    </a>
+                                </th>
+                                <th class="sortable-th">
+                                    <a href="@Url.Action("ManageRates", new { search = Model.Search, role = Model.RoleFilter, sortBy = "rate", sortDir = Model.SortBy == "rate" ? nextDir : "asc" })"
+                                       class="text-decoration-none text-reset">
+                                        Rate / Hour
+                                        @if (Model.SortBy == "rate")
+                                        {
+                                            <i class="fas fa-sort-@(Model.SortDir == "asc" ? "up" : "down") ms-1"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="fas fa-sort ms-1 text-muted"></i>
+                                        }
+                                    </a>
+                                </th>
+                                <th>Bank Account</th>
+                                <th>Last Modified</th>
+                                <th style="width: 100px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.StaffRows == null || !Model.StaffRows.Any())
+                            {
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">No active staff found.</td>
+                                </tr>
+                            }
+                            else
+                            {
+                                foreach (var row in Model.StaffRows)
+                                {
+                                    <tr data-staff-id="@row.StaffId">
+                                        <td class="fw-medium">@row.FullName</td>
+                                        <td>@(string.IsNullOrEmpty(row.EmployeeId) ? "—" : row.EmployeeId)</td>
+                                        <td>
+                                            <span class="badge bg-secondary">@row.Role</span>
+                                        </td>
+                                        <td class="rate-cell">
+                                            <span class="rate-display">R @row.PayRatePerHour.ToString("N2")</span>
+                                            <div class="rate-edit d-none">
+                                                <input type="number" class="form-control form-control-sm rate-edit-input"
+                                                       step="0.01" min="1" max="10000"
+                                                       value="@row.PayRatePerHour.ToString("0.00")" />
+                                                <div class="rate-actions mt-1">
+                                                    <button type="button" class="btn btn-success btn-sm btn-save-rate">Save</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm btn-cancel-rate">Cancel</button>
+                                                </div>
+                                                <div class="rate-error d-none"></div>
+                                            </div>
+                                        </td>
+                                        <td class="bank-masked small">@row.BankAccountMasked</td>
+                                        <td class="small text-muted last-modified">
+                                            @(row.LastModified.HasValue ? row.LastModified.Value.ToString("dd MMM yyyy HH:mm") : "—")
+                                        </td>
+                                        <td>
+                                            @if (row.IsCurrentUser)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="You cannot edit your own rate">
+                                                    <i class="fas fa-lock"></i>
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-primary btn-edit-rate">
+                                                    <i class="fas fa-pen"></i> Edit
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer text-muted small">
+                Showing @Model.StaffRows.Count staff member(s). Rates are in South African Rands (ZAR).
+            </div>
+        </div>
+    </div>
+
+    <!-- Audit side panel -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold"><i class="fas fa-history me-1"></i> Recent Rate Changes</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRefreshAudit" title="Refresh">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div class="card-body p-0 audit-panel" id="auditList">
+                @if (Model.RecentAudits == null || !Model.RecentAudits.Any())
+                {
+                    <div class="text-center text-muted py-4 small">No rate changes recorded yet.</div>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var a in Model.RecentAudits)
+                        {
+                            <li class="list-group-item px-3 py-2">
+                                <div class="d-flex justify-content-between">
+                                    <span class="fw-medium small">@a.StaffName</span>
+                                    <span class="text-muted" style="font-size: 0.7rem;">@a.ChangedAt.ToString("dd MMM HH:mm")</span>
+                                </div>
+                                <div class="small">
+                                    <span class="text-muted">R @a.OldRate.ToString("N2")</span>
+                                    <i class="fas fa-arrow-right mx-1 text-muted" style="font-size: 0.65rem;"></i>
+                                    <span class="fw-semibold">R @a.NewRate.ToString("N2")</span>
+                                </div>
+                                <div class="text-muted" style="font-size: 0.7rem;">by @a.ChangedBy</div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@Html.AntiForgeryToken()
+
+@section scripts {
+    <script>
+(function () {
+    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+    function formatRate(n) {
+        return 'R ' + Number(n).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    document.querySelectorAll('.btn-edit-rate').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const tr = btn.closest('tr');
+            // Close any other open editors
+            document.querySelectorAll('tr.editing').forEach(function (other) {
+                if (other !== tr) cancelEdit(other);
+            });
+            tr.classList.add('editing');
+            tr.querySelector('.rate-display').classList.add('d-none');
+            tr.querySelector('.rate-edit').classList.remove('d-none');
+            btn.classList.add('d-none');
+            tr.querySelector('.rate-edit-input').focus();
+        });
+    });
+
+    document.querySelectorAll('.btn-cancel-rate').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            cancelEdit(btn.closest('tr'));
+        });
+    });
+
+    function cancelEdit(tr) {
+        tr.classList.remove('editing');
+        const display = tr.querySelector('.rate-display');
+        const edit = tr.querySelector('.rate-edit');
+        const err = tr.querySelector('.rate-error');
+        const input = tr.querySelector('.rate-edit-input');
+        // Reset input to current displayed value (strip R and spaces)
+        const currentText = display.textContent.replace(/[^\d.,-]/g, '').replace(',', '.');
+        input.value = parseFloat(currentText) || 0;
+        display.classList.remove('d-none');
+        edit.classList.add('d-none');
+        err.classList.add('d-none');
+        err.textContent = '';
+        const editBtn = tr.querySelector('.btn-edit-rate');
+        if (editBtn) editBtn.classList.remove('d-none');
+    }
+
+    document.querySelectorAll('.btn-save-rate').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const tr = btn.closest('tr');
+            const staffId = tr.getAttribute('data-staff-id');
+            const input = tr.querySelector('.rate-edit-input');
+            const err = tr.querySelector('.rate-error');
+            const newRate = parseFloat(input.value);
+
+            if (isNaN(newRate) || newRate < 1 || newRate > 10000) {
+                err.textContent = 'Rate must be between R 1.00 and R 10,000.00.';
+                err.classList.remove('d-none');
+                return;
+            }
+
+            btn.disabled = true;
+            err.classList.add('d-none');
+
+            const body = new URLSearchParams();
+            body.append('__RequestVerificationToken', token);
+            body.append('staffId', staffId);
+            body.append('newRate', newRate.toFixed(2));
+
+            fetch('@Url.Action("UpdateRate", "Payroll")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: body.toString()
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                btn.disabled = false;
+                if (data.success) {
+                    tr.querySelector('.rate-display').textContent = formatRate(data.newRate);
+                    const lm = tr.querySelector('.last-modified');
+                    if (lm) {
+                        const now = new Date();
+                        lm.textContent = now.toLocaleString('en-ZA', {
+                            day: '2-digit', month: 'short', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                        });
+                    }
+                    cancelEdit(tr);
+                    refreshAudit();
+                } else {
+                    err.textContent = data.message || 'Update failed.';
+                    err.classList.remove('d-none');
+                }
+            })
+            .catch(function (ex) {
+                btn.disabled = false;
+                err.textContent = 'Network error. Please try again.';
+                err.classList.remove('d-none');
+                console.error(ex);
+            });
+        });
+    });
+
+    function refreshAudit() {
+        fetch('@Url.Action("RateAuditHistory", "Payroll")')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success || !data.items) return;
+                const container = document.getElementById('auditList');
+                if (!data.items.length) {
+                    container.innerHTML = '<div class="text-center text-muted py-4 small">No rate changes recorded yet.</div>';
+                    return;
+                }
+                let html = '<ul class="list-group list-group-flush">';
+                data.items.forEach(function (a) {
+                    html += '<li class="list-group-item px-3 py-2">' +
+                        '<div class="d-flex justify-content-between">' +
+                        '<span class="fw-medium small">' + escapeHtml(a.staffName) + '</span>' +
+                        '<span class="text-muted" style="font-size:0.7rem;">' + escapeHtml(a.changedAt) + '</span>' +
+                        '</div>' +
+                        '<div class="small">' +
+                        '<span class="text-muted">R ' + Number(a.oldRate).toFixed(2) + '</span>' +
+                        ' <i class="fas fa-arrow-right mx-1 text-muted" style="font-size:0.65rem;"></i> ' +
+                        '<span class="fw-semibold">R ' + Number(a.newRate).toFixed(2) + '</span>' +
+                        '</div>' +
+                        '<div class="text-muted" style="font-size:0.7rem;">by ' + escapeHtml(a.changedBy) + '</div>' +
+                        '</li>';
+                });
+                html += '</ul>';
+                container.innerHTML = html;
+            })
+            .catch(function (e) { console.error(e); });
+    }
+
+    document.getElementById('btnRefreshAudit')?.addEventListener('click', refreshAudit);
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text == null ? '' : text;
+        return div.innerHTML;
+    }
+})();
+    </script>
+}

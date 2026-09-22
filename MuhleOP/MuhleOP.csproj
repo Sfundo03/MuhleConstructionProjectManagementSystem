@@ -198,9 +198,9 @@
     <Compile Include="Helpers\ContractPdfGenerator.cs" />
     <Compile Include="Helpers\ContractTemplateGenerator.cs" />
     <Compile Include="Helpers\EmailHelper.cs" />
-    <Compile Include="Migrations\202609201046533_AddStaffPayRateAndBankAccount.cs" />
-    <Compile Include="Migrations\202609201046533_AddStaffPayRateAndBankAccount.Designer.cs">
-      <DependentUpon>202609201046533_AddStaffPayRateAndBankAccount.cs</DependentUpon>
+    <Compile Include="Migrations\202609221610013_AddPayRateAudit.cs" />
+    <Compile Include="Migrations\202609221610013_AddPayRateAudit.Designer.cs">
+      <DependentUpon>202609221610013_AddPayRateAudit.cs</DependentUpon>
     </Compile>
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Models\AccountViewModels.cs" />
@@ -366,6 +366,7 @@
     <Content Include="Views\Attendance\History.cshtml" />
     <Content Include="Views\Attendance\MyQr.cshtml" />
     <Content Include="Views\Attendance\MyHours.cshtml" />
+    <Content Include="Views\Payroll\ManageRates.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
@@ -400,8 +401,8 @@
     <Content Include="Scripts\jquery-3.7.0.min.map" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Migrations\202609201046533_AddStaffPayRateAndBankAccount.resx">
-      <DependentUpon>202609201046533_AddStaffPayRateAndBankAccount.cs</DependentUpon>
+    <EmbeddedResource Include="Migrations\202609221610013_AddPayRateAudit.resx">
+      <DependentUpon>202609221610013_AddPayRateAudit.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <PropertyGroup>

@@ -71,12 +71,13 @@ namespace MuhleOP.Models
         public DbSet<ProjectVariation> ProjectVariations { get; set; }
         public DbSet<VariationApproval> VariationApprovals { get; set; }
 
+
         // Finance
         public DbSet<Payroll> Payrolls { get; set; }
         public DbSet<ClientInvoice> ClientInvoices { get; set; }
         public DbSet<Supplier> Suppliers { get; set; }
         public DbSet<SupplierContract> SupplierContracts { get; set; }
-
+        public DbSet<PayRateAudit> PayRateAudits { get; set; }
         // Project Handover
         public DbSet<ProjectHandover> ProjectHandovers { get; set; }
         public DbSet<HandoverDocument> HandoverDocuments { get; set; }
@@ -163,6 +164,27 @@ namespace MuhleOP.Models
                 .Property(s => s.ContractValue)
                 .HasPrecision(18, 2);
 
+            // Configure Payroll - Staff relationship
+            modelBuilder.Entity<Payroll>()
+                .HasRequired(p => p.Staff)
+                .WithMany()
+                .HasForeignKey(p => p.StaffId)
+                .WillCascadeOnDelete(true);
+
+            // Configure PayRateAudit
+            modelBuilder.Entity<PayRateAudit>()
+                .HasRequired(a => a.Staff)
+                .WithMany()
+                .HasForeignKey(a => a.StaffId)
+                .WillCascadeOnDelete(false);
+
+            modelBuilder.Entity<PayRateAudit>()
+                .Property(a => a.OldRate)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<PayRateAudit>()
+                .Property(a => a.NewRate)
+                .HasPrecision(18, 2);
+
             modelBuilder.Entity<Contract>()
                 .Property(c => c.ContractValue)
                 .HasPrecision(18, 2);
@@ -192,6 +214,7 @@ namespace MuhleOP.Models
             modelBuilder.Entity<Staff>()
                 .Property(s => s.PayRatePerHour)
                 .HasPrecision(18, 2);
+
 
             // AttendanceRecord
             modelBuilder.Entity<AttendanceRecord>()
