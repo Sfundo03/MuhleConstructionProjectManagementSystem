@@ -14,7 +14,7 @@ using MuhleOP.ViewModels;
 
 namespace MuhleOP.Controllers
 {
-    [Authorize(Roles = "Finance Officer, Admin")]
+    [Authorize]
     public class PayrollController : Controller
     {
         private readonly ApplicationDbContext db = new ApplicationDbContext();
@@ -33,9 +33,10 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Index
+        // Index (read-only for Admin; full for Finance Officer)
         // ------------------------------------------------------------------
 
+        [Authorize(Roles = "Finance Officer, Admin")]
         public ActionResult Index(string status = null, int? year = null, int? month = null)
         {
             var query = db.Payrolls
@@ -83,9 +84,10 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Generate (select period → create Draft records)
+        // Generate (select period → create Draft records) – Finance Officer only
         // ------------------------------------------------------------------
 
+        [Authorize(Roles = "Finance Officer")]
         public ActionResult Generate()
         {
             var now = DateTime.Today;
@@ -101,6 +103,7 @@ namespace MuhleOP.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Finance Officer")]
         public async Task<ActionResult> Generate(GeneratePayrollViewModel model)
         {
             model.Years = GetYearSelectList(model.Year);
@@ -191,9 +194,10 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Details
+        // Details (read-only for Admin; full for Finance Officer)
         // ------------------------------------------------------------------
 
+        [Authorize(Roles = "Finance Officer, Admin")]
         public ActionResult Details(int id)
         {
             var payroll = db.Payrolls
@@ -211,11 +215,12 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Calculate (single)
+        // Calculate (single) – Finance Officer only
         // ------------------------------------------------------------------
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Finance Officer")]
         public async Task<ActionResult> Calculate(int id)
         {
             try
@@ -279,11 +284,12 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Bulk Calculate
+        // Bulk Calculate – Finance Officer only
         // ------------------------------------------------------------------
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Finance Officer")]
         public async Task<ActionResult> BulkCalculate(int year, int month)
         {
             try
@@ -341,11 +347,12 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Approve
+        // Approve – Finance Officer only
         // ------------------------------------------------------------------
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Finance Officer")]
         public async Task<ActionResult> Approve(int id)
         {
             try
@@ -384,9 +391,10 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Process (enter payment details → Processed)
+        // Process (enter payment details → Processed) – Finance Officer only
         // ------------------------------------------------------------------
 
+        [Authorize(Roles = "Finance Officer")]
         public ActionResult Process(int id)
         {
             var payroll = db.Payrolls
@@ -425,6 +433,7 @@ namespace MuhleOP.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Finance Officer")]
         public async Task<ActionResult> Process(ProcessPayrollViewModel model)
         {
             model.PaymentMethods = GetPaymentMethodSelectList(model.PaymentMethod);
@@ -445,8 +454,8 @@ namespace MuhleOP.Controllers
                 }
 
                 payroll.PaymentMethod = model.PaymentMethod;
-                payroll.PaymentDate = model.PaymentDate;
                 payroll.BankAccount = model.BankAccount;
+                payroll.PaymentDate = model.PaymentDate;
                 payroll.Notes = model.Notes;
                 payroll.Status = "Processed";
                 payroll.ProcessedBy = User.Identity.Name;
@@ -466,11 +475,12 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Mark Paid
+        // Mark Paid – Finance Officer only
         // ------------------------------------------------------------------
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Finance Officer")]
         public async Task<ActionResult> MarkPaid(int id)
         {
             try

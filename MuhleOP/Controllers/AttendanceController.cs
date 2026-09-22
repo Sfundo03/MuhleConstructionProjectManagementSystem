@@ -349,10 +349,10 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Today's Attendance – Site Manager, Admin, Project Manager
+        // Today's Attendance – Site Manager, Admin, Project Manager, Finance Officer
         // ------------------------------------------------------------------
 
-        [Authorize(Roles = "Site Manager, Admin, Project Manager")]
+        [Authorize(Roles = "Site Manager, Admin, Project Manager, Finance Officer")]
         public ActionResult Today(int? projectId = null, string status = null)
         {
             var eligibleProjectIds = GetEligibleProjectIdsForViewer();
@@ -409,10 +409,10 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // History / report – Site Manager, Admin, Project Manager
+        // History / report – Site Manager, Admin, Project Manager, Finance Officer
         // ------------------------------------------------------------------
 
-        [Authorize(Roles = "Site Manager, Admin, Project Manager")]
+        [Authorize(Roles = "Site Manager, Admin, Project Manager, Finance Officer")]
         public ActionResult History(DateTime? from = null, DateTime? to = null, int? projectId = null)
         {
             var eligibleProjectIds = GetEligibleProjectIdsForViewer();
@@ -460,10 +460,10 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Admin – all attendance
+        // Admin / Finance Officer – all attendance
         // ------------------------------------------------------------------
 
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, Finance Officer")]
         public ActionResult AllAttendance(DateTime? from = null, DateTime? to = null, int? projectId = null)
         {
             return History(from, to, projectId);
@@ -717,12 +717,14 @@ namespace MuhleOP.Controllers
 
         /// <summary>
         /// Projects the current viewer may see attendance for.
-        /// Admin: all active. Project Manager: managed projects. Site Manager: supervised + allocations.
+        /// Admin / Finance Officer: all active.
+        /// Project Manager: managed projects.
+        /// Site Manager: supervised + allocations.
         /// </summary>
         private List<int> GetEligibleProjectIdsForViewer()
         {
-            var isAdmin = User.IsInRole("Admin");
-            if (isAdmin)
+            // Admin and Finance Officer see every active project
+            if (User.IsInRole("Admin") || User.IsInRole("Finance Officer"))
             {
                 return db.Projects.Where(p => p.IsActive).Select(p => p.Id).ToList();
             }

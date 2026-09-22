@@ -1165,6 +1165,20 @@
                     <span>Dashboard</span>
                 </a>
 
+                <div class="menu-label">Attendance</div>
+                <a href="@Url.Action("Today", "Attendance")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Attendance" && ViewContext.RouteData.Values["action"]?.ToString() == "Today" ? "active" : "")">
+                    <i class="fas fa-calendar-day"></i>
+                    <span>Today's Attendance</span>
+                </a>
+                <a href="@Url.Action("History", "Attendance")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Attendance" && ViewContext.RouteData.Values["action"]?.ToString() == "History" ? "active" : "")">
+                    <i class="fas fa-history"></i>
+                    <span>Attendance History</span>
+                </a>
+                <a href="@Url.Action("AllAttendance", "Attendance")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Attendance" && ViewContext.RouteData.Values["action"]?.ToString() == "AllAttendance" ? "active" : "")">
+                    <i class="fas fa-list"></i>
+                    <span>All Attendance</span>
+                </a>
+
                 <div class="menu-label">Finance</div>
                 <a href="@Url.Action("Index", "Payroll")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Payroll" ? "active" : "")">
                     <i class="fas fa-coins"></i>
@@ -1449,32 +1463,32 @@
                             updateBadge(data.unreadCount);
                         } else {
                             notificationList.innerHTML = `
-                                                <div class="notification-empty">
-                                                    <i class="fas fa-exclamation-circle"></i>
-                                                    <p>Failed to load notifications</p>
-                                                </div>
-                                            `;
+                                                    <div class="notification-empty">
+                                                        <i class="fas fa-exclamation-circle"></i>
+                                                        <p>Failed to load notifications</p>
+                                                    </div>
+                                                `;
                         }
                     })
                     .catch(error => {
                         console.error('Error loading notifications:', error);
                         notificationList.innerHTML = `
-                                            <div class="notification-empty">
-                                                <i class="fas fa-exclamation-circle"></i>
-                                                <p>Error loading notifications</p>
-                                            </div>
-                                        `;
+                                                <div class="notification-empty">
+                                                    <i class="fas fa-exclamation-circle"></i>
+                                                    <p>Error loading notifications</p>
+                                                </div>
+                                            `;
                     });
             }
 
             function renderNotifications(notifications, unreadCount) {
                 if (!notifications || notifications.length === 0) {
                     notificationList.innerHTML = `
-                                        <div class="notification-empty">
-                                            <i class="fas fa-bell-slash"></i>
-                                            <p>No notifications</p>
-                                        </div>
-                                    `;
+                                            <div class="notification-empty">
+                                                <i class="fas fa-bell-slash"></i>
+                                                <p>No notifications</p>
+                                            </div>
+                                        `;
                     updateBadge(0);
                     return;
                 }
@@ -1486,17 +1500,17 @@
                     const link = notification.link || '#';
 
                     html += `
-                                        <div class="notification-item ${unreadClass}" data-id="${notification.id}" data-link="${link}">
-                                            <div class="icon ${iconClass}">
-                                                <i class="fas fa-${getIcon(notification.type)}"></i>
+                                            <div class="notification-item ${unreadClass}" data-id="${notification.id}" data-link="${link}">
+                                                <div class="icon ${iconClass}">
+                                                    <i class="fas fa-${getIcon(notification.type)}"></i>
+                                                </div>
+                                                <div class="content">
+                                                    <div class="title">${escapeHtml(notification.title)}</div>
+                                                    <div class="message">${escapeHtml(notification.message)}</div>
+                                                    <div class="time">${notification.timeAgo}</div>
+                                                </div>
                                             </div>
-                                            <div class="content">
-                                                <div class="title">${escapeHtml(notification.title)}</div>
-                                                <div class="message">${escapeHtml(notification.message)}</div>
-                                                <div class="time">${notification.timeAgo}</div>
-                                            </div>
-                                        </div>
-                                    `;
+                                        `;
                 });
 
                 notificationList.innerHTML = html;
