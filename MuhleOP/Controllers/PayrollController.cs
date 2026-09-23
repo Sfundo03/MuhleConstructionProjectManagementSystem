@@ -3,7 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data.Entity;
+using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
@@ -651,17 +653,29 @@ namespace MuhleOP.Controllers
         /// <summary>
         /// AJAX: update a single staff member's hourly rate.
         /// POST body: staffId, newRate (+ antiforgery token).
+        /// newRate is accepted as string and parsed with InvariantCulture to avoid
+        /// en-ZA / af-ZA decimal-separator problems (comma vs period).
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Finance Officer")]
-        public async Task<ActionResult> UpdateRate(int staffId, decimal newRate)
+        public async Task<ActionResult> UpdateRate(int staffId, string newRate)
         {
             try
             {
-                newRate = Math.Round(newRate, 2);
+                if (string.IsNullOrWhiteSpace(newRate) ||
+                    !decimal.TryParse(newRate, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal rate))
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = "Invalid rate format. Use a number such as 120.50."
+                    });
+                }
 
-                if (newRate < 1.00m || newRate > 10000.00m)
+                rate = Math.Round(rate, 2);
+
+                if (rate < 1.00m || rate > 10000.00m)
                 {
                     return Json(new
                     {
@@ -693,23 +707,23 @@ namespace MuhleOP.Controllers
                 }
 
                 var oldRate = staff.PayRatePerHour;
-                if (oldRate == newRate)
+                if (oldRate == rate)
                 {
                     return Json(new
                     {
                         success = true,
                         message = "Rate unchanged.",
-                        newRate = newRate
+                        newRate = rate
                     });
                 }
 
-                staff.PayRatePerHour = newRate;
+                staff.PayRatePerHour = rate;
 
                 var audit = new PayRateAudit
                 {
                     StaffId = staff.Id,
                     OldRate = oldRate,
-                    NewRate = newRate,
+                    NewRate = rate,
                     ChangedBy = User.Identity.Name ?? currentUserId,
                     ChangedByUserId = currentUserId,
                     ChangedAt = DateTime.Now
@@ -721,7 +735,7 @@ namespace MuhleOP.Controllers
                 // Notify finance team (skip self)
                 await NotifyFinanceTeam(
                     "Pay Rate Updated",
-                    $"Pay rate for {staff.FullName} changed from R {oldRate:N2} to R {newRate:N2} by {User.Identity.Name}.",
+                    $"Pay rate for {staff.FullName} changed from R {oldRate:N2} to R {rate:N2} by {User.Identity.Name}.",
                     "/Payroll/ManageRates",
                     skipUserId: currentUserId
                 );
@@ -729,14 +743,106 @@ namespace MuhleOP.Controllers
                 return Json(new
                 {
                     success = true,
-                    message = $"Rate updated to R {newRate:N2}.",
-                    newRate = newRate
+                    message = $"Rate updated to R {rate:N2}.",
+                    newRate = rate
                 });
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"UpdateRate error: {ex}");
                 return Json(new { success = false, message = "An error occurred while updating the rate." });
+            }
+        }
+
+        /// <summary>
+        /// AJAX: update a single staff member's bank account.
+        /// POST body: staffId, bankAccount (+ antiforgery token).
+        /// Does NOT write to PayRateAudit.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Finance Officer")]
+        public async Task<ActionResult> UpdateBankAccount(int staffId, string bankAccount)
+        {
+            try
+            {
+                bankAccount = (bankAccount ?? string.Empty).Trim().Replace(" ", "");
+
+                if (string.IsNullOrEmpty(bankAccount))
+                {
+                    return Json(new { success = false, message = "Bank account cannot be empty." });
+                }
+
+                if (bankAccount.Length > 100)
+                {
+                    return Json(new { success = false, message = "Bank account must be 100 characters or fewer." });
+                }
+
+                // Allow digits and common alphanumeric bank-reference characters only
+                if (!Regex.IsMatch(bankAccount, @"^[A-Za-z0-9\-]+$"))
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = "Bank account may only contain letters, digits and hyphens (no spaces)."
+                    });
+                }
+
+                var staff = db.Staff.FirstOrDefault(s => s.Id == staffId && s.IsActive);
+                if (staff == null)
+                {
+                    return Json(new { success = false, message = "Staff member not found or inactive." });
+                }
+
+                if (string.Equals(staff.Role, "Admin", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Json(new { success = false, message = "Cannot change the bank account of an Admin." });
+                }
+
+                var currentUserId = User.Identity.GetUserId();
+                var currentStaff = db.Staff.FirstOrDefault(s => s.UserId == currentUserId && s.IsActive);
+                if (currentStaff != null && currentStaff.Id == staffId)
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = "You cannot change your own bank account. Please ask another Finance Officer or an Admin."
+                    });
+                }
+
+                var oldAccount = (staff.BankAccount ?? string.Empty).Trim().Replace(" ", "");
+                if (string.Equals(oldAccount, bankAccount, StringComparison.Ordinal))
+                {
+                    return Json(new
+                    {
+                        success = true,
+                        message = "Bank account unchanged.",
+                        bankAccountMasked = MaskBankAccount(bankAccount)
+                    });
+                }
+
+                staff.BankAccount = bankAccount;
+                await db.SaveChangesAsync();
+
+                // Notify finance team (skip self) – no PayRateAudit entry
+                await NotifyFinanceTeam(
+                    "Bank Account Updated",
+                    $"Bank account for {staff.FullName} was updated by {User.Identity.Name}.",
+                    "/Payroll/ManageRates",
+                    skipUserId: currentUserId
+                );
+
+                return Json(new
+                {
+                    success = true,
+                    message = "Bank account updated.",
+                    bankAccountMasked = MaskBankAccount(bankAccount)
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"UpdateBankAccount error: {ex}");
+                return Json(new { success = false, message = "An error occurred while updating the bank account." });
             }
         }
 

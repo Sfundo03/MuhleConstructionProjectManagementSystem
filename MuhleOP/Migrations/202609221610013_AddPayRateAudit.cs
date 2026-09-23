@@ -21,13 +21,13 @@
                     Notes = c.String(maxLength: 500),
                 })
                 .PrimaryKey(t => t.Id)
-                .ForeignKey("dbo.Staff", t => t.StaffId)
+                .ForeignKey("dbo.Staffs", t => t.StaffId)   // ← "Staffs" (plural)
                 .Index(t => t.StaffId);
         }
 
         public override void Down()
         {
-            DropForeignKey("dbo.PayRateAudits", "StaffId", "dbo.Staff");
+            DropForeignKey("dbo.PayRateAudits", "StaffId", "dbo.Staffs");  // ← "Staffs" (plural)
             DropIndex("dbo.PayRateAudits", new[] { "StaffId" });
             DropTable("dbo.PayRateAudits");
         }
