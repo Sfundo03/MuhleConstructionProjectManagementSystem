@@ -1,4 +1,4 @@
-﻿
+﻿﻿
 @model MuhleOP.ViewModels.ClientSignOffViewModel
 @{
     ViewBag.Title = "Client Sign-off";
@@ -17,6 +17,10 @@
     <div>
         <h4 class="mb-1">Project Sign-off</h4>
         <p class="text-muted mb-0">@Model.ProjectName (@Model.ProjectCode) — @Model.HandoverType handover</p>
+        @if (Model.ClientInvitedDate.HasValue)
+        {
+            <p class="text-muted small mb-0">Invited to sign off on @Model.ClientInvitedDate.Value.ToString("dd MMM yyyy HH:mm").</p>
+        }
     </div>
 </div>
 
@@ -102,6 +106,9 @@
         <div class="card">
             <div class="card-header fw-semibold">Digital Sign-off</div>
             <div class="card-body">
+                <div class="alert alert-info small" role="alert">
+                    You will receive an email with the signed handover certificate (PDF) attached as soon as you confirm.
+                </div>
                 @using (Html.BeginForm("ClientSignOff", "Handover", FormMethod.Post))
                 {
                     @Html.AntiForgeryToken()

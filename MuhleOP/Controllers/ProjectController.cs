@@ -109,6 +109,18 @@ namespace MuhleOP.Controllers
             ViewBag.Deliverables = project.Deliverables.ToList();
             ViewBag.Variations = project.Variations.ToList();
 
+            // Load the most recent handover for this project (if any) so the view
+            // can surface the "Invite Client to Sign Off" action without leaving
+            // the Project Details page.
+            var handover = db.ProjectHandovers
+                .Include("Project")
+                .Include("Project.Client")
+                .Where(h => h.ProjectId == id)
+                .OrderByDescending(h => h.CreatedDate)
+                .FirstOrDefault();
+
+            ViewBag.Handover = handover;
+
             return View(viewModel);
         }
 

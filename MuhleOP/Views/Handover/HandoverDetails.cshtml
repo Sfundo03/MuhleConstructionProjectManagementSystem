@@ -1,4 +1,4 @@
-﻿
+﻿﻿
 @model MuhleOP.ViewModels.HandoverDetailsViewModel
 @{
     ViewBag.Title = "Handover Details";
@@ -35,7 +35,7 @@
     <div class="d-flex gap-2 flex-wrap">
         @if (canManage && Model.Status != "Closed")
         {
-            if (Model.ClientSignOffStatus == "Pending")
+            if (Model.ClientSignOffStatus == "Pending" && !Model.ClientInvitedToSignOff)
             {
                 using (Html.BeginForm("InviteClientToSignOff", "Handover", FormMethod.Post, new { @class = "d-inline" }))
                 {
@@ -45,6 +45,12 @@
                         <i class="fas fa-envelope me-1"></i> Invite Client to Sign Off
                     </button>
                 }
+            }
+            else if (Model.ClientSignOffStatus == "Pending" && Model.ClientInvitedToSignOff)
+            {
+                <button type="button" class="btn btn-secondary" disabled>
+                    Client Invited ✓ (@(Model.ClientInvitedDate.HasValue ? Model.ClientInvitedDate.Value.ToString("dd MMM yyyy HH:mm") : "—"))
+                </button>
             }
             <a href="@Url.Action("UploadDocument", new { id = Model.Id })" class="btn btn-outline-primary">
                 <i class="fas fa-upload me-1"></i> Upload Document
@@ -248,6 +254,16 @@
                     <a href="@Model.CertificatePath" target="_blank" class="btn btn-sm btn-outline-primary">
                         <i class="fas fa-file-pdf me-1"></i> View Certificate
                     </a>
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.SignedHandoverPdfPath))
+        {
+            <div class="card mt-3">
+                <div class="card-header fw-semibold">Signed Handover PDF</div>
+                <div class="card-body">
+                    <a href="@Model.SignedHandoverPdfPath" target="_blank">Download</a>
                 </div>
             </div>
         }

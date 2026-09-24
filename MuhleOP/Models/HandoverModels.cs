@@ -91,6 +91,19 @@ namespace MuhleOP.Models
         [Display(Name = "Last Modified")]
         public DateTime? LastModifiedDate { get; set; }
 
+        // This file was not included in your upload, so this is an additive patch,
+        // not a full-file replacement. Insert this block into the ProjectHandover
+        // class immediately after the existing ClientSignOffNotes property:
+
+        [Display(Name = "Client Invited To Sign Off")]
+        public bool ClientInvitedToSignOff { get; set; }
+
+        [Display(Name = "Client Invited Date")]
+        public DateTime? ClientInvitedDate { get; set; }
+
+        [Display(Name = "Signed Handover PDF Path")]
+        [StringLength(500)]
+        public string SignedHandoverPdfPath { get; set; }
         // Navigation Properties
         public virtual ICollection<HandoverDocument> Documents { get; set; }
 
@@ -100,6 +113,7 @@ namespace MuhleOP.Models
             Status = "Initiated";
             ClientSignOffStatus = "Pending";
             ProjectManagerSignOff = false;
+            ClientInvitedToSignOff = false;
             CreatedDate = DateTime.Now;
             Documents = new List<HandoverDocument>();
         }

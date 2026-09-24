@@ -198,9 +198,14 @@
     <Compile Include="Helpers\ContractPdfGenerator.cs" />
     <Compile Include="Helpers\ContractTemplateGenerator.cs" />
     <Compile Include="Helpers\EmailHelper.cs" />
+    <Compile Include="Helpers\HandoverPdfGenerator.cs" />
     <Compile Include="Migrations\202609221610013_AddPayRateAudit.cs" />
     <Compile Include="Migrations\202609221610013_AddPayRateAudit.Designer.cs">
       <DependentUpon>202609221610013_AddPayRateAudit.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\202609231811389_update-database.cs" />
+    <Compile Include="Migrations\202609231811389_update-database.Designer.cs">
+      <DependentUpon>202609231811389_update-database.cs</DependentUpon>
     </Compile>
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Models\AccountViewModels.cs" />
@@ -403,6 +408,9 @@
   <ItemGroup>
     <EmbeddedResource Include="Migrations\202609221610013_AddPayRateAudit.resx">
       <DependentUpon>202609221610013_AddPayRateAudit.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\202609231811389_update-database.resx">
+      <DependentUpon>202609231811389_update-database.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <PropertyGroup>

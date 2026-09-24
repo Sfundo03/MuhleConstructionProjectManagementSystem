@@ -92,6 +92,8 @@ namespace MuhleOP.ViewModels
         public string ClientSignOffStatus { get; set; }
         public DateTime? ClientSignOffDate { get; set; }
         public string ClientSignOffNotes { get; set; }
+        public bool ClientInvitedToSignOff { get; set; }
+        public DateTime? ClientInvitedDate { get; set; }
         public bool ProjectManagerSignOff { get; set; }
         public DateTime? ProjectManagerSignOffDate { get; set; }
         public string Status { get; set; }
@@ -102,6 +104,7 @@ namespace MuhleOP.ViewModels
         public string Recommendations { get; set; }
         public string ClientFeedback { get; set; }
         public string CertificatePath { get; set; }
+        public string SignedHandoverPdfPath { get; set; }
         public int? WarrantyPeriodDays { get; set; }
         public DateTime? WarrantyStartDate { get; set; }
         public DateTime? WarrantyEndDate { get; set; }
@@ -166,6 +169,7 @@ namespace MuhleOP.ViewModels
         public int? WarrantyPeriodDays { get; set; }
         public DateTime? WarrantyStartDate { get; set; }
         public DateTime? WarrantyEndDate { get; set; }
+        public DateTime? ClientInvitedDate { get; set; }
 
         public List<HandoverDocumentListItemViewModel> Documents { get; set; } = new List<HandoverDocumentListItemViewModel>();
 
