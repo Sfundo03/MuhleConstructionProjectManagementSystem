@@ -52,13 +52,17 @@ namespace MuhleOP.Models
         public decimal? CurrentValue { get; set; }
 
         [Display(Name = "Status")]
-        public string Status { get; set; } // Available, In Use, Under Maintenance, Retired
+        public string Status { get; set; } // Available, In Use, Under Maintenance, Retired, Damaged, In Repair
 
         [Display(Name = "Condition")]
         public string Condition { get; set; } // Excellent, Good, Fair, Poor
 
         [Display(Name = "Location")]
         public string Location { get; set; }
+
+        [Display(Name = "Current Location")]
+        [StringLength(200)]
+        public string CurrentLocation { get; set; }
 
         [Display(Name = "Is Active")]
         public bool IsActive { get; set; }
@@ -88,6 +92,7 @@ namespace MuhleOP.Models
         public virtual ICollection<EquipmentAssignment> Assignments { get; set; }
         public virtual ICollection<EquipmentMaintenance> Maintenances { get; set; }
         public virtual ICollection<EquipmentRepair> Repairs { get; set; }
+        public virtual ICollection<EquipmentCertificationRequirement> CertificationRequirements { get; set; }
 
         public Equipment()
         {
@@ -97,6 +102,7 @@ namespace MuhleOP.Models
             Assignments = new List<EquipmentAssignment>();
             Maintenances = new List<EquipmentMaintenance>();
             Repairs = new List<EquipmentRepair>();
+            CertificationRequirements = new List<EquipmentCertificationRequirement>();
             EquipmentCode = GenerateEquipmentCode();
         }
 
@@ -104,6 +110,22 @@ namespace MuhleOP.Models
         {
             return "EQP" + DateTime.Now.ToString("yyyyMMdd") + new Random().Next(1000, 9999).ToString();
         }
+    }
+
+    public class EquipmentCertificationRequirement
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        public int EquipmentId { get; set; }
+
+        [ForeignKey("EquipmentId")]
+        public virtual Equipment Equipment { get; set; }
+
+        [Required, StringLength(50)]
+        [Display(Name = "Required Certification")]
+        public string RequiredCertification { get; set; }
     }
 
     public class EquipmentMaintenance
@@ -127,7 +149,7 @@ namespace MuhleOP.Models
         public DateTime? ScheduledDate { get; set; }
 
         [Display(Name = "Maintenance Type")]
-        public string MaintenanceType { get; set; } // Routine, Preventative, Emergency, Compliance
+        public string MaintenanceType { get; set; }
 
         [Required]
         [Display(Name = "Description")]
@@ -153,7 +175,7 @@ namespace MuhleOP.Models
         public DateTime? NextMaintenanceDate { get; set; }
 
         [Display(Name = "Status")]
-        public string Status { get; set; } // Scheduled, In Progress, Completed, Cancelled
+        public string Status { get; set; }
 
         [Display(Name = "Completion Notes")]
         [DataType(DataType.MultilineText)]
@@ -212,7 +234,7 @@ namespace MuhleOP.Models
         public string TechnicianName { get; set; }
 
         [Display(Name = "Status")]
-        public string Status { get; set; } // Reported, In Progress, Completed, Verified
+        public string Status { get; set; }
 
         [Display(Name = "Repair Notes")]
         [DataType(DataType.MultilineText)]
