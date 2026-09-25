@@ -469,6 +469,7 @@ namespace MuhleOP.ViewModels
         public string ContractFilePath { get; set; }
         public string ReviewedBy { get; set; }
         public DateTime? ReviewedDate { get; set; }
+        public string ReviewNotes { get; set; } // Added ReviewNotes to resolve CS0117
         public string GeneratedPdfPath { get; set; }
         public string SignedPdfPath { get; set; }
         public DateTime? SentForReviewDate { get; set; }
