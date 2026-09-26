@@ -84,6 +84,7 @@ namespace MuhleOP.Models
 
         // Finance
         public DbSet<Payroll> Payrolls { get; set; }
+        public DbSet<PayrollPeriodLock> PayrollPeriodLocks { get; set; }
         public DbSet<ClientInvoice> ClientInvoices { get; set; }
         public DbSet<Supplier> Suppliers { get; set; }
         public DbSet<SupplierContract> SupplierContracts { get; set; }
@@ -170,6 +171,21 @@ namespace MuhleOP.Models
                 .HasPrecision(18, 2);
             modelBuilder.Entity<Payroll>()
                 .Property(p => p.Bonus)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.MedicalAidContribution)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.PensionContribution)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.OtherDeductions)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.OtherAdditions)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.AdvanceRecovery)
                 .HasPrecision(18, 2);
 
             modelBuilder.Entity<SupplierContract>()

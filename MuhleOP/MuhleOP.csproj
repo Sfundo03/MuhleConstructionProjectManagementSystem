@@ -199,6 +199,7 @@
     <Compile Include="Helpers\ContractTemplateGenerator.cs" />
     <Compile Include="Helpers\EmailHelper.cs" />
     <Compile Include="Helpers\HandoverPdfGenerator.cs" />
+    <Compile Include="Helpers\PayslipPdfGenerator.cs" />
     <Compile Include="Migrations\202609221610013_AddPayRateAudit.cs" />
     <Compile Include="Migrations\202609221610013_AddPayRateAudit.Designer.cs">
       <DependentUpon>202609221610013_AddPayRateAudit.cs</DependentUpon>

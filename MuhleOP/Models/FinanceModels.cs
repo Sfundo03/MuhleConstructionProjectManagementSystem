@@ -95,10 +95,34 @@ namespace MuhleOP.Models
         [Display(Name = "Processed Date")]
         public DateTime? ProcessedDate { get; set; }
 
+        // UC22 Additions
+        [StringLength(4000)]
+        public string ValidationWarningsJson { get; set; }
+
+        public decimal? MedicalAidContribution { get; set; }
+        public decimal? PensionContribution { get; set; }
+        public decimal? OtherDeductions { get; set; }
+        public decimal? OtherAdditions { get; set; }
+        public decimal? AdvanceRecovery { get; set; }
+
+        [StringLength(1000)]
+        public string DeductionNotes { get; set; }
+
+        [StringLength(1000)]
+        public string AdditionNotes { get; set; }
+
+        [StringLength(500)]
+        public string PayslipPdfPath { get; set; }
+
         public Payroll()
         {
             Status = "Draft";
             TotalAmount = 0;
+            MedicalAidContribution = 0m;
+            PensionContribution = 0m;
+            OtherDeductions = 0m;
+            OtherAdditions = 0m;
+            AdvanceRecovery = 0m;
         }
 
         // Helper method to calculate totals
@@ -106,13 +130,35 @@ namespace MuhleOP.Models
         {
             RegularPay = RegularHours * HourlyRate;
             OvertimePay = OvertimeHours * OvertimeRate;
-            GrossPay = RegularPay + OvertimePay + Bonus;
-            NetPay = GrossPay - Deductions - Tax;
+            GrossPay = RegularPay + OvertimePay + Bonus + (OtherAdditions ?? 0m);
+            var totalDeductions = Deductions + (MedicalAidContribution ?? 0m) + (PensionContribution ?? 0m) + (OtherDeductions ?? 0m) + (AdvanceRecovery ?? 0m);
+            NetPay = GrossPay - totalDeductions - Tax;
             TotalAmount = NetPay;
         }
     }
 
-    // Rest of the finance models remain the same...
+    public class PayrollPeriodLock
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        public DateTime PeriodStart { get; set; }
+
+        [Required]
+        public DateTime PeriodEnd { get; set; }
+
+        public bool IsLocked { get; set; }
+
+        [StringLength(100)]
+        public string LockedBy { get; set; }
+
+        public DateTime? LockedDate { get; set; }
+
+        [StringLength(500)]
+        public string LockReason { get; set; }
+    }
+
     public class ClientInvoice
     {
         [Key]

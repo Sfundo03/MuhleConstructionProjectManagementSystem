@@ -1,10 +1,45 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Web.Mvc;
 
 namespace MuhleOP.ViewModels
 {
+    public class PayrollAnomaly
+    {
+        public string Code { get; set; }        // e.g. "MISSING_CHECKOUT"
+        public string Severity { get; set; }    // Warning, Blocker
+        public string Message { get; set; }     // human-readable
+        public string RelatedRecord { get; set; } // optional reference
+    }
+
+    public class PayrollValidationResult
+    {
+        public List<PayrollAnomaly> Anomalies { get; set; } = new List<PayrollAnomaly>();
+        public bool HasBlocker => Anomalies.Any(a => a.Severity == "Blocker");
+        public bool HasWarning => Anomalies.Any(a => a.Severity == "Warning");
+    }
+
+    public class PayrollAnomalyViewModel
+    {
+        public string Code { get; set; }
+        public string Severity { get; set; }
+        public string Message { get; set; }
+        public string RelatedRecord { get; set; }
+    }
+
+    public class PayrollPeriodLockViewModel
+    {
+        public int Id { get; set; }
+        public DateTime PeriodStart { get; set; }
+        public DateTime PeriodEnd { get; set; }
+        public bool IsLocked { get; set; }
+        public string LockedBy { get; set; }
+        public DateTime? LockedDate { get; set; }
+        public string LockReason { get; set; }
+    }
+
     public class PayrollIndexViewModel
     {
         public List<PayrollListItemViewModel> Items { get; set; } = new List<PayrollListItemViewModel>();
@@ -22,6 +57,11 @@ namespace MuhleOP.ViewModels
         public List<SelectListItem> Statuses { get; set; } = new List<SelectListItem>();
         public decimal TotalGross { get; set; }
         public decimal TotalNet { get; set; }
+
+        public bool IsPeriodLocked { get; set; }
+        public string PeriodLockReason { get; set; }
+        public string PeriodLockedBy { get; set; }
+        public DateTime? PeriodLockedDate { get; set; }
     }
 
     public class PayrollListItemViewModel
@@ -43,6 +83,12 @@ namespace MuhleOP.ViewModels
         public string StatusBadgeColor { get; set; }
         public DateTime? PaymentDate { get; set; }
         public string PaymentMethod { get; set; }
+
+        public bool IsPeriodLocked { get; set; }
+        public bool HasPayslip { get; set; }
+        public bool HasWarning { get; set; }
+        public string PayslipPdfPath { get; set; }
+        public string ValidationWarningsJson { get; set; }
     }
 
     public class GeneratePayrollViewModel
@@ -62,6 +108,12 @@ namespace MuhleOP.ViewModels
         public int GeneratedCount { get; set; }
         public int SkippedCount { get; set; }
         public List<string> Messages { get; set; } = new List<string>();
+
+        // Preview properties for generate GET
+        public int PreviewActiveStaffCount { get; set; }
+        public int PreviewZeroRateStaffCount { get; set; }
+        public int PreviewMissingClockOutCount { get; set; }
+        public bool IsPeriodLocked { get; set; }
     }
 
     public class PayrollDetailsViewModel
@@ -108,6 +160,22 @@ namespace MuhleOP.ViewModels
         public bool CanApprove { get; set; }
         public bool CanProcess { get; set; }
         public bool CanMarkPaid { get; set; }
+
+        // UC22 Additions
+        public List<PayrollAnomalyViewModel> Anomalies { get; set; } = new List<PayrollAnomalyViewModel>();
+        public bool HasBlocker { get; set; }
+        public bool HasWarning { get; set; }
+
+        public decimal MedicalAidContribution { get; set; }
+        public decimal PensionContribution { get; set; }
+        public decimal OtherDeductions { get; set; }
+        public decimal OtherAdditions { get; set; }
+        public decimal AdvanceRecovery { get; set; }
+
+        public string DeductionNotes { get; set; }
+        public string AdditionNotes { get; set; }
+        public string PayslipPdfPath { get; set; }
+        public bool IsPeriodLocked { get; set; }
     }
 
     // ------------------------------------------------------------------
@@ -153,7 +221,7 @@ namespace MuhleOP.ViewModels
         public string StaffName { get; set; }
         public string EmployeeId { get; set; }
         public string PeriodLabel { get; set; }
-        public decimal NetPay { get; set; }
+        public decimal NetPay { get; set; } // Fixed: get; set; instead of get.Set;
         public string CurrentBankAccount { get; set; }
 
         [Required(ErrorMessage = "Payment method is required")]

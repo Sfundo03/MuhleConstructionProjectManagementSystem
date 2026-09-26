@@ -1,5 +1,4 @@
-﻿
-@model MuhleOP.ViewModels.PayrollIndexViewModel
+﻿@model MuhleOP.ViewModels.PayrollIndexViewModel
 @{
     ViewBag.Title = "Payroll";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -14,6 +13,9 @@
         <div class="d-flex gap-2">
             <a href="@Url.Action("Generate")" class="btn btn-primary">
                 <i class="fa-solid fa-plus me-1"></i> Generate Payroll
+            </a>
+            <a href="@Url.Action("MyPayslips")" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-file-pdf me-1"></i> My Payslips
             </a>
         </div>
     </div>
@@ -107,10 +109,57 @@
                     <a href="@Url.Action("Index")" class="btn btn-outline-secondary">Clear</a>
                 </div>
             }
+
+            @if (Model.FilterYear.HasValue && Model.FilterMonth.HasValue && User.IsInRole("Finance Officer"))
+            {
+                <hr />
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="fw-semibold">Period Lock Status:</span>
+                        @if (Model.IsPeriodLocked)
+                        {
+                            <span class="badge bg-danger ms-2"><i class="fa-solid fa-lock me-1"></i> Locked</span>
+                            <span class="text-muted small ms-1">by @Model.PeriodLockedBy on @(Model.PeriodLockedDate.HasValue ? Model.PeriodLockedDate.Value.ToString("dd MMM yyyy") : "")</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success ms-2"><i class="fa-solid fa-lock-open me-1"></i> Unlocked</span>
+                        }
+                    </div>
+                    <div>
+                        @if (Model.IsPeriodLocked)
+                        {
+                            using (Html.BeginForm("UnlockPeriod", "Payroll", FormMethod.Post, new { @class = "d-inline" }))
+                            {
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="year" value="@Model.FilterYear" />
+                                <input type="hidden" name="month" value="@Model.FilterMonth" />
+                                <input type="hidden" name="reason" value="Unlocked by administrator" />
+                                <button type="submit" class="btn btn-sm btn-outline-success">
+                                    <i class="fa-solid fa-lock-open me-1"></i> Unlock Period
+                                </button>
+                            }
+                        }
+                        else
+                        {
+                            using (Html.BeginForm("LockPeriod", "Payroll", FormMethod.Post, new { @class = "d-inline" }))
+                            {
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="year" value="@Model.FilterYear" />
+                                <input type="hidden" name="month" value="@Model.FilterMonth" />
+                                <input type="hidden" name="reason" value="Locked by Finance Officer" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Lock this payroll period? This will prevent new generations and calculations.');">
+                                    <i class="fa-solid fa-lock me-1"></i> Lock Period
+                                </button>
+                            }
+                        }
+                    </div>
+                </div>
+            }
         </div>
     </div>
 
-    @if (Model.FilterYear.HasValue && Model.FilterMonth.HasValue && Model.DraftCount + Model.CalculatedCount > 0)
+    @if (Model.FilterYear.HasValue && Model.FilterMonth.HasValue && Model.DraftCount + Model.CalculatedCount > 0 && !Model.IsPeriodLocked)
     {
         <div class="mb-3">
             @using (Html.BeginForm("BulkCalculate", "Payroll", FormMethod.Post))
@@ -156,10 +205,26 @@
                             {
                                 <tr>
                                     <td>
-                                        <div class="fw-semibold">@item.StaffName</div>
+                                        <div class="fw-semibold">
+                                            @item.StaffName
+                                            @if (item.HasWarning)
+                                            {
+                                                <span class="text-warning ms-1" title="Has validation warnings">⚠</span>
+                                            }
+                                            @if (item.IsPeriodLocked)
+                                            {
+                                                <span class="badge bg-danger ms-1" style="font-size: 0.65rem;">Locked</span>
+                                            }
+                                        </div>
                                         <div class="small text-muted">@item.EmployeeId · @item.Role</div>
                                     </td>
-                                    <td>@item.PeriodLabel</td>
+                                    <td>
+                                        @item.PeriodLabel
+                                        @if (item.HasPayslip)
+                                        {
+                                            <span class="text-success ms-1" title="Payslip PDF generated">📄</span>
+                                        }
+                                    </td>
                                     <td class="text-end">@item.RegularHours.ToString("N2")</td>
                                     <td class="text-end">@item.OvertimeHours.ToString("N2")</td>
                                     <td class="text-end">R @item.GrossPay.ToString("N2")</td>
