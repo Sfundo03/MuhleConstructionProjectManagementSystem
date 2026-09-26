@@ -88,9 +88,11 @@ namespace MuhleOP.Models
         public DbSet<Supplier> Suppliers { get; set; }
         public DbSet<SupplierContract> SupplierContracts { get; set; }
         public DbSet<PayRateAudit> PayRateAudits { get; set; }
-        // Project Handover
+
+        // Project Handover & Snag Items
         public DbSet<ProjectHandover> ProjectHandovers { get; set; }
         public DbSet<HandoverDocument> HandoverDocuments { get; set; }
+        public DbSet<SnagItem> SnagItems { get; set; }
 
         // Quiz Tables
         public DbSet<Quiz> Quizzes { get; set; }
@@ -347,6 +349,13 @@ namespace MuhleOP.Models
                 .HasForeignKey(ph => ph.ProjectId)
                 .WillCascadeOnDelete(true);
 
+            // SnagItem relationship configuration
+            modelBuilder.Entity<SnagItem>()
+                .HasRequired(s => s.ProjectHandover)
+                .WithMany(h => h.SnagItems)
+                .HasForeignKey(s => s.ProjectHandoverId)
+                .WillCascadeOnDelete(true);
+
             modelBuilder.Entity<Project>()
                 .HasRequired(p => p.ProjectManager)
                 .WithMany(s => s.ManagedProjects)
@@ -538,36 +547,6 @@ namespace MuhleOP.Models
                 .WithMany()
                 .HasForeignKey(qa => qa.ApplicationId)
                 .WillCascadeOnDelete(true);
-        }
-
-        private static void SeedInspectionTemplateItems(ApplicationDbContext ctx)
-        {
-            if (ctx.InspectionTemplateItems.Any()) return;
-            var items = new List<InspectionTemplateItem>
-            {
-                new InspectionTemplateItem { InspectionType = "Safety", ItemLabel = "PPE compliance among all workers", Category = "General", Order = 1, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Safety", ItemLabel = "Scaffolding and edge protection secured", Category = "Heights", Order = 2, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Safety", ItemLabel = "Fire extinguishers inspected and accessible", Category = "Equipment", Order = 3, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Safety", ItemLabel = "First aid kits fully stocked", Category = "General", Order = 4, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Safety", ItemLabel = "Electrical cabling safely routed and protected", Category = "Electrical", Order = 5, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Quality", ItemLabel = "Foundation depth and compaction verified", Category = "Foundation", Order = 1, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Quality", ItemLabel = "Concrete mix grade and slump test compliant", Category = "Foundation", Order = 2, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Quality", ItemLabel = "Structural framing alignment and plumb check", Category = "Framing", Order = 3, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Quality", ItemLabel = "Waterproofing applied correctly", Category = "Building Envelope", Order = 4, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Quality", ItemLabel = "Finishes and paintwork standard check", Category = "Finishes", Order = 5, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Progress", ItemLabel = "Milestone tasks on schedule", Category = "Schedule", Order = 1, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Progress", ItemLabel = "Labor headcount matches planned allocation", Category = "Resources", Order = 2, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Progress", ItemLabel = "Materials on site sufficient for upcoming week", Category = "Materials", Order = 3, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Progress", ItemLabel = "Equipment operational and on schedule", Category = "Equipment", Order = 4, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Progress", ItemLabel = "Site cleanup and waste management maintained", Category = "General", Order = 5, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Compliance", ItemLabel = "Approved architectural plans followed", Category = "Documentation", Order = 1, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Compliance", ItemLabel = "Environmental regulations and dust control observed", Category = "Environmental", Order = 2, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Compliance", ItemLabel = "Noise restrictions and working hours adhered to", Category = "Regulations", Order = 3, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Compliance", ItemLabel = "Municipal permits displayed on site", Category = "Documentation", Order = 4, IsActive = true },
-                new InspectionTemplateItem { InspectionType = "Compliance", ItemLabel = "Waste disposal certificates available", Category = "Environmental", Order = 5, IsActive = true }
-            };
-            ctx.InspectionTemplateItems.AddRange(items);
-            ctx.SaveChanges();
         }
     }
 }

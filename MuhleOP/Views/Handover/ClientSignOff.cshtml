@@ -1,5 +1,4 @@
-﻿﻿
-@model MuhleOP.ViewModels.ClientSignOffViewModel
+﻿@model MuhleOP.ViewModels.ClientSignOffViewModel
 @{
     ViewBag.Title = "Client Sign-off";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -17,12 +16,15 @@
     <div>
         <h4 class="mb-1">Project Sign-off</h4>
         <p class="text-muted mb-0">@Model.ProjectName (@Model.ProjectCode) — @Model.HandoverType handover</p>
-        @if (Model.ClientInvitedDate.HasValue)
-        {
-            <p class="text-muted small mb-0">Invited to sign off on @Model.ClientInvitedDate.Value.ToString("dd MMM yyyy HH:mm").</p>
-        }
     </div>
 </div>
+
+@if (Model.HasOpenCriticalSnags)
+{
+    <div class="alert alert-danger mb-4" role="alert">
+        <strong>Action Blocked:</strong> There are unresolved critical snag(s). The Site Manager must resolve them before you can sign off.
+    </div>
+}
 
 <div class="row g-3">
     <div class="col-lg-7">
@@ -43,34 +45,70 @@
                         <div style="white-space: pre-wrap;">@Model.CompletionNotes</div>
                     </div>
                 }
-                @if (!string.IsNullOrWhiteSpace(Model.LessonsLearned))
-                {
-                    <div class="mb-3">
-                        <div class="text-muted small">Lessons Learned</div>
-                        <div>@Model.LessonsLearned</div>
-                    </div>
-                }
-                @if (!string.IsNullOrWhiteSpace(Model.Recommendations))
-                {
-                    <div class="mb-3">
-                        <div class="text-muted small">Recommendations</div>
-                        <div>@Model.Recommendations</div>
-                    </div>
-                }
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="text-muted small">Warranty Period</div>
-                        <div>@(Model.WarrantyPeriodDays.HasValue ? Model.WarrantyPeriodDays + " days" : "—")</div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="text-muted small">Warranty Start</div>
-                        <div>@(Model.WarrantyStartDate.HasValue ? Model.WarrantyStartDate.Value.ToString("dd MMM yyyy") : "—")</div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="text-muted small">Warranty End</div>
-                        <div>@(Model.WarrantyEndDate.HasValue ? Model.WarrantyEndDate.Value.ToString("dd MMM yyyy") : "—")</div>
-                    </div>
+            </div>
+        </div>
+
+        <!-- Snag Review & Client Add Snag -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">Recorded Snags</span>
+                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#clientAddSnag">
+                    <i class="fas fa-plus me-1"></i> Report Snag
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="collapse mb-3 p-3 bg-light rounded" id="clientAddSnag">
+                    @using (Html.BeginForm("AddSnag", "Handover", FormMethod.Post))
+                    {
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="handoverId" value="@Model.HandoverId" />
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label small">Description</label>
+                                <input type="text" name="description" class="form-control form-control-sm" required maxlength="300" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">Location</label>
+                                <input type="text" name="location" class="form-control form-control-sm" maxlength="200" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">Severity</label>
+                                <select name="severity" class="form-select form-select-sm">
+                                    <option value="Minor">Minor</option>
+                                    <option value="Major">Major</option>
+                                    <option value="Critical">Critical</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">Responsible Party</label>
+                                <input type="text" name="responsibleParty" class="form-control form-control-sm" value="Contractor" required maxlength="150" />
+                            </div>
+                            <div class="col-12 mt-2">
+                                <button type="submit" class="btn btn-sm btn-primary">Submit Snag</button>
+                            </div>
+                        </div>
+                    }
                 </div>
+
+                @if (Model.Snags == null || !Model.Snags.Any())
+                {
+                    <div class="text-muted small">No snags recorded.</div>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var s in Model.Snags)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <code>@s.ReferenceNumber</code> — @s.Description
+                                    <span class="badge bg-@(s.Severity == "Critical" ? "danger" : "secondary") ms-1">@s.Severity</span>
+                                </div>
+                                <span class="badge bg-info">@s.Status</span>
+                            </li>
+                        }
+                    </ul>
+                }
             </div>
         </div>
 
@@ -89,7 +127,7 @@
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 <div>
                                     <div class="fw-semibold">@doc.DocumentName</div>
-                                    <small class="text-muted">@doc.DocumentType · @doc.UploadDate.ToString("dd MMM yyyy")</small>
+                                    <small class="text-muted">@doc.DocumentType</small>
                                 </div>
                                 <a href="@Url.Action("DownloadDocument", new { id = doc.Id })" class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-download"></i>
@@ -103,12 +141,9 @@
     </div>
 
     <div class="col-lg-5">
-        <div class="card">
+        <div class="card mb-3">
             <div class="card-header fw-semibold">Digital Sign-off</div>
             <div class="card-body">
-                <div class="alert alert-info small" role="alert">
-                    You will receive an email with the signed handover certificate (PDF) attached as soon as you confirm.
-                </div>
                 @using (Html.BeginForm("ClientSignOff", "Handover", FormMethod.Post))
                 {
                     @Html.AntiForgeryToken()
@@ -116,27 +151,48 @@
                     @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
 
                     <div class="mb-3 form-check">
-                        @Html.CheckBoxFor(m => m.AcceptTerms, new { @class = "form-check-input", id = "AcceptTerms" })
+                        @Html.CheckBoxFor(m => m.AcceptTerms, new { @class = "form-check-input", id = "AcceptTerms", @disabled = Model.HasOpenCriticalSnags ? "disabled" : null })
                         <label class="form-check-label" for="AcceptTerms">
-                            I accept the project as completed and confirm that the works meet the agreed requirements.
+                            I accept the project as completed and confirm that the works meet agreed requirements.
                         </label>
-                        @Html.ValidationMessageFor(m => m.AcceptTerms, "", new { @class = "text-danger small d-block" })
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">@Html.DisplayNameFor(m => m.ClientFeedback)</label>
-                        @Html.TextAreaFor(m => m.ClientFeedback, new { @class = "form-control", rows = 3, placeholder = "Optional feedback about the project..." })
+                        @Html.TextAreaFor(m => m.ClientFeedback, new { @class = "form-control", rows = 3 })
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">@Html.DisplayNameFor(m => m.ClientSignOffNotes)</label>
-                        @Html.TextAreaFor(m => m.ClientSignOffNotes, new { @class = "form-control", rows = 2, placeholder = "Any additional notes..." })
+                        @Html.TextAreaFor(m => m.ClientSignOffNotes, new { @class = "form-control", rows = 2 })
                     </div>
 
-                    <button type="submit" class="btn btn-success w-100">
+                    <button type="submit" class="btn btn-success w-100 @(Model.HasOpenCriticalSnags ? "disabled" : "")" @(Model.HasOpenCriticalSnags ? "disabled" : "")>
                         <i class="fas fa-signature me-1"></i> Confirm Sign-off
                     </button>
                 }
+            </div>
+        </div>
+
+        <!-- Refusal Panel -->
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white fw-semibold">Refuse Sign-off</div>
+            <div class="card-body">
+                <button class="btn btn-outline-danger w-100 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#refusalForm">
+                    Refuse Sign-off
+                </button>
+                <div class="collapse" id="refusalForm">
+                    @using (Html.BeginForm("RefuseSignOff", "Handover", FormMethod.Post))
+                    {
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="HandoverId" value="@Model.HandoverId" />
+                        <div class="mb-2">
+                            <label class="form-label small">Reason for Refusal</label>
+                            <textarea name="RefusalReason" class="form-control form-control-sm" rows="3" required maxlength="1000"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-danger btn-sm w-100">Submit Refusal</button>
+                    }
+                </div>
             </div>
         </div>
     </div>

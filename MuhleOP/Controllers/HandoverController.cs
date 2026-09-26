@@ -21,6 +21,45 @@ namespace MuhleOP.Controllers
     {
         private readonly ApplicationDbContext db = new ApplicationDbContext();
 
+        private static readonly string[] RequiredHandoverDocumentTypes =
+        {
+            "As-Built Drawings",
+            "Warranty Certificates",
+            "Operation Manuals",
+            "Compliance Certificates"
+        };
+
+        private static bool IsValidSnagTransition(string from, string to)
+        {
+            if (string.Equals(from, to, StringComparison.OrdinalIgnoreCase)) return true;
+            if (string.Equals(from, "Open", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(to, "In Progress", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(to, "Fixed", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(to, "Rejected", StringComparison.OrdinalIgnoreCase);
+            }
+            if (string.Equals(from, "In Progress", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(to, "Fixed", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(to, "Rejected", StringComparison.OrdinalIgnoreCase);
+            }
+            if (string.Equals(from, "Fixed", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(to, "Verified", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(to, "Rejected", StringComparison.OrdinalIgnoreCase);
+            }
+            if (string.Equals(from, "Rejected", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(to, "In Progress", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(to, "Fixed", StringComparison.OrdinalIgnoreCase);
+            }
+            if (string.Equals(from, "Verified", StringComparison.OrdinalIgnoreCase))
+            {
+                return false; // Terminal state
+            }
+            return false;
+        }
+
         private ApplicationUserManager _userManager;
         private ApplicationUserManager UserManager
         {
@@ -229,6 +268,7 @@ namespace MuhleOP.Controllers
                 .Include(h => h.Project.Client)
                 .Include(h => h.Project.ProjectManager)
                 .Include(h => h.Documents)
+                .Include(h => h.SnagItems)
                 .FirstOrDefault(h => h.Id == id);
 
             if (handover == null)
@@ -247,6 +287,42 @@ namespace MuhleOP.Controllers
                     return RedirectToAction("Dashboard", "Home");
                 }
             }
+
+            var snagsList = (handover.SnagItems ?? new List<SnagItem>())
+                .Select(s => new SnagItemViewModel
+                {
+                    Id = s.Id,
+                    ProjectHandoverId = s.ProjectHandoverId,
+                    ReferenceNumber = s.ReferenceNumber,
+                    Description = s.Description,
+                    Location = s.Location,
+                    Severity = s.Severity,
+                    ResponsibleParty = s.ResponsibleParty,
+                    DueDate = s.DueDate,
+                    Status = s.Status,
+                    ReportedBy = s.ReportedBy,
+                    ReportedDate = s.ReportedDate,
+                    ResolutionNotes = s.ResolutionNotes
+                }).ToList();
+
+            var openCritical = snagsList.Count(s => s.Severity == "Critical" && s.Status != "Verified");
+            var openMajor = snagsList.Count(s => s.Severity == "Major" && s.Status != "Verified");
+            var openMinor = snagsList.Count(s => s.Severity == "Minor" && s.Status != "Verified");
+
+            // Document checklist check
+            var uploadedTypes = (handover.Documents ?? new List<HandoverDocument>())
+                .Select(d => d.DocumentType)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var missingTypes = RequiredHandoverDocumentTypes
+                .Where(req => !uploadedTypes.Contains(req, StringComparer.OrdinalIgnoreCase))
+                .ToList();
+
+            // Open variations check
+            var openVariations = db.ProjectVariations
+                .Where(v => v.ProjectId == handover.ProjectId && (v.Status == "Requested" || v.Status == "Under Review"))
+                .ToList();
 
             var viewModel = new HandoverDetailsViewModel
             {
@@ -277,11 +353,22 @@ namespace MuhleOP.Controllers
                 ClientFeedback = handover.ClientFeedback,
                 CertificatePath = handover.CertificatePath,
                 SignedHandoverPdfPath = handover.SignedHandoverPdfPath,
+                ClientSignatureIpAddress = handover.ClientSignatureIpAddress,
+                ClientSignatureUserAgent = handover.ClientSignatureUserAgent,
+                ClientAcceptanceLetterPath = handover.ClientAcceptanceLetterPath,
+                ClosureReportPath = handover.ClosureReportPath,
+                IsPracticalCompletionPending = string.Equals(handover.Status, "Practical Completion Pending", StringComparison.OrdinalIgnoreCase),
                 WarrantyPeriodDays = handover.WarrantyPeriodDays,
                 WarrantyStartDate = handover.WarrantyStartDate,
                 WarrantyEndDate = handover.WarrantyEndDate,
                 CreatedBy = handover.CreatedBy,
                 CreatedDate = handover.CreatedDate,
+                Snags = snagsList,
+                OpenCriticalSnagCount = openCritical,
+                OpenMajorSnagCount = openMajor,
+                OpenMinorSnagCount = openMinor,
+                MissingRequiredDocumentTypes = missingTypes,
+                OpenVariations = openVariations,
                 Documents = (handover.Documents ?? Enumerable.Empty<HandoverDocument>())
                     .OrderByDescending(d => d.UploadDate)
                     .Select(d => new HandoverDocumentListItemViewModel
@@ -299,6 +386,227 @@ namespace MuhleOP.Controllers
             };
 
             return View(viewModel);
+        }
+
+        // ------------------------------------------------------------------
+        // Snag & Refusal Actions (UC23 Enhancements)
+        // ------------------------------------------------------------------
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin, Project Manager, Site Manager, Client")]
+        public async Task<ActionResult> AddSnag(int handoverId, string description, string location, string severity, string responsibleParty, DateTime? dueDate)
+        {
+            var handover = db.ProjectHandovers.Include(h => h.Project).FirstOrDefault(h => h.Id == handoverId);
+            if (handover == null)
+            {
+                TempData["ErrorMessage"] = "Handover not found.";
+                return RedirectToAction("Index");
+            }
+
+            if (User.IsInRole("Client"))
+            {
+                if (handover.ClientSignOffStatus != "Pending")
+                {
+                    TempData["ErrorMessage"] = "You cannot add snags after signing off.";
+                    return RedirectToAction("ClientSignOff", new { id = handoverId });
+                }
+            }
+            else if (!User.IsInRole("Admin") && !User.IsInRole("Project Manager") && !User.IsInRole("Site Manager"))
+            {
+                TempData["ErrorMessage"] = "Unauthorized action.";
+                return RedirectToAction("HandoverDetails", new { id = handoverId });
+            }
+
+            if (string.IsNullOrWhiteSpace(description) || string.IsNullOrWhiteSpace(severity) || string.IsNullOrWhiteSpace(responsibleParty))
+            {
+                TempData["ErrorMessage"] = "Please fill in all required snag fields.";
+                return User.IsInRole("Client") ? RedirectToAction("ClientSignOff", new { id = handoverId }) : RedirectToAction("HandoverDetails", new { id = handoverId });
+            }
+
+            var snag = new SnagItem
+            {
+                ProjectHandoverId = handover.Id,
+                Description = description,
+                Location = location,
+                Severity = severity,
+                ResponsibleParty = responsibleParty,
+                DueDate = dueDate,
+                Status = "Open",
+                ReportedBy = User.Identity.Name,
+                ReportedDate = DateTime.Now,
+                ReferenceNumber = "TEMP"
+            };
+
+            db.SnagItems.Add(snag);
+            await db.SaveChangesAsync();
+
+            snag.ReferenceNumber = $"SNAG-{snag.Id:D4}";
+            await db.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Snag {snag.ReferenceNumber} added successfully.";
+            return User.IsInRole("Client") ? RedirectToAction("ClientSignOff", new { id = handoverId }) : RedirectToAction("HandoverDetails", new { id = handoverId });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin, Project Manager, Site Manager")]
+        public async Task<ActionResult> UpdateSnagStatus(int snagId, string newStatus, string resolutionNotes)
+        {
+            var snag = db.SnagItems.Include(s => s.ProjectHandover).FirstOrDefault(s => s.Id == snagId);
+            if (snag == null)
+            {
+                TempData["ErrorMessage"] = "Snag not found.";
+                return RedirectToAction("Index");
+            }
+
+            if (!IsValidSnagTransition(snag.Status, newStatus))
+            {
+                TempData["ErrorMessage"] = $"Invalid status transition from '{snag.Status}' to '{newStatus}'.";
+                return RedirectToAction("HandoverDetails", new { id = snag.ProjectHandoverId });
+            }
+
+            snag.Status = newStatus;
+            if (!string.IsNullOrWhiteSpace(resolutionNotes))
+            {
+                snag.ResolutionNotes = resolutionNotes;
+            }
+            if (newStatus == "Verified")
+            {
+                snag.VerifiedBy = User.Identity.Name;
+                snag.VerifiedDate = DateTime.Now;
+            }
+
+            await db.SaveChangesAsync();
+            TempData["SuccessMessage"] = $"Snag {snag.ReferenceNumber} status updated to {newStatus}.";
+            return RedirectToAction("HandoverDetails", new { id = snag.ProjectHandoverId });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin, Project Manager")]
+        public async Task<ActionResult> DeleteSnag(int snagId)
+        {
+            var snag = db.SnagItems.FirstOrDefault(s => s.Id == snagId);
+            if (snag == null)
+            {
+                TempData["ErrorMessage"] = "Snag not found.";
+                return RedirectToAction("Index");
+            }
+
+            if (snag.Status != "Open")
+            {
+                TempData["ErrorMessage"] = "Only open snags can be deleted.";
+                return RedirectToAction("HandoverDetails", new { id = snag.ProjectHandoverId });
+            }
+
+            int handoverId = snag.ProjectHandoverId;
+            db.SnagItems.Remove(snag);
+            await db.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Snag deleted successfully.";
+            return RedirectToAction("HandoverDetails", new { id = handoverId });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Client")]
+        public async Task<ActionResult> RefuseSignOff(RefuseSignOffViewModel model)
+        {
+            var handover = db.ProjectHandovers
+                .Include(h => h.Project)
+                .Include(h => h.Project.Client)
+                .Include(h => h.Project.ProjectManager)
+                .Include(h => h.Project.SiteManager)
+                .FirstOrDefault(h => h.Id == model.HandoverId);
+
+            if (handover == null)
+            {
+                TempData["ErrorMessage"] = "Handover not found.";
+                return RedirectToAction("Dashboard", "Home");
+            }
+
+            var client = ResolveCurrentClient();
+            if (client == null || handover.Project == null || handover.Project.ClientId != client.Id)
+            {
+                TempData["ErrorMessage"] = "You do not have access to this handover.";
+                return RedirectToAction("Dashboard", "Home");
+            }
+
+            if (handover.ClientSignOffStatus == "Signed")
+            {
+                TempData["ErrorMessage"] = "This handover has already been signed off.";
+                return RedirectToAction("HandoverDetails", new { id = handover.Id });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                TempData["ErrorMessage"] = "Refusal reason is required.";
+                return RedirectToAction("ClientSignOff", new { id = handover.Id });
+            }
+
+            handover.Status = "Practical Completion Pending";
+            handover.ClientSignOffStatus = "Rejected";
+            handover.LastModifiedDate = DateTime.Now;
+            handover.CompletionNotes = (handover.CompletionNotes ?? "") +
+                $" [{DateTime.Now:yyyy-MM-dd HH:mm} by {User.Identity.Name}] Sign-off refused. Reason: {model.RefusalReason}";
+
+            await db.SaveChangesAsync();
+
+            var currentUserId = User.Identity.GetUserId();
+            if (handover.Project?.ProjectManager != null && !string.IsNullOrEmpty(handover.Project.ProjectManager.UserId))
+            {
+                await NotifyStakeholder(
+                    handover.Project.ProjectManager.UserId,
+                    "Client Refused Sign-off",
+                    $"Client refused sign-off for project '{handover.Project.ProjectName}'. Reason: {model.RefusalReason}",
+                    "Project",
+                    $"/Handover/HandoverDetails/{handover.Id}"
+                );
+            }
+            await NotifyAdmins(
+                "Client Refused Sign-off",
+                $"Client refused sign-off for project '{handover.Project?.ProjectName}'.",
+                $"/Handover/HandoverDetails/{handover.Id}",
+                skipUserId: currentUserId
+            );
+
+            TempData["SuccessMessage"] = "Sign-off refusal recorded. The project manager has been notified.";
+            return RedirectToAction("HandoverDetails", new { id = handover.Id });
+        }
+
+        [Authorize(Roles = "Admin, Project Manager, Site Manager, Client")]
+        public ActionResult DownloadClosureReport(int id)
+        {
+            var handover = db.ProjectHandovers
+                .Include(h => h.Project)
+                .Include(h => h.Project.Client)
+                .FirstOrDefault(h => h.Id == id);
+
+            if (handover == null || string.IsNullOrEmpty(handover.ClosureReportPath))
+            {
+                TempData["ErrorMessage"] = "Closure report not found.";
+                return RedirectToAction("Index");
+            }
+
+            if (User.IsInRole("Client") && !User.IsInRole("Admin"))
+            {
+                var client = ResolveCurrentClient();
+                if (client == null || handover.Project == null || handover.Project.ClientId != client.Id)
+                {
+                    TempData["ErrorMessage"] = "You do not have access to this closure report.";
+                    return RedirectToAction("Dashboard", "Home");
+                }
+            }
+
+            var physicalPath = Server.MapPath("~" + handover.ClosureReportPath);
+            if (!System.IO.File.Exists(physicalPath))
+            {
+                TempData["ErrorMessage"] = "Closure report file is missing on the server.";
+                return RedirectToAction("HandoverDetails", new { id = handover.Id });
+            }
+
+            return File(physicalPath, "application/pdf", $"ClosureReport_{handover.Id}.pdf");
         }
 
         // ------------------------------------------------------------------
@@ -347,10 +655,6 @@ namespace MuhleOP.Controllers
                         "Project",
                         $"/Handover/ClientSignOff/{handover.Id}"
                     );
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine($"InviteClientToSignOff: No Client UserId for handover {id}");
                 }
 
                 if (handover.Project?.Client != null && !string.IsNullOrEmpty(handover.Project.Client.ContactEmail))
@@ -496,6 +800,7 @@ namespace MuhleOP.Controllers
                 .Include(h => h.Project)
                 .Include(h => h.Project.Client)
                 .Include(h => h.Documents)
+                .Include(h => h.SnagItems)
                 .FirstOrDefault(h => h.Id == id);
 
             if (handover == null)
@@ -523,6 +828,25 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("HandoverDetails", new { id });
             }
 
+            var snagsList = (handover.SnagItems ?? new List<SnagItem>())
+                .Select(s => new SnagItemViewModel
+                {
+                    Id = s.Id,
+                    ProjectHandoverId = s.ProjectHandoverId,
+                    ReferenceNumber = s.ReferenceNumber,
+                    Description = s.Description,
+                    Location = s.Location,
+                    Severity = s.Severity,
+                    ResponsibleParty = s.ResponsibleParty,
+                    DueDate = s.DueDate,
+                    Status = s.Status,
+                    ReportedBy = s.ReportedBy,
+                    ReportedDate = s.ReportedDate,
+                    ResolutionNotes = s.ResolutionNotes
+                }).ToList();
+
+            bool hasOpenCritical = snagsList.Any(s => s.Severity == "Critical" && s.Status != "Verified");
+
             var model = new ClientSignOffViewModel
             {
                 HandoverId = handover.Id,
@@ -537,6 +861,9 @@ namespace MuhleOP.Controllers
                 WarrantyStartDate = handover.WarrantyStartDate,
                 WarrantyEndDate = handover.WarrantyEndDate,
                 ClientInvitedDate = handover.ClientInvitedDate,
+                Snags = snagsList,
+                HasOpenCriticalSnags = hasOpenCritical,
+                CanSignOff = !hasOpenCritical,
                 Documents = (handover.Documents ?? Enumerable.Empty<HandoverDocument>())
                     .OrderByDescending(d => d.UploadDate)
                     .Select(d => new HandoverDocumentListItemViewModel
@@ -561,6 +888,15 @@ namespace MuhleOP.Controllers
         [Authorize(Roles = "Client")]
         public async Task<ActionResult> ClientSignOff(ClientSignOffViewModel model)
         {
+            var handoverCheck = db.ProjectHandovers
+                .Include(h => h.SnagItems)
+                .FirstOrDefault(h => h.Id == model.HandoverId);
+
+            if (handoverCheck != null && handoverCheck.SnagItems.Any(s => s.Severity == "Critical" && s.Status != "Verified"))
+            {
+                ModelState.AddModelError("", "Cannot sign off while there are unresolved critical snags.");
+            }
+
             if (!model.AcceptTerms)
             {
                 ModelState.AddModelError("AcceptTerms", "You must accept the project as completed to sign off.");
@@ -576,6 +912,7 @@ namespace MuhleOP.Controllers
                         .Include(h => h.Project.ProjectManager)
                         .Include(h => h.Project.SiteManager)
                         .Include(h => h.Documents)
+                        .Include(h => h.SnagItems)
                         .FirstOrDefault(h => h.Id == model.HandoverId);
 
                     if (handover == null)
@@ -601,13 +938,15 @@ namespace MuhleOP.Controllers
                     handover.ClientSignOffDate = DateTime.Now;
                     handover.ClientSignOffNotes = model.ClientSignOffNotes;
                     handover.ClientFeedback = model.ClientFeedback;
+                    handover.ClientSignatureIpAddress = Request.UserHostAddress;
+                    handover.ClientSignatureUserAgent = Request.UserAgent;
                     handover.LastModifiedDate = DateTime.Now;
 
                     await db.SaveChangesAsync();
 
                     var currentUserId = User.Identity.GetUserId();
 
-                    // Generate the signed handover PDF (never abort sign-off on failure)
+                    // Generate signed handover PDF
                     byte[] signedPdfBytes = null;
                     try
                     {
@@ -626,107 +965,40 @@ namespace MuhleOP.Controllers
                             handover, handover.Project, client, handover.Documents, signOffMeta);
 
                         var pdfFolder = Server.MapPath("~/Uploads/SignedHandovers/");
-                        if (!Directory.Exists(pdfFolder))
-                        {
-                            Directory.CreateDirectory(pdfFolder);
-                        }
+                        if (!Directory.Exists(pdfFolder)) Directory.CreateDirectory(pdfFolder);
 
-                        var pdfFileName = "SignedHandover_" + handover.Id + "_"
-                            + DateTime.Now.ToString("yyyyMMddHHmmss") + ".pdf";
-                        var pdfFilePath = Path.Combine(pdfFolder, pdfFileName);
-                        System.IO.File.WriteAllBytes(pdfFilePath, signedPdfBytes);
+                        var pdfFileName = "SignedHandover_" + handover.Id + "_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".pdf";
+                        System.IO.File.WriteAllBytes(Path.Combine(pdfFolder, pdfFileName), signedPdfBytes);
                         handover.SignedHandoverPdfPath = "/Uploads/SignedHandovers/" + pdfFileName;
+
+                        // Generate Acceptance Letter PDF
+                        var acceptanceBytes = HandoverPdfGenerator.GenerateAcceptanceLetter(
+                            handover, handover.Project, client, signOffMeta, handover.SnagItems);
+                        var acceptanceFileName = "AcceptanceLetter_" + handover.Id + "_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".pdf";
+                        System.IO.File.WriteAllBytes(Path.Combine(pdfFolder, acceptanceFileName), acceptanceBytes);
+                        handover.ClientAcceptanceLetterPath = "/Uploads/SignedHandovers/" + acceptanceFileName;
 
                         await db.SaveChangesAsync();
                     }
                     catch (Exception pdfEx)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Error generating signed handover PDF: {pdfEx.Message}");
-                        signedPdfBytes = null;
-                        handover.SignedHandoverPdfPath = null;
+                        System.Diagnostics.Debug.WriteLine($"Error generating signed PDFs: {pdfEx.Message}");
                     }
 
                     // In-app notifications
-                    if (handover.Project?.ProjectManager != null &&
-                        !string.IsNullOrEmpty(handover.Project.ProjectManager.UserId) &&
-                        handover.Project.ProjectManager.UserId != currentUserId)
+                    if (handover.Project?.ProjectManager != null && !string.IsNullOrEmpty(handover.Project.ProjectManager.UserId) && handover.Project.ProjectManager.UserId != currentUserId)
                     {
-                        await NotifyStakeholder(
-                            handover.Project.ProjectManager.UserId,
-                            "Client Signed Off",
-                            $"Client has signed off the handover for project '{handover.Project.ProjectName}'.",
-                            "Project",
-                            $"/Handover/HandoverDetails/{handover.Id}"
-                        );
+                        await NotifyStakeholder(handover.Project.ProjectManager.UserId, "Client Signed Off", $"Client has signed off handover for '{handover.Project.ProjectName}'.", "Project", $"/Handover/HandoverDetails/{handover.Id}");
                     }
+                    await NotifyAdmins("Client Signed Off", $"Client has signed off handover for '{handover.Project?.ProjectName}'.", $"/Handover/HandoverDetails/{handover.Id}", skipUserId: currentUserId);
 
-                    if (handover.Project?.SiteManager != null &&
-                        !string.IsNullOrEmpty(handover.Project.SiteManager.UserId) &&
-                        handover.Project.SiteManager.UserId != currentUserId)
-                    {
-                        await NotifyStakeholder(
-                            handover.Project.SiteManager.UserId,
-                            "Client Signed Off",
-                            $"Client has signed off the handover for project '{handover.Project.ProjectName}'.",
-                            "Project",
-                            $"/Handover/HandoverDetails/{handover.Id}"
-                        );
-                    }
-
-                    await NotifyAdmins(
-                        "Client Signed Off",
-                        $"Client has signed off the handover for project '{handover.Project?.ProjectName}'.",
-                        $"/Handover/HandoverDetails/{handover.Id}",
-                        skipUserId: currentUserId
-                    );
-
-                    await NotifyFinanceOfficers(
-                        "Client Signed Off",
-                        $"Client has signed off the handover for project '{handover.Project?.ProjectName}'.",
-                        $"/Handover/HandoverDetails/{handover.Id}",
-                        skipUserId: currentUserId
-                    );
-
-                    if (!string.IsNullOrEmpty(client.UserId) && client.UserId != currentUserId)
-                    {
-                        await NotifyStakeholder(
-                            client.UserId,
-                            "Sign-off Recorded",
-                            $"Your sign-off for project '{handover.Project?.ProjectName}' has been recorded.",
-                            "Project",
-                            $"/Handover/HandoverDetails/{handover.Id}"
-                        );
-                    }
-
-                    // Email PM + Client, PDF attached when available
-                    var signOffRecipientEmails = new List<string>();
-                    if (handover.Project?.ProjectManager?.UserId != null)
-                    {
-                        var pmUser = db.Users.FirstOrDefault(u => u.Id == handover.Project.ProjectManager.UserId);
-                        if (pmUser != null && !string.IsNullOrEmpty(pmUser.Email))
-                        {
-                            signOffRecipientEmails.Add(pmUser.Email);
-                        }
-                    }
-                    if (!string.IsNullOrEmpty(client.ContactEmail))
-                    {
-                        signOffRecipientEmails.Add(client.ContactEmail);
-                    }
-
-                    SendSignedHandoverEmail(
-                        signOffRecipientEmails.Distinct().ToList(),
-                        handover, client, signedPdfBytes);
-
-                    // Try to auto-close
-                    bool canAutoClose =
-                        (handover.Documents != null && handover.Documents.Any())
-                        && !string.IsNullOrEmpty(handover.SignedHandoverPdfPath);
+                    // Try auto-close
+                    bool canAutoClose = (handover.Documents != null && handover.Documents.Any()) && !string.IsNullOrEmpty(handover.SignedHandoverPdfPath);
 
                     if (canAutoClose)
                     {
                         handover.Status = "Closed";
                         handover.LastModifiedDate = DateTime.Now;
-
                         if (handover.Project != null)
                         {
                             handover.Project.Status = "Closed";
@@ -736,145 +1008,32 @@ namespace MuhleOP.Controllers
                             handover.Project.LastModifiedBy = User.Identity.Name;
                         }
 
-                        var allocations = db.ProjectResourceAllocations
-                            .Where(a => a.ProjectId == handover.ProjectId && a.IsActive)
-                            .ToList();
-                        foreach (var a in allocations)
+                        // Generate Closure Report PDF on Auto-Close
+                        try
                         {
-                            a.IsActive = false;
-                            a.EndDate = DateTime.Now;
+                            var budget = db.ProjectBudgets.FirstOrDefault(b => b.ProjectId == handover.ProjectId);
+                            var variations = db.ProjectVariations.Where(v => v.ProjectId == handover.ProjectId).ToList();
+                            var reportBytes = HandoverPdfGenerator.GenerateClosureReport(
+                                handover, handover.Project, client, budget, variations, handover.SnagItems, handover.Documents);
+                            var repFolder = Server.MapPath("~/Uploads/SignedHandovers/");
+                            var repFileName = "ClosureReport_" + handover.Id + "_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".pdf";
+                            System.IO.File.WriteAllBytes(Path.Combine(repFolder, repFileName), reportBytes);
+                            handover.ClosureReportPath = "/Uploads/SignedHandovers/" + repFileName;
                         }
-
-                        var assignments = db.EquipmentAssignments
-                            .Where(a => a.ProjectId == handover.ProjectId && a.IsActive)
-                            .ToList();
-                        foreach (var a in assignments)
+                        catch (Exception repEx)
                         {
-                            a.IsActive = false;
-                            a.ActualReturnDate = DateTime.Now;
+                            System.Diagnostics.Debug.WriteLine($"Error generating closure report: {repEx.Message}");
                         }
 
                         await db.SaveChangesAsync();
-
-                        var projectName = handover.Project != null ? handover.Project.ProjectName : "Project";
-
-                        if (handover.Project?.ProjectManager != null &&
-                            !string.IsNullOrEmpty(handover.Project.ProjectManager.UserId) &&
-                            handover.Project.ProjectManager.UserId != currentUserId)
-                        {
-                            await NotifyStakeholder(
-                                handover.Project.ProjectManager.UserId,
-                                "Project Closed",
-                                $"Project '{projectName}' has been closed.",
-                                "Project",
-                                $"/Handover/HandoverDetails/{handover.Id}"
-                            );
-                        }
-
-                        if (handover.Project?.SiteManager != null &&
-                            !string.IsNullOrEmpty(handover.Project.SiteManager.UserId) &&
-                            handover.Project.SiteManager.UserId != currentUserId)
-                        {
-                            await NotifyStakeholder(
-                                handover.Project.SiteManager.UserId,
-                                "Project Closed",
-                                $"Project '{projectName}' has been closed.",
-                                "Project",
-                                $"/Handover/HandoverDetails/{handover.Id}"
-                            );
-                        }
-
-                        await NotifyAdmins(
-                            "Project Closed",
-                            $"Project '{projectName}' has been closed.",
-                            $"/Handover/HandoverDetails/{handover.Id}",
-                            skipUserId: currentUserId
-                        );
-
-                        await NotifyFinanceOfficers(
-                            "Project Closed",
-                            $"Project '{projectName}' has been closed.",
-                            $"/Handover/HandoverDetails/{handover.Id}",
-                            skipUserId: currentUserId
-                        );
-
-                        if (!string.IsNullOrEmpty(client.UserId) && client.UserId != currentUserId)
-                        {
-                            await NotifyStakeholder(
-                                client.UserId,
-                                "Project Closed",
-                                $"Project '{projectName}' has been closed.",
-                                "Project",
-                                $"/Handover/HandoverDetails/{handover.Id}"
-                            );
-                        }
-
-                        var closedRecipientEmails = new List<string>();
-                        if (handover.Project?.ProjectManager?.UserId != null)
-                        {
-                            var pmUser = db.Users.FirstOrDefault(u => u.Id == handover.Project.ProjectManager.UserId);
-                            if (pmUser != null && !string.IsNullOrEmpty(pmUser.Email))
-                            {
-                                closedRecipientEmails.Add(pmUser.Email);
-                            }
-                        }
-                        if (!string.IsNullOrEmpty(client.ContactEmail))
-                        {
-                            closedRecipientEmails.Add(client.ContactEmail);
-                        }
-
-                        SendProjectClosedEmail(closedRecipientEmails.Distinct().ToList(), projectName);
-
-                        TempData["SuccessMessage"] = "Client has signed off. Project has been closed and all stakeholders notified.";
+                        TempData["SuccessMessage"] = "Client signed off. Project closed successfully with reports generated.";
                     }
                     else
                     {
                         handover.Status = "Completed";
-                        if (handover.Project != null)
-                        {
-                            handover.Project.Status = "Completed";
-                        }
-
+                        if (handover.Project != null) handover.Project.Status = "Completed";
                         await db.SaveChangesAsync();
-
-                        bool documentsMissing = handover.Documents == null || !handover.Documents.Any();
-                        bool pdfMissing = string.IsNullOrEmpty(handover.SignedHandoverPdfPath);
-
-                        string reason;
-                        if (documentsMissing && pdfMissing)
-                        {
-                            reason = "no handover documents were uploaded and the signed PDF could not be generated";
-                        }
-                        else if (documentsMissing)
-                        {
-                            reason = "no handover documents were uploaded";
-                        }
-                        else
-                        {
-                            reason = "the signed PDF could not be generated";
-                        }
-
-                        if (handover.Project?.ProjectManager != null &&
-                            !string.IsNullOrEmpty(handover.Project.ProjectManager.UserId) &&
-                            handover.Project.ProjectManager.UserId != currentUserId)
-                        {
-                            await NotifyStakeholder(
-                                handover.Project.ProjectManager.UserId,
-                                "Sign-off recorded — manual close required",
-                                $"Client has signed off the handover for project '{handover.Project.ProjectName}', but the project could not be auto-closed because {reason}. Please review and close manually.",
-                                "Project",
-                                $"/Handover/HandoverDetails/{handover.Id}"
-                            );
-                        }
-
-                        await NotifyAdmins(
-                            "Sign-off recorded — manual close required",
-                            $"Client has signed off the handover for project '{handover.Project?.ProjectName}', but the project could not be auto-closed because {reason}. Please review and close manually.",
-                            $"/Handover/HandoverDetails/{handover.Id}",
-                            skipUserId: currentUserId
-                        );
-
-                        TempData["SuccessMessage"] = $"Client has signed off. Project could not be auto-closed — manual closure required ({reason}).";
+                        TempData["SuccessMessage"] = "Client signed off. Manual closure required.";
                     }
 
                     return RedirectToAction("HandoverDetails", new { id = handover.Id });
@@ -886,41 +1045,23 @@ namespace MuhleOP.Controllers
                 }
             }
 
-            // Repopulate for redisplay
-            var ho = db.ProjectHandovers
-                .Include(h => h.Project)
-                .Include(h => h.Documents)
-                .FirstOrDefault(h => h.Id == model.HandoverId);
-
+            // Repopulate on redisplay
+            var ho = db.ProjectHandovers.Include(h => h.Project).Include(h => h.Documents).Include(h => h.SnagItems).FirstOrDefault(h => h.Id == model.HandoverId);
             if (ho != null)
             {
                 model.ProjectName = ho.Project?.ProjectName;
                 model.ProjectCode = ho.Project?.ProjectCode;
                 model.HandoverType = ho.HandoverType;
                 model.CompletionNotes = ho.CompletionNotes;
-                model.FinalInspectionFindings = ho.FinalInspectionFindings;
-                model.LessonsLearned = ho.LessonsLearned;
-                model.Recommendations = ho.Recommendations;
-                model.WarrantyPeriodDays = ho.WarrantyPeriodDays;
-                model.WarrantyStartDate = ho.WarrantyStartDate;
-                model.WarrantyEndDate = ho.WarrantyEndDate;
-                model.ClientInvitedDate = ho.ClientInvitedDate;
-                model.Documents = (ho.Documents ?? Enumerable.Empty<HandoverDocument>())
-                    .OrderByDescending(d => d.UploadDate)
-                    .Select(d => new HandoverDocumentListItemViewModel
-                    {
-                        Id = d.Id,
-                        DocumentName = d.DocumentName,
-                        DocumentType = d.DocumentType,
-                        Description = d.Description,
-                        FilePath = d.FilePath,
-                        FileSizeBytes = d.FileSizeBytes,
-                        UploadDate = d.UploadDate,
-                        UploadedBy = d.UploadedBy,
-                        IsApproved = d.IsApproved
-                    }).ToList();
+                model.Snags = ho.SnagItems.Select(s => new SnagItemViewModel
+                {
+                    Id = s.Id,
+                    ReferenceNumber = s.ReferenceNumber,
+                    Description = s.Description,
+                    Severity = s.Severity,
+                    Status = s.Status
+                }).ToList();
             }
-
             return View(model);
         }
 
@@ -939,6 +1080,7 @@ namespace MuhleOP.Controllers
                     .Include(h => h.Project)
                     .Include(h => h.Project.Client)
                     .Include(h => h.Documents)
+                    .Include(h => h.SnagItems)
                     .FirstOrDefault(h => h.Id == id);
 
                 if (handover == null)
@@ -953,10 +1095,42 @@ namespace MuhleOP.Controllers
                     return RedirectToAction("HandoverDetails", new { id });
                 }
 
-                if (handover.Documents == null || !handover.Documents.Any())
+                // Gate 1: Unresolved Critical Snags
+                var openCriticalSnags = handover.SnagItems
+                    .Where(s => s.Severity == "Critical" && s.Status != "Verified")
+                    .ToList();
+
+                if (openCriticalSnags.Any())
                 {
-                    TempData["ErrorMessage"] = "At least one handover document is required before closing.";
-                    return RedirectToAction("HandoverDetails", new { id });
+                    TempData["ErrorMessage"] = $"Cannot proceed — {openCriticalSnags.Count} critical snag(s) are still unresolved.";
+                    return RedirectToAction("HandoverDetails", new { id = handover.Id });
+                }
+
+                // Gate 2: Handover Package Checklist
+                var uploadedTypes = (handover.Documents ?? new List<HandoverDocument>())
+                    .Select(d => d.DocumentType)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var missingTypes = RequiredHandoverDocumentTypes
+                    .Where(req => !uploadedTypes.Contains(req, StringComparer.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (missingTypes.Any())
+                {
+                    TempData["ErrorMessage"] = $"Cannot close project. Missing required document categories: {string.Join(", ", missingTypes)}.";
+                    return RedirectToAction("HandoverDetails", new { id = handover.Id });
+                }
+
+                // Gate 3: Open Critical Variations
+                var openCriticalVariations = db.ProjectVariations
+                    .Where(v => v.ProjectId == handover.ProjectId && (v.Status == "Requested" || v.Status == "Under Review"))
+                    .ToList();
+
+                if (openCriticalVariations.Any())
+                {
+                    TempData["ErrorMessage"] = $"Cannot close project. {openCriticalVariations.Count} project variation(s) are still pending approval.";
+                    return RedirectToAction("HandoverDetails", new { id = handover.Id });
                 }
 
                 if (handover.Status == "Closed")
@@ -965,11 +1139,10 @@ namespace MuhleOP.Controllers
                     return RedirectToAction("HandoverDetails", new { id });
                 }
 
-                // Close handover
+                // Close handover & project
                 handover.Status = "Closed";
                 handover.LastModifiedDate = DateTime.Now;
 
-                // Close project
                 if (handover.Project != null)
                 {
                     handover.Project.Status = "Closed";
@@ -979,51 +1152,35 @@ namespace MuhleOP.Controllers
                     handover.Project.LastModifiedBy = User.Identity.Name;
                 }
 
-                // Deactivate resource allocations
-                var allocations = db.ProjectResourceAllocations
-                    .Where(a => a.ProjectId == handover.ProjectId && a.IsActive)
-                    .ToList();
-                foreach (var a in allocations)
+                // Generate Closure Report PDF
+                try
                 {
-                    a.IsActive = false;
-                    a.EndDate = DateTime.Now;
+                    var budget = db.ProjectBudgets.FirstOrDefault(b => b.ProjectId == handover.ProjectId);
+                    var variations = db.ProjectVariations.Where(v => v.ProjectId == handover.ProjectId).ToList();
+                    var reportBytes = HandoverPdfGenerator.GenerateClosureReport(
+                        handover, handover.Project, handover.Project.Client, budget, variations, handover.SnagItems, handover.Documents);
+                    var repFolder = Server.MapPath("~/Uploads/SignedHandovers/");
+                    if (!Directory.Exists(repFolder)) Directory.CreateDirectory(repFolder);
+                    var repFileName = "ClosureReport_" + handover.Id + "_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".pdf";
+                    System.IO.File.WriteAllBytes(Path.Combine(repFolder, repFileName), reportBytes);
+                    handover.ClosureReportPath = "/Uploads/SignedHandovers/" + repFileName;
                 }
-
-                // Close equipment assignments
-                var assignments = db.EquipmentAssignments
-                    .Where(a => a.ProjectId == handover.ProjectId && a.IsActive)
-                    .ToList();
-                foreach (var a in assignments)
+                catch (Exception repEx)
                 {
-                    a.IsActive = false;
-                    a.ActualReturnDate = DateTime.Now;
+                    System.Diagnostics.Debug.WriteLine($"Error generating closure report: {repEx.Message}");
                 }
 
                 await db.SaveChangesAsync();
 
                 var projectName = handover.Project != null ? handover.Project.ProjectName : "Project";
 
-                // Notify Client
                 if (handover.Project?.Client != null && !string.IsNullOrEmpty(handover.Project.Client.UserId))
                 {
-                    await NotifyStakeholder(
-                        handover.Project.Client.UserId,
-                        "Project Closed",
-                        $"Project '{projectName}' has been closed.",
-                        "Project",
-                        $"/Handover/HandoverDetails/{handover.Id}"
-                    );
+                    await NotifyStakeholder(handover.Project.Client.UserId, "Project Closed", $"Project '{projectName}' has been closed.", "Project", $"/Handover/HandoverDetails/{handover.Id}");
                 }
+                await NotifyAdmins("Project Closed", $"Project '{projectName}' has been closed.", $"/Handover/HandoverDetails/{handover.Id}", skipUserId: User.Identity.GetUserId());
 
-                // Notify Admins
-                await NotifyAdmins(
-                    "Project Closed",
-                    $"Project '{projectName}' has been closed.",
-                    $"/Handover/HandoverDetails/{handover.Id}",
-                    skipUserId: User.Identity.GetUserId()
-                );
-
-                TempData["SuccessMessage"] = $"Project '{projectName}' has been closed successfully.";
+                TempData["SuccessMessage"] = $"Project '{projectName}' has been closed successfully and closure report generated.";
                 return RedirectToAction("HandoverDetails", new { id });
             }
             catch (Exception ex)
@@ -1052,7 +1209,6 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("Index");
             }
 
-            // Client ownership check
             if (User.IsInRole("Client") && !User.IsInRole("Admin"))
             {
                 var client = ResolveCurrentClient();
@@ -1067,8 +1223,7 @@ namespace MuhleOP.Controllers
             if (!System.IO.File.Exists(physicalPath))
             {
                 TempData["ErrorMessage"] = "File is missing on the server.";
-                if (doc.HandoverId > 0)
-                    return RedirectToAction("HandoverDetails", new { id = doc.HandoverId });
+                if (doc.HandoverId > 0) return RedirectToAction("HandoverDetails", new { id = doc.HandoverId });
                 return RedirectToAction("Index");
             }
 
@@ -1168,9 +1323,6 @@ namespace MuhleOP.Controllers
             }
         }
 
-        // Reads SMTP settings from web.config appSettings, same convention as
-        // ClientController. Returns null if SMTP isn't configured (email
-        // sending is then skipped and just logged, so nothing blocks the workflow).
         private SmtpClient BuildSmtpClient(out string fromEmail, out string fromName)
         {
             fromEmail = null;
@@ -1199,22 +1351,8 @@ namespace MuhleOP.Controllers
             {
                 using (var smtp = BuildSmtpClient(out string fromEmail, out string fromName))
                 {
-                    if (smtp == null)
-                    {
-                        System.Diagnostics.Debug.WriteLine(
-                            $"SMTP not configured - sign-off invite email not sent to {client.ContactEmail}.");
-                        return;
-                    }
-
-                    string body = $@"
-                        <div style='font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:auto;'>
-                            <h2 style='color:#F5A623;'>Project Sign-off Requested</h2>
-                            <p>Dear {client.PrimaryContactName},</p>
-                            <p>The handover for <strong>{project.ProjectName}</strong> is ready for your review and sign-off.</p>
-                            <p>Please log in to MuhleOps and open the sign-off page to review the handover documents and confirm the project as completed.</p>
-                            <p style='color:#888;font-size:12px;margin-top:24px;'>This is an automated message, please do not reply to this email.</p>
-                        </div>";
-
+                    if (smtp == null) return;
+                    string body = $"<div style='font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:auto;'><h2 style='color:#F5A623;'>Project Sign-off Requested</h2><p>Dear {client.PrimaryContactName},</p><p>The handover for <strong>{project.ProjectName}</strong> is ready for review.</p></div>";
                     using (var message = new MailMessage())
                     {
                         message.From = new MailAddress(fromEmail, fromName);
@@ -1228,111 +1366,7 @@ namespace MuhleOP.Controllers
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error sending sign-off invite email: {ex.Message}");
-            }
-        }
-
-        private void SendSignedHandoverEmail(List<string> recipientEmails, ProjectHandover handover, Client client, byte[] pdfBytes)
-        {
-            if (recipientEmails == null || !recipientEmails.Any()) return;
-
-            try
-            {
-                using (var smtp = BuildSmtpClient(out string fromEmail, out string fromName))
-                {
-                    if (smtp == null)
-                    {
-                        System.Diagnostics.Debug.WriteLine(
-                            "SMTP not configured - signed handover email not sent.");
-                        return;
-                    }
-
-                    var projectName = handover.Project != null ? handover.Project.ProjectName : "Project";
-
-                    string pdfNote = pdfBytes == null
-                        ? "<p style='color:#c0392b;'>The signed handover PDF could not be generated automatically and can be regenerated by the Project Manager.</p>"
-                        : "<p>The signed handover certificate is attached to this email as a PDF for your records.</p>";
-
-                    string body = $@"
-                        <div style='font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:auto;'>
-                            <h2 style='color:#F5A623;'>Handover Signed Off</h2>
-                            <p>The handover for <strong>{projectName}</strong> has been signed off by {client.CompanyName} on {handover.ClientSignOffDate:dd MMM yyyy HH:mm}.</p>
-                            {pdfNote}
-                            <p style='color:#888;font-size:12px;margin-top:24px;'>This is an automated message, please do not reply to this email.</p>
-                        </div>";
-
-                    using (var message = new MailMessage())
-                    {
-                        message.From = new MailAddress(fromEmail, fromName);
-                        foreach (var email in recipientEmails)
-                        {
-                            message.To.Add(email);
-                        }
-                        message.Subject = $"Handover Signed - {projectName}";
-                        message.Body = body;
-                        message.IsBodyHtml = true;
-
-                        if (pdfBytes != null)
-                        {
-                            using (var stream = new MemoryStream(pdfBytes))
-                            {
-                                var attachment = new Attachment(stream, $"SignedHandover_{handover.Id}.pdf", "application/pdf");
-                                message.Attachments.Add(attachment);
-                                smtp.Send(message);
-                            }
-                        }
-                        else
-                        {
-                            smtp.Send(message);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error sending signed handover email: {ex.Message}");
-            }
-        }
-
-        private void SendProjectClosedEmail(List<string> recipientEmails, string projectName)
-        {
-            if (recipientEmails == null || !recipientEmails.Any()) return;
-
-            try
-            {
-                using (var smtp = BuildSmtpClient(out string fromEmail, out string fromName))
-                {
-                    if (smtp == null)
-                    {
-                        System.Diagnostics.Debug.WriteLine(
-                            "SMTP not configured - project closed email not sent.");
-                        return;
-                    }
-
-                    string body = $@"
-                        <div style='font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:auto;'>
-                            <h2 style='color:#F5A623;'>Project Closed</h2>
-                            <p>Project <strong>{projectName}</strong> has been closed following client sign-off.</p>
-                            <p style='color:#888;font-size:12px;margin-top:24px;'>This is an automated message, please do not reply to this email.</p>
-                        </div>";
-
-                    using (var message = new MailMessage())
-                    {
-                        message.From = new MailAddress(fromEmail, fromName);
-                        foreach (var email in recipientEmails)
-                        {
-                            message.To.Add(email);
-                        }
-                        message.Subject = $"Project Closed - {projectName}";
-                        message.Body = body;
-                        message.IsBodyHtml = true;
-                        smtp.Send(message);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error sending project closed email: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error sending email: {ex.Message}");
             }
         }
 
@@ -1362,6 +1396,7 @@ namespace MuhleOP.Controllers
             {
                 case "Initiated": return "info";
                 case "In Progress": return "warning";
+                case "Practical Completion Pending": return "warning";
                 case "Completed": return "primary";
                 case "Closed": return "success";
                 default: return "secondary";
@@ -1406,10 +1441,7 @@ namespace MuhleOP.Controllers
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing)
-            {
-                db.Dispose();
-            }
+            if (disposing) db.Dispose();
             base.Dispose(disposing);
         }
     }

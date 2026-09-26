@@ -135,10 +135,183 @@ namespace MuhleOP.Helpers
                 document.Add(new Paragraph($"Email: {signOff.SignerEmail}", bodyFont));
                 document.Add(new Paragraph($"Signed at: {signOff.SignedAt:dd MMM yyyy HH:mm}", bodyFont));
                 document.Add(new Paragraph("Signature type: Electronic", bodyFont));
-                document.Add(new Paragraph($"IP: {signOff.IpAddress}", smallMuted));
-                document.Add(new Paragraph($"User agent: {signOff.UserAgent}", smallMuted));
+                document.Add(new Paragraph($"IP Address: {(string.IsNullOrEmpty(signOff.IpAddress) ? "—" : signOff.IpAddress)}", smallMuted));
+                document.Add(new Paragraph($"User Agent: {(string.IsNullOrEmpty(signOff.UserAgent) ? "—" : signOff.UserAgent)}", smallMuted));
                 document.Add(new Paragraph($"Client Feedback: {(string.IsNullOrWhiteSpace(signOff.Feedback) ? "—" : signOff.Feedback)}", bodyFont));
                 document.Add(new Paragraph($"Sign-off Notes: {(string.IsNullOrWhiteSpace(signOff.SignOffNotes) ? "—" : signOff.SignOffNotes)}", bodyFont));
+
+                document.Add(new Paragraph(" "));
+                document.Add(new Paragraph($"Generated: {DateTime.Now:dd MMM yyyy HH:mm}", smallMuted));
+
+                document.Close();
+                return stream.ToArray();
+            }
+        }
+
+        public static byte[] GenerateAcceptanceLetter(
+            ProjectHandover handover,
+            Project project,
+            Client client,
+            HandoverSignOffMeta signOff,
+            IEnumerable<SnagItem> snags)
+        {
+            using (var stream = new MemoryStream())
+            {
+                var document = new Document(PageSize.A4, 50, 50, 60, 60);
+                PdfWriter.GetInstance(document, stream);
+                document.Open();
+
+                var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 18, DarkColor);
+                var subtitleFont = FontFactory.GetFont(FontFactory.HELVETICA, 10, MutedColor);
+                var headingFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 12, GoldColor);
+                var labelFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10, DarkColor);
+                var bodyFont = FontFactory.GetFont(FontFactory.HELVETICA, 10, DarkColor);
+                var smallMuted = FontFactory.GetFont(FontFactory.HELVETICA, 8, MutedColor);
+
+                document.Add(new Paragraph("CLIENT ACCEPTANCE LETTER", titleFont));
+                document.Add(new Paragraph($"Project: {project.ProjectName} ({project.ProjectCode})", subtitleFont));
+                document.Add(new Paragraph(" "));
+
+                var totalSnags = snags?.Count() ?? 0;
+                var openSnags = snags?.Count(s => s.Status != "Verified") ?? 0;
+                var criticalOpen = snags?.Count(s => s.Severity == "Critical" && s.Status != "Verified") ?? 0;
+
+                document.Add(new Paragraph("PROJECT ACCEPTANCE STATEMENT", headingFont));
+                document.Add(new Paragraph($"This letter confirms that {client.CompanyName}, represented by {signOff.SignerName}, has formally reviewed and accepted the handover for project '{project.ProjectName}' as completed.", bodyFont));
+                document.Add(new Paragraph(" "));
+
+                document.Add(new Paragraph($"Snag Summary: {totalSnags} snags were recorded, of which {openSnags} remain open ({criticalOpen} critical).", bodyFont));
+                document.Add(new Paragraph(" "));
+
+                document.Add(new Paragraph("SIGN-OFF DETAILS", headingFont));
+                var detailsTable = new PdfPTable(2) { WidthPercentage = 100 };
+                detailsTable.SetWidths(new float[] { 1, 1 });
+                AddDetailRow(detailsTable, "Signer Name", signOff.SignerName, labelFont, bodyFont);
+                AddDetailRow(detailsTable, "Signer Email", signOff.SignerEmail, labelFont, bodyFont);
+                AddDetailRow(detailsTable, "Sign-off Date", signOff.SignedAt.ToString("dd MMM yyyy HH:mm"), labelFont, bodyFont);
+                AddDetailRow(detailsTable, "IP Address", string.IsNullOrEmpty(signOff.IpAddress) ? "—" : signOff.IpAddress, labelFont, bodyFont);
+                document.Add(detailsTable);
+                document.Add(new Paragraph(" "));
+
+                if (!string.IsNullOrWhiteSpace(signOff.Feedback))
+                {
+                    AddSection(document, "Client Feedback", signOff.Feedback, headingFont, bodyFont);
+                }
+
+                document.Add(new Paragraph(" "));
+                var line = new Paragraph(new Chunk(new iTextSharp.text.pdf.draw.LineSeparator(0.5f, 100, MutedColor, Element.ALIGN_CENTER, 1)));
+                document.Add(line);
+                document.Add(new Paragraph(" "));
+                document.Add(new Paragraph($"User Agent: {(string.IsNullOrEmpty(signOff.UserAgent) ? "—" : signOff.UserAgent)}", smallMuted));
+                document.Add(new Paragraph($"Generated: {DateTime.Now:dd MMM yyyy HH:mm}", smallMuted));
+
+                document.Close();
+                return stream.ToArray();
+            }
+        }
+
+        public static byte[] GenerateClosureReport(
+            ProjectHandover handover,
+            Project project,
+            Client client,
+            ProjectBudget budget,
+            IEnumerable<ProjectVariation> variations,
+            IEnumerable<SnagItem> snags,
+            IEnumerable<HandoverDocument> documents)
+        {
+            using (var stream = new MemoryStream())
+            {
+                var document = new Document(PageSize.A4, 50, 50, 60, 60);
+                PdfWriter.GetInstance(document, stream);
+                document.Open();
+
+                var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 18, DarkColor);
+                var subtitleFont = FontFactory.GetFont(FontFactory.HELVETICA, 10, MutedColor);
+                var headingFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 12, GoldColor);
+                var labelFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10, DarkColor);
+                var bodyFont = FontFactory.GetFont(FontFactory.HELVETICA, 10, DarkColor);
+                var smallMuted = FontFactory.GetFont(FontFactory.HELVETICA, 8, MutedColor);
+
+                document.Add(new Paragraph("PROJECT CLOSURE REPORT", titleFont));
+                document.Add(new Paragraph($"Project: {project.ProjectName} ({project.ProjectCode}) | Client: {client.CompanyName}", subtitleFont));
+                document.Add(new Paragraph(" "));
+
+                // 1. Schedule Summary
+                document.Add(new Paragraph("1. Schedule Summary", headingFont));
+                var estEnd = project.EstimatedEndDate.HasValue ? project.EstimatedEndDate.Value.ToString("dd MMM yyyy") : "—";
+                var actEnd = project.ActualEndDate.HasValue ? project.ActualEndDate.Value.ToString("dd MMM yyyy") : "—";
+                string scheduleStatus = "On Schedule";
+                if (project.EstimatedEndDate.HasValue && project.ActualEndDate.HasValue)
+                {
+                    int daysDiff = (project.ActualEndDate.Value - project.EstimatedEndDate.Value).Days;
+                    if (daysDiff > 0) scheduleStatus = $"{daysDiff} days late";
+                    else if (daysDiff < 0) scheduleStatus = $"{Math.Abs(daysDiff)} days early";
+                }
+                var schedTable = new PdfPTable(2) { WidthPercentage = 100 };
+                schedTable.SetWidths(new float[] { 1, 1 });
+                AddDetailRow(schedTable, "Planned End Date", estEnd, labelFont, bodyFont);
+                AddDetailRow(schedTable, "Actual End Date", actEnd, labelFont, bodyFont);
+                AddDetailRow(schedTable, "Schedule Variance", scheduleStatus, labelFont, bodyFont);
+                document.Add(schedTable);
+                document.Add(new Paragraph(" "));
+
+                // 2. Financial Summary
+                document.Add(new Paragraph("2. Financial Summary", headingFont));
+                var finTable = new PdfPTable(2) { WidthPercentage = 100 };
+                finTable.SetWidths(new float[] { 1, 1 });
+                decimal contractVal = project.Contract != null ? project.Contract.ContractValue : 0m;
+                decimal estCost = budget != null ? budget.EstimatedCost : 0m;
+                decimal actCost = budget != null ? budget.SpentAmount : 0m;
+                AddDetailRow(finTable, "Contract Value", contractVal.ToString("C"), labelFont, bodyFont);
+                AddDetailRow(finTable, "Estimated Budget", estCost.ToString("C"), labelFont, bodyFont);
+                AddDetailRow(finTable, "Actual Spent", actCost.ToString("C"), labelFont, bodyFont);
+                document.Add(finTable);
+                document.Add(new Paragraph(" "));
+
+                // 3. Variation Summary
+                document.Add(new Paragraph("3. Variation Summary", headingFont));
+                var varList = variations != null ? variations.ToList() : new List<ProjectVariation>();
+                if (!varList.Any())
+                {
+                    document.Add(new Paragraph("No variations recorded.", bodyFont));
+                }
+                else
+                {
+                    foreach (var v in varList)
+                    {
+                        document.Add(new Paragraph($"{v.VariationNumber} ({v.VariationType}) - Status: {v.Status} - Cost Impact: {v.ImpactOnCost?.ToString("C") ?? "—"}", bodyFont));
+                    }
+                }
+                document.Add(new Paragraph(" "));
+
+                // 4. Snag Summary
+                document.Add(new Paragraph("4. Snag Summary", headingFont));
+                var snagList = snags != null ? snags.ToList() : new List<SnagItem>();
+                int totalSnags = snagList.Count;
+                int verifiedSnags = snagList.Count(s => s.Status == "Verified");
+                document.Add(new Paragraph($"Total Snags: {totalSnags} | Verified/Resolved: {verifiedSnags} | Remaining Open: {totalSnags - verifiedSnags}", bodyFont));
+                document.Add(new Paragraph(" "));
+
+                // 5. Handover Package
+                document.Add(new Paragraph("5. Handover Package Documents", headingFont));
+                var docList = documents != null ? documents.ToList() : new List<HandoverDocument>();
+                if (!docList.Any())
+                {
+                    document.Add(new Paragraph("No documents attached.", bodyFont));
+                }
+                else
+                {
+                    foreach (var d in docList)
+                    {
+                        document.Add(new Paragraph($"{d.DocumentName} [{d.DocumentType}]", bodyFont));
+                    }
+                }
+                document.Add(new Paragraph(" "));
+
+                // 6. Client Acceptance
+                document.Add(new Paragraph("6. Client Acceptance", headingFont));
+                document.Add(new Paragraph($"Status: {handover.ClientSignOffStatus} on {handover.ClientSignOffDate?.ToString("dd MMM yyyy HH:mm") ?? "—"}", bodyFont));
+                document.Add(new Paragraph($"IP Address: {handover.ClientSignatureIpAddress ?? "—"}", smallMuted));
 
                 document.Add(new Paragraph(" "));
                 document.Add(new Paragraph($"Generated: {DateTime.Now:dd MMM yyyy HH:mm}", smallMuted));

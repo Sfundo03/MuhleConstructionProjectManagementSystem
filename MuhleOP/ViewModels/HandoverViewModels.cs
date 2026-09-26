@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Web;
 using System.Web.Mvc;
+using MuhleOP.Models;
 
 namespace MuhleOP.ViewModels
 {
@@ -111,7 +112,48 @@ namespace MuhleOP.ViewModels
         public string CreatedBy { get; set; }
         public DateTime CreatedDate { get; set; }
 
+        // UC23 Additions
+        public string ClientSignatureIpAddress { get; set; }
+        public string ClientSignatureUserAgent { get; set; }
+        public string ClientAcceptanceLetterPath { get; set; }
+        public string ClosureReportPath { get; set; }
+        public bool IsPracticalCompletionPending { get; set; }
+
+        public List<SnagItemViewModel> Snags { get; set; } = new List<SnagItemViewModel>();
+        public int OpenCriticalSnagCount { get; set; }
+        public int OpenMajorSnagCount { get; set; }
+        public int OpenMinorSnagCount { get; set; }
+
+        public List<string> MissingRequiredDocumentTypes { get; set; } = new List<string>();
+        public List<ProjectVariation> OpenVariations { get; set; } = new List<ProjectVariation>();
+
         public List<HandoverDocumentListItemViewModel> Documents { get; set; } = new List<HandoverDocumentListItemViewModel>();
+    }
+
+    public class SnagItemViewModel
+    {
+        public int Id { get; set; }
+        public int ProjectHandoverId { get; set; }
+        public string ReferenceNumber { get; set; }
+        [Required, StringLength(300)] public string Description { get; set; }
+        [StringLength(200)] public string Location { get; set; }
+        [Required] public string Severity { get; set; }
+        [Required, StringLength(150)] public string ResponsibleParty { get; set; }
+        [DataType(DataType.Date)] public DateTime? DueDate { get; set; }
+        public string Status { get; set; }
+        public string ReportedBy { get; set; }
+        public DateTime ReportedDate { get; set; }
+        public string ResolutionNotes { get; set; }
+    }
+
+    public class RefuseSignOffViewModel
+    {
+        public int HandoverId { get; set; }
+        [Required(ErrorMessage = "Refusal reason is required")]
+        [StringLength(1000)]
+        [Display(Name = "Refusal Reason")]
+        [DataType(DataType.MultilineText)]
+        public string RefusalReason { get; set; }
     }
 
     public class HandoverDocumentListItemViewModel
@@ -172,6 +214,11 @@ namespace MuhleOP.ViewModels
         public DateTime? ClientInvitedDate { get; set; }
 
         public List<HandoverDocumentListItemViewModel> Documents { get; set; } = new List<HandoverDocumentListItemViewModel>();
+        public List<SnagItemViewModel> Snags { get; set; } = new List<SnagItemViewModel>();
+        public SnagItemViewModel NewSnag { get; set; } = new SnagItemViewModel();
+
+        public bool HasOpenCriticalSnags { get; set; }
+        public bool CanSignOff { get; set; }
 
         [Required]
         [Display(Name = "I accept the project as completed")]
