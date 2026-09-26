@@ -52,7 +52,7 @@ namespace MuhleOP.Models
         public decimal? CurrentValue { get; set; }
 
         [Display(Name = "Status")]
-        public string Status { get; set; } // Available, In Use, Under Maintenance, Retired, Damaged, In Repair
+        public string Status { get; set; } // Available, In Use, Under Maintenance, Retired, Damaged, In Repair, Quarantined
 
         [Display(Name = "Condition")]
         public string Condition { get; set; } // Excellent, Good, Fair, Poor
@@ -271,6 +271,39 @@ namespace MuhleOP.Models
         [Timestamp]
         public byte[] RowVersion { get; set; }
 
+        // Enhanced Lifecycle Additions (UC14, UC16, UC18)
+        [StringLength(20)]
+        public string Severity { get; set; } // Minor, Major, Critical, Unsafe
+
+        [StringLength(2000)]
+        public string PhotoEvidencePaths { get; set; }
+
+        [StringLength(100)]
+        public string WitnessName { get; set; }
+
+        [StringLength(200)]
+        public string ReportedLocation { get; set; }
+
+        [StringLength(2000)]
+        public string DiagnosisNotes { get; set; }
+
+        [StringLength(50)]
+        public string RepairCategory { get; set; } // Mechanical, Electrical, Structural, Cosmetic, Other
+
+        public int? TechnicianId { get; set; }
+        [ForeignKey("TechnicianId")]
+        public virtual EquipmentTechnician Technician { get; set; }
+
+        public decimal? EstimatedPartsCost { get; set; }
+        public decimal? EstimatedLabourCost { get; set; }
+        public decimal? EstimatedTotalCost { get; set; }
+        public bool RequiresApproval { get; set; }
+
+        [StringLength(20)]
+        public string Priority { get; set; } // Low, Medium, High, Emergency
+
+        public virtual EquipmentCheckoutChecklist CheckoutChecklist { get; set; }
+
         public virtual ICollection<RepairProgressLog> ProgressLogs { get; set; }
         public virtual ICollection<RepairPartUsage> PartUsages { get; set; }
 
@@ -282,6 +315,48 @@ namespace MuhleOP.Models
             ProgressLogs = new List<RepairProgressLog>();
             PartUsages = new List<RepairPartUsage>();
         }
+    }
+
+    public class EquipmentTechnician
+    {
+        [Key] public int Id { get; set; }
+
+        [Required, StringLength(100)]
+        public string FullName { get; set; }
+
+        [StringLength(100)] public string Specialisation { get; set; }
+        [StringLength(20)] public string PhoneNumber { get; set; }
+        [StringLength(100)] public string Email { get; set; }
+
+        public bool IsActive { get; set; } = true;
+
+        public int? LinkedStaffId { get; set; }
+        [ForeignKey("LinkedStaffId")]
+        public virtual Staff LinkedStaff { get; set; }
+    }
+
+    public class EquipmentCheckoutChecklist
+    {
+        [Key] public int Id { get; set; }
+
+        [Required] public int EquipmentRepairId { get; set; }
+        [ForeignKey("EquipmentRepairId")]
+        public virtual EquipmentRepair EquipmentRepair { get; set; }
+
+        public bool LoadTestPassed { get; set; }
+        public bool SafetyCheckPassed { get; set; }
+        public bool CalibrationVerified { get; set; }
+        public bool VisualInspectionPassed { get; set; }
+
+        [StringLength(2000)] public string Notes { get; set; }
+
+        [StringLength(100)] public string TechnicianSignOffName { get; set; }
+        public DateTime? TechnicianSignOffDate { get; set; }
+
+        [StringLength(100)] public string AdminSignOffName { get; set; }
+        public DateTime? AdminSignOffDate { get; set; }
+
+        public decimal? LoadTestResultKg { get; set; }
     }
 
     public class RepairProgressLog

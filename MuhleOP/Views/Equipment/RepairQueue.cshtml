@@ -109,6 +109,22 @@
                             <tr>
                                 <td>
                                     @item.TicketLabel
+                                    @if (!string.IsNullOrEmpty(item.Severity))
+                                    {
+                                        <span class="badge bg-@item.SeverityBadgeColor ms-1" style="font-size: 0.65rem;">@item.Severity</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(item.Priority))
+                                    {
+                                        <span class="badge bg-@item.PriorityBadgeColor ms-1" style="font-size: 0.65rem;">@item.Priority</span>
+                                    }
+                                    @if (item.RequiresApproval)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;">Approval</span>
+                                    }
+                                    @if (item.IsQuarantined)
+                                    {
+                                        <span class="badge bg-dark ms-1" style="font-size: 0.65rem;">Quarantined</span>
+                                    }
                                     @if (item.IsEscalated)
                                     {
                                         <span class="badge bg-danger ms-1" style="font-size: 0.65rem;">ESCALATED</span>

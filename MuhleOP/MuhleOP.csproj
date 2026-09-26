@@ -373,6 +373,7 @@
     <Content Include="Views\Attendance\MyQr.cshtml" />
     <Content Include="Views\Attendance\MyHours.cshtml" />
     <Content Include="Views\Payroll\ManageRates.cshtml" />
+    <Content Include="Views\Equipment\ExternalWorkshopNotice.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />

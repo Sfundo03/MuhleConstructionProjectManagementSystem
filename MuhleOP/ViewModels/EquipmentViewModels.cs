@@ -253,6 +253,14 @@ namespace MuhleOP.ViewModels
         public decimal TotalCost { get; set; }
         public bool IsEscalated { get; set; }
         public bool IsDelayFlagged { get; set; }
+
+        // Enhanced Fields
+        public string Severity { get; set; }
+        public string SeverityBadgeColor { get; set; }
+        public string Priority { get; set; }
+        public string PriorityBadgeColor { get; set; }
+        public bool RequiresApproval { get; set; }
+        public bool IsQuarantined { get; set; }
     }
 
     public class EquipmentRepairDetailsViewModel
@@ -289,6 +297,24 @@ namespace MuhleOP.ViewModels
         public bool IsEscalated { get; set; }
         public string ProcurementRequestReference { get; set; }
         public string CancellationReason { get; set; }
+
+        // Enhanced Lifecycle Fields
+        public string Severity { get; set; }
+        public string SeverityBadgeColor { get; set; }
+        public string Priority { get; set; }
+        public string PriorityBadgeColor { get; set; }
+        public string RepairCategory { get; set; }
+        public string DiagnosisNotes { get; set; }
+        public string WitnessName { get; set; }
+        public string ReportedLocation { get; set; }
+        public List<string> PhotoEvidencePaths { get; set; } = new List<string>();
+        public decimal? EstimatedPartsCost { get; set; }
+        public decimal? EstimatedLabourCost { get; set; }
+        public decimal? EstimatedTotalCost { get; set; }
+        public bool RequiresApproval { get; set; }
+        public int? TechnicianId { get; set; }
+        public CheckoutChecklistViewModel CheckoutChecklist { get; set; }
+        public bool IsQuarantined { get; set; }
 
         public List<RepairProgressLogItemViewModel> ProgressLogs { get; set; } = new List<RepairProgressLogItemViewModel>();
         public List<RepairPartUsageItemViewModel> PartUsages { get; set; } = new List<RepairPartUsageItemViewModel>();
@@ -338,10 +364,19 @@ namespace MuhleOP.ViewModels
         [DataType(DataType.MultilineText)]
         public string IssueDescription { get; set; }
 
-        [Display(Name = "Photo (optional)")]
-        public HttpPostedFileBase Photo { get; set; }
+        [Required(ErrorMessage = "Severity is required")]
+        [Display(Name = "Severity")]
+        public string Severity { get; set; }
+
+        [Display(Name = "Witness Name")]
+        [StringLength(100)]
+        public string WitnessName { get; set; }
+
+        [Display(Name = "Photos (optional)")]
+        public IEnumerable<HttpPostedFileBase> Photos { get; set; }
 
         public List<SelectListItem> AvailableEquipment { get; set; } = new List<SelectListItem>();
+        public List<SelectListItem> SeverityOptions { get; set; } = new List<SelectListItem>();
     }
 
     public class ScheduleRepairViewModel
@@ -354,6 +389,27 @@ namespace MuhleOP.ViewModels
         [Display(Name = "Technician Name")]
         [StringLength(100)]
         public string TechnicianName { get; set; }
+
+        [Display(Name = "Technician")]
+        public int? TechnicianId { get; set; }
+
+        [Required(ErrorMessage = "Repair category is required")]
+        [Display(Name = "Repair Category")]
+        public string RepairCategory { get; set; }
+
+        [Display(Name = "Diagnosis Notes")]
+        [DataType(DataType.MultilineText)]
+        public string DiagnosisNotes { get; set; }
+
+        [Required(ErrorMessage = "Priority is required")]
+        [Display(Name = "Priority")]
+        public string Priority { get; set; }
+
+        [Display(Name = "Estimated Parts Cost")]
+        public decimal? EstimatedPartsCost { get; set; }
+
+        [Display(Name = "Estimated Labour Cost")]
+        public decimal? EstimatedLabourCost { get; set; }
 
         [Required(ErrorMessage = "Workshop start date is required")]
         [Display(Name = "Workshop Slot Start")]
@@ -372,6 +428,10 @@ namespace MuhleOP.ViewModels
         [Display(Name = "Check-In Notes")]
         [DataType(DataType.MultilineText)]
         public string CheckInNotes { get; set; }
+
+        public List<SelectListItem> AvailableTechnicians { get; set; } = new List<SelectListItem>();
+        public List<SelectListItem> PriorityOptions { get; set; } = new List<SelectListItem>();
+        public List<SelectListItem> CategoryOptions { get; set; } = new List<SelectListItem>();
     }
 
     public class UpdateRepairProgressViewModel
@@ -404,7 +464,6 @@ namespace MuhleOP.ViewModels
         [Display(Name = "Status")]
         public string Status { get; set; }
 
-        // UC17 Additions
         [Display(Name = "Actual Hours")]
         public decimal? ActualHours { get; set; }
 
@@ -430,6 +489,46 @@ namespace MuhleOP.ViewModels
         public List<SelectListItem> AvailableParts { get; set; } = new List<SelectListItem>();
     }
 
+    public class CheckoutChecklistViewModel
+    {
+        [Display(Name = "Load Test Passed")]
+        public bool LoadTestPassed { get; set; }
+
+        [Display(Name = "Safety Check Passed")]
+        public bool SafetyCheckPassed { get; set; }
+
+        [Display(Name = "Calibration Verified")]
+        public bool CalibrationVerified { get; set; }
+
+        [Display(Name = "Visual Inspection Passed")]
+        public bool VisualInspectionPassed { get; set; }
+
+        [Display(Name = "Checklist Notes")]
+        [DataType(DataType.MultilineText)]
+        public string Notes { get; set; }
+
+        [Display(Name = "Technician Sign-Off Name")]
+        [StringLength(100)]
+        public string TechnicianSignOffName { get; set; }
+        public DateTime? TechnicianSignOffDate { get; set; }
+
+        [Display(Name = "Admin Sign-Off Name")]
+        [StringLength(100)]
+        public string AdminSignOffName { get; set; }
+        public DateTime? AdminSignOffDate { get; set; }
+
+        [Display(Name = "Load Test Result (kg)")]
+        public decimal? LoadTestResultKg { get; set; }
+    }
+
+    public class ReallocationSuggestionViewModel
+    {
+        public int ProjectId { get; set; }
+        public string ProjectName { get; set; }
+        public string ProjectCode { get; set; }
+        public DateTime AssignedDate { get; set; }
+    }
+
     public class CheckOutRepairViewModel
     {
         public int RepairId { get; set; }
@@ -449,6 +548,9 @@ namespace MuhleOP.ViewModels
         [Required]
         [Display(Name = "I confirm the equipment passed the final safety/load test")]
         public bool FinalVerified { get; set; }
+
+        public CheckoutChecklistViewModel CheckoutChecklist { get; set; } = new CheckoutChecklistViewModel();
+        public List<ReallocationSuggestionViewModel> ReallocationSuggestions { get; set; } = new List<ReallocationSuggestionViewModel>();
 
         public List<SelectListItem> ConditionOptions { get; set; } = new List<SelectListItem>();
     }

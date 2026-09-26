@@ -74,6 +74,10 @@ namespace MuhleOP.Models
         public DbSet<RepairPartUsage> RepairPartUsages { get; set; }
         public DbSet<StockMovement> StockMovements { get; set; }
 
+        // Enhanced Lifecycle DbSets
+        public DbSet<EquipmentTechnician> EquipmentTechnicians { get; set; }
+        public DbSet<EquipmentCheckoutChecklist> EquipmentCheckoutChecklists { get; set; }
+
         // Quality & Progress
         public DbSet<SiteInspection> SiteInspections { get; set; }
         public DbSet<InspectionTemplateItem> InspectionTemplateItems { get; set; }
@@ -240,6 +244,15 @@ namespace MuhleOP.Models
                 .Property(e => e.ActualHours)
                 .HasPrecision(18, 2);
             modelBuilder.Entity<EquipmentRepair>()
+                .Property(e => e.EstimatedPartsCost)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<EquipmentRepair>()
+                .Property(e => e.EstimatedLabourCost)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<EquipmentRepair>()
+                .Property(e => e.EstimatedTotalCost)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<EquipmentRepair>()
                 .Property(e => e.RowVersion)
                 .IsRowVersion()
                 .IsConcurrencyToken();
@@ -250,6 +263,10 @@ namespace MuhleOP.Models
 
             modelBuilder.Entity<RepairPartUsage>()
                 .Property(p => p.UnitCostAtUse)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<EquipmentCheckoutChecklist>()
+                .Property(c => c.LoadTestResultKg)
                 .HasPrecision(18, 2);
 
             // UC17 Entity Relationships & Cascades
@@ -276,6 +293,24 @@ namespace MuhleOP.Models
                 .WithMany(p => p.StockMovements)
                 .HasForeignKey(m => m.EquipmentPartId)
                 .WillCascadeOnDelete(true);
+
+            // Enhanced Lifecycle Entity Configurations
+            modelBuilder.Entity<EquipmentTechnician>()
+                .HasOptional(t => t.LinkedStaff)
+                .WithMany()
+                .HasForeignKey(t => t.LinkedStaffId)
+                .WillCascadeOnDelete(false);
+
+            modelBuilder.Entity<EquipmentCheckoutChecklist>()
+                .HasRequired(c => c.EquipmentRepair)
+                .WithOptional(r => r.CheckoutChecklist)
+                .WillCascadeOnDelete(true);
+
+            modelBuilder.Entity<EquipmentRepair>()
+                .HasOptional(r => r.Technician)
+                .WithMany()
+                .HasForeignKey(r => r.TechnicianId)
+                .WillCascadeOnDelete(false);
 
             modelBuilder.Entity<Staff>()
                 .Property(s => s.PayRatePerHour)

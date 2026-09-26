@@ -1,5 +1,4 @@
-﻿
-@model MuhleOP.ViewModels.ReportDamageViewModel
+﻿@model MuhleOP.ViewModels.ReportDamageViewModel
 @{
     ViewBag.Title = "Report Damaged Equipment";
     Layout = "~/Views/Shared/_Layout.cshtml";
@@ -31,13 +30,22 @@
                         @Html.ValidationMessageFor(m => m.EquipmentId, "", new { @class = "text-danger small" })
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Severity <span class="text-danger">*</span></label>
+                        @Html.DropDownListFor(m => m.Severity, Model.SeverityOptions, "Select severity...", new { @class = "form-select", required = "required" })
+                        @Html.ValidationMessageFor(m => m.Severity, "", new { @class = "text-danger small" })
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Issue Description <span class="text-danger">*</span></label>
                         @Html.TextAreaFor(m => m.IssueDescription, new { @class = "form-control", rows = 5, required = "required", placeholder = "Describe the damage or problem clearly..." })
                         @Html.ValidationMessageFor(m => m.IssueDescription, "", new { @class = "text-danger small" })
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Photo (optional)</label>
-                        <input type="file" name="Photo" class="form-control" accept="image/*" />
+                        <label class="form-label">Witness Name</label>
+                        @Html.TextBoxFor(m => m.WitnessName, new { @class = "form-control", placeholder = "Optional witness name..." })
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Photos (optional)</label>
+                        <input type="file" name="Photos" multiple="multiple" class="form-control" accept="image/*" />
                     </div>
                 </div>
             </div>

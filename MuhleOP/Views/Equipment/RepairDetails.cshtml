@@ -5,13 +5,32 @@
 }
 
 <div class="container py-4">
+    @if (Model.IsQuarantined)
+    {
+        <div class="alert alert-dark text-center fw-bold py-3 mb-4 shadow-sm">
+            <i class="fa-solid fa-radiation me-2"></i> EQUIPMENT QUARANTINED DUE TO CRITICAL/UNSAFE DAMAGE
+        </div>
+    }
+
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
             <h2 class="mb-0">
                 Repair #RT-@Model.Id
+                @if (!string.IsNullOrEmpty(Model.Severity))
+                {
+                    <span class="badge bg-@Model.SeverityBadgeColor ms-2">@Model.Severity</span>
+                }
+                @if (!string.IsNullOrEmpty(Model.Priority))
+                {
+                    <span class="badge bg-@Model.PriorityBadgeColor ms-1">@Model.Priority</span>
+                }
+                @if (Model.RequiresApproval)
+                {
+                    <span class="badge bg-warning text-dark ms-1">Requires Approval</span>
+                }
                 @if (Model.IsEscalated)
                 {
-                    <span class="badge bg-danger ms-2">ESCALATED</span>
+                    <span class="badge bg-danger ms-1">ESCALATED</span>
                 }
                 @if (Model.IsDelayFlagged)
                 {
@@ -54,8 +73,17 @@
                     <dl class="row mb-0">
                         <dt class="col-sm-4">Status</dt>
                         <dd class="col-sm-8"><span class="badge bg-@Model.StatusBadgeColor">@Model.Status</span></dd>
+                        <dt class="col-sm-4">Severity / Priority</dt>
+                        <dd class="col-sm-8">
+                            <span class="badge bg-@Model.SeverityBadgeColor">@(Model.Severity ?? "—")</span> /
+                            <span class="badge bg-@Model.PriorityBadgeColor">@(Model.Priority ?? "—")</span>
+                        </dd>
                         <dt class="col-sm-4">Reported By</dt>
                         <dd class="col-sm-8">@(Model.ReportedBy ?? "—")</dd>
+                        <dt class="col-sm-4">Witness</dt>
+                        <dd class="col-sm-8">@(Model.WitnessName ?? "—")</dd>
+                        <dt class="col-sm-4">Reported Location</dt>
+                        <dd class="col-sm-8">@(Model.ReportedLocation ?? "—")</dd>
                         <dt class="col-sm-4">Reported Date</dt>
                         <dd class="col-sm-8">@Model.CreatedDate.ToString("dd MMM yyyy HH:mm")</dd>
                         <dt class="col-sm-4">Repair Date</dt>
@@ -68,6 +96,8 @@
                         <dd class="col-sm-8">@(Model.RevisedCompletionDate.HasValue ? Model.RevisedCompletionDate.Value.ToString("dd MMM yyyy") : "—")</dd>
                         <dt class="col-sm-4">Procurement Ref</dt>
                         <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.ProcurementRequestReference) ? "—" : Model.ProcurementRequestReference)</dd>
+                        <dt class="col-sm-4">Estimated Cost</dt>
+                        <dd class="col-sm-8">R@(Model.EstimatedTotalCost?.ToString("N2") ?? "0.00") @(Model.RequiresApproval ? "(Approval Required)" : "")</dd>
                         <dt class="col-sm-4">Parts Cost</dt>
                         <dd class="col-sm-8">R@Model.PartsCost.ToString("N2")</dd>
                         <dt class="col-sm-4">Labour Cost</dt>
@@ -89,7 +119,7 @@
         </div>
         <div class="col-lg-6">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white fw-semibold">Equipment</div>
+                <div class="card-header bg-white fw-semibold">Equipment &amp; Diagnosis</div>
                 <div class="card-body">
                     <dl class="row mb-0">
                         <dt class="col-sm-4">Name</dt>
@@ -98,26 +128,72 @@
                         <dd class="col-sm-8">@Model.EquipmentCode</dd>
                         <dt class="col-sm-4">Category</dt>
                         <dd class="col-sm-8">@(Model.EquipmentCategory ?? "—")</dd>
+                        <dt class="col-sm-4">Repair Category</dt>
+                        <dd class="col-sm-8">@(Model.RepairCategory ?? "—")</dd>
                         <dt class="col-sm-4">Current Status</dt>
                         <dd class="col-sm-8">@(Model.EquipmentStatus ?? "—")</dd>
                         <dt class="col-sm-4">Condition</dt>
                         <dd class="col-sm-8">@(Model.EquipmentCondition ?? "—")</dd>
                         <dt class="col-sm-4">Project</dt>
                         <dd class="col-sm-8">@(Model.AssignedProjectName ?? "—")</dd>
+                        <dt class="col-sm-4">Diagnosis</dt>
+                        <dd class="col-sm-8">@(Model.DiagnosisNotes ?? "—")</dd>
                     </dl>
 
-                    @if (!string.IsNullOrEmpty(Model.PhotoEvidencePath))
+                    @if (Model.PhotoEvidencePaths != null && Model.PhotoEvidencePaths.Any())
+                    {
+                        <div class="mt-3">
+                            <label class="form-label fw-semibold">Photo Evidence Gallery</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var path in Model.PhotoEvidencePaths)
+                                {
+                                    <a href="@path" target="_blank" class="d-inline-block">
+                                        <img src="@path" alt="Photo Evidence" class="img-thumbnail rounded shadow-sm" style="height: 100px; width: 100px; object-fit: cover;" />
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    }
+                    else if (!string.IsNullOrEmpty(Model.PhotoEvidencePath))
                     {
                         <div class="mt-3">
                             <label class="form-label fw-semibold">Photo Evidence</label>
                             <div>
-                                <img src="@Model.PhotoEvidencePath" alt="Photo Evidence" class="img-fluid rounded shadow-sm" style="max-height: 200px;" />
+                                <a href="@Model.PhotoEvidencePath" target="_blank">
+                                    <img src="@Model.PhotoEvidencePath" alt="Photo Evidence" class="img-fluid rounded shadow-sm" style="max-height: 200px;" />
+                                </a>
                             </div>
                         </div>
                     }
                 </div>
             </div>
         </div>
+
+        @if (Model.CheckoutChecklist != null)
+        {
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white fw-semibold">Checkout Verification Checklist</div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-3"><strong>Load Test:</strong> @(Model.CheckoutChecklist.LoadTestPassed ? "Passed" : "Failed") @(Model.CheckoutChecklist.LoadTestResultKg.HasValue ? "(" + Model.CheckoutChecklist.LoadTestResultKg.Value.ToString("0.##") + " kg)" : "")</div>
+                            <div class="col-md-3"><strong>Safety Check:</strong> @(Model.CheckoutChecklist.SafetyCheckPassed ? "Passed" : "Failed")</div>
+                            <div class="col-md-3"><strong>Calibration:</strong> @(Model.CheckoutChecklist.CalibrationVerified ? "Verified" : "Pending")</div>
+                            <div class="col-md-3"><strong>Visual Inspection:</strong> @(Model.CheckoutChecklist.VisualInspectionPassed ? "Passed" : "Failed")</div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(Model.CheckoutChecklist.Notes))
+                        {
+                            <p class="mb-2"><strong>Checklist Notes:</strong> @Model.CheckoutChecklist.Notes</p>
+                        }
+                        <div class="small text-muted">
+                            Technician Sign-Off: <strong>@(Model.CheckoutChecklist.TechnicianSignOffName ?? "—")</strong> (@(Model.CheckoutChecklist.TechnicianSignOffDate.HasValue ? Model.CheckoutChecklist.TechnicianSignOffDate.Value.ToString("dd MMM yyyy HH:mm") : "—"))<br />
+                            Admin Sign-Off: <strong>@(Model.CheckoutChecklist.AdminSignOffName ?? "—")</strong> (@(Model.CheckoutChecklist.AdminSignOffDate.HasValue ? Model.CheckoutChecklist.AdminSignOffDate.Value.ToString("dd MMM yyyy HH:mm") : "—"))
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
         <div class="col-12">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white fw-semibold">Issue Description</div>
