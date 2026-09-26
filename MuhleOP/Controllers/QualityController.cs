@@ -93,11 +93,26 @@ namespace MuhleOP.Controllers
         [Authorize(Roles = "Admin, Site Manager")]
         public ActionResult ConductInspection()
         {
+            var allTemplateItems = db.InspectionTemplateItems
+                .Where(t => t.IsActive)
+                .OrderBy(t => t.InspectionType)
+                .ThenBy(t => t.Order)
+                .ToList()
+                .Select(t => new InspectionTemplateItemViewModel
+                {
+                    Id = t.Id,
+                    InspectionType = t.InspectionType,
+                    ItemLabel = t.ItemLabel,
+                    Category = t.Category,
+                    Order = t.Order
+                }).ToList();
+
             var model = new CreateInspectionViewModel
             {
                 InspectionDate = DateTime.Today,
                 Projects = GetProjectSelectListForUser(),
-                InspectionTypes = GetInspectionTypeSelectList(null)
+                InspectionTypes = GetInspectionTypeSelectList(null),
+                TemplateItems = allTemplateItems
             };
             return View(model);
         }
@@ -114,6 +129,12 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("Dashboard", "Home");
             }
 
+            bool isSiteManagerOnly = User.IsInRole("Site Manager") && !User.IsInRole("Admin");
+            if (isSiteManagerOnly && string.IsNullOrWhiteSpace(model.SignatureData))
+            {
+                ModelState.AddModelError("SignatureData", "Site Manager digital signature is required to finalise the inspection.");
+            }
+
             if (ModelState.IsValid)
             {
                 try
@@ -125,8 +146,7 @@ namespace MuhleOP.Controllers
                         return View(RepopulateCreateInspection(model));
                     }
 
-                    // Ownership: Site Manager may only inspect projects they supervise
-                    if (User.IsInRole("Site Manager") && !User.IsInRole("Admin"))
+                    if (isSiteManagerOnly)
                     {
                         if (staff == null || project.SiteManagerId != staff.Id)
                         {
@@ -149,6 +169,9 @@ namespace MuhleOP.Controllers
                         ActionRequired = model.ActionRequired,
                         ActionItems = model.ActionItems,
                         DueDate = model.DueDate,
+                        MeasurementNotes = model.MeasurementNotes,
+                        SignedOffBy = staff != null ? staff.FullName : User.Identity.Name,
+                        SignedOffDate = DateTime.Now,
                         CreatedDate = DateTime.Now
                     };
 
@@ -160,22 +183,107 @@ namespace MuhleOP.Controllers
                     db.SiteInspections.Add(inspection);
                     await db.SaveChangesAsync();
 
-                    // Optional file uploads
-                    if (model.Photos != null && model.Photos.ContentLength > 0)
+                    if (!string.IsNullOrWhiteSpace(model.SignatureData))
                     {
                         try
                         {
                             var folder = Server.MapPath($"~/Uploads/Inspections/{inspection.Id}");
                             if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-                            var ext = Path.GetExtension(model.Photos.FileName);
-                            var fileName = Guid.NewGuid().ToString("N") + ext;
-                            var physicalPath = Path.Combine(folder, fileName);
-                            model.Photos.SaveAs(physicalPath);
-                            inspection.PhotosPath = $"/Uploads/Inspections/{inspection.Id}/{fileName}";
+                            var base64Data = model.SignatureData.Contains(",") ? model.SignatureData.Split(',')[1] : model.SignatureData;
+                            var bytes = Convert.FromBase64String(base64Data);
+                            var sigFileName = $"signature_{Guid.NewGuid():N}.png";
+                            var physicalSigPath = Path.Combine(folder, sigFileName);
+                            System.IO.File.WriteAllBytes(physicalSigPath, bytes);
+                            inspection.SignatureDataPath = $"/Uploads/Inspections/{inspection.Id}/{sigFileName}";
                         }
-                        catch (Exception photoEx)
+                        catch (Exception sigEx)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Photo upload failed: {photoEx.Message}");
+                            System.Diagnostics.Debug.WriteLine($"Signature saving failed: {sigEx.Message}");
+                        }
+                    }
+
+                    if (model.ItemResultsInput != null)
+                    {
+                        foreach (var ir in model.ItemResultsInput)
+                        {
+                            if (!string.IsNullOrEmpty(ir.Result))
+                            {
+                                db.InspectionItemResults.Add(new InspectionItemResult
+                                {
+                                    SiteInspectionId = inspection.Id,
+                                    TemplateItemId = ir.TemplateItemId,
+                                    Result = ir.Result,
+                                    Notes = ir.Notes
+                                });
+                            }
+                        }
+                    }
+
+                    bool hasCritical = false;
+                    if (model.NonConformancesInput != null)
+                    {
+                        foreach (var ncInput in model.NonConformancesInput)
+                        {
+                            if (!string.IsNullOrWhiteSpace(ncInput.Description))
+                            {
+                                var nc = new NonConformance
+                                {
+                                    SiteInspectionId = inspection.Id,
+                                    Description = ncInput.Description,
+                                    Severity = ncInput.Severity ?? "Minor",
+                                    ResponsibleParty = string.IsNullOrWhiteSpace(ncInput.ResponsibleParty) ? "Site Contractor" : ncInput.ResponsibleParty,
+                                    DueDate = ncInput.DueDate,
+                                    ReferenceNumber = "TEMP"
+                                };
+                                db.NonConformances.Add(nc);
+                                await db.SaveChangesAsync();
+
+                                nc.ReferenceNumber = $"NC-{nc.Id:D4}";
+                                if (nc.Severity == "Critical")
+                                {
+                                    hasCritical = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if (hasCritical)
+                    {
+                        inspection.ActionRequired = true;
+                        inspection.IsPassed = false;
+                    }
+
+                    if (model.Photos != null)
+                    {
+                        var photoPaths = new List<string>();
+                        if (!string.IsNullOrEmpty(inspection.PhotosPath))
+                        {
+                            photoPaths.Add(inspection.PhotosPath);
+                        }
+
+                        foreach (var photo in model.Photos)
+                        {
+                            if (photo != null && photo.ContentLength > 0)
+                            {
+                                try
+                                {
+                                    var folder = Server.MapPath($"~/Uploads/Inspections/{inspection.Id}");
+                                    if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+                                    var ext = Path.GetExtension(photo.FileName);
+                                    var fileName = Guid.NewGuid().ToString("N") + ext;
+                                    var physicalPath = Path.Combine(folder, fileName);
+                                    photo.SaveAs(physicalPath);
+                                    photoPaths.Add($"/Uploads/Inspections/{inspection.Id}/{fileName}");
+                                }
+                                catch (Exception photoEx)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Photo upload failed: {photoEx.Message}");
+                                }
+                            }
+                        }
+                        if (photoPaths.Any())
+                        {
+                            inspection.PhotosPath = string.Join(";", photoPaths);
                         }
                     }
 
@@ -199,20 +307,35 @@ namespace MuhleOP.Controllers
 
                     await db.SaveChangesAsync();
 
-                    // Notify Project Manager
                     var pm = db.Staff.Find(project.ProjectManagerId);
                     if (pm != null && !string.IsNullOrEmpty(pm.UserId))
                     {
                         await NotifyStakeholder(
                             pm.UserId,
-                            "Inspection Recorded",
-                            $"A {inspection.InspectionType} inspection was recorded on '{project.ProjectName}' by {(staff != null ? staff.FullName : User.Identity.Name)}.",
+                            hasCritical ? "CRITICAL SAFETY ISSUE — Inspection Recorded" : "Inspection Recorded",
+                            hasCritical
+                                ? $"CRITICAL safety issue on '{project.ProjectName}' in inspection #{inspection.Id}. Affected task halted."
+                                : $"A {inspection.InspectionType} inspection was recorded on '{project.ProjectName}' by {(staff != null ? staff.FullName : User.Identity.Name)}.",
                             "Project",
                             $"/Quality/InspectionDetails/{inspection.Id}"
                         );
                     }
 
-                    TempData["SuccessMessage"] = "Inspection recorded successfully.";
+                    if (hasCritical)
+                    {
+                        var adminIds = db.Users.ToList()
+                            .Where(u => UserManager.IsInRole(u.Id, "Admin"))
+                            .Select(u => u.Id)
+                            .ToList();
+                        foreach (var adminId in adminIds)
+                        {
+                            await CreateNotification(adminId, "CRITICAL SAFETY ISSUE",
+                                $"Critical safety issue recorded on '{project.ProjectName}' in inspection #{inspection.Id}.",
+                                "Project", $"/Quality/InspectionDetails/{inspection.Id}");
+                        }
+                    }
+
+                    TempData["SuccessMessage"] = hasCritical ? "Inspection recorded. CRITICAL SAFETY ISSUE detected and stakeholders notified!" : "Inspection recorded successfully.";
                     return RedirectToAction("InspectionDetails", new { id = inspection.Id });
                 }
                 catch (Exception ex)
@@ -237,6 +360,8 @@ namespace MuhleOP.Controllers
                 .Include(i => i.Project.ProjectManager)
                 .Include(i => i.Project.SiteManager)
                 .Include(i => i.PerformedBy)
+                .Include(i => i.ItemResults.Select(r => r.TemplateItem))
+                .Include(i => i.NonConformances)
                 .FirstOrDefault(i => i.Id == id);
 
             if (inspection == null)
@@ -251,11 +376,35 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("Index");
             }
 
-            // Related variations (SiteInspectionId FK is now present)
             var relatedVariations = db.ProjectVariations
                 .Where(v => v.SiteInspectionId == id)
                 .OrderByDescending(v => v.RequestDate)
                 .ToList();
+
+            var nonConformancesList = (inspection.NonConformances ?? new List<NonConformance>())
+                .Select(nc => new NonConformanceViewModel
+                {
+                    Id = nc.Id,
+                    ReferenceNumber = nc.ReferenceNumber,
+                    Description = nc.Description,
+                    Severity = nc.Severity,
+                    ResponsibleParty = nc.ResponsibleParty,
+                    Status = nc.Status,
+                    DueDate = nc.DueDate,
+                    CreatedDate = nc.CreatedDate
+                }).ToList();
+
+            var itemResultsList = (inspection.ItemResults ?? new List<InspectionItemResult>())
+                .Select(ir => new InspectionItemResultViewModel
+                {
+                    Id = ir.Id,
+                    ItemLabel = ir.TemplateItem != null ? ir.TemplateItem.ItemLabel : "Checklist Item",
+                    Category = ir.TemplateItem != null ? ir.TemplateItem.Category : "",
+                    Result = ir.Result,
+                    Notes = ir.Notes
+                }).ToList();
+
+            bool hasCritical = nonConformancesList.Any(nc => nc.Severity == "Critical");
 
             var vm = new InspectionDetailsViewModel
             {
@@ -282,6 +431,13 @@ namespace MuhleOP.Controllers
                 PhotosPath = inspection.PhotosPath,
                 ReportPath = inspection.ReportPath,
                 CreatedDate = inspection.CreatedDate,
+                ItemResults = itemResultsList,
+                NonConformances = nonConformancesList,
+                HasCriticalNonConformance = hasCritical,
+                SignedOffBy = inspection.SignedOffBy,
+                SignedOffDate = inspection.SignedOffDate,
+                SignatureDataPath = inspection.SignatureDataPath,
+                MeasurementNotes = inspection.MeasurementNotes,
                 RelatedVariations = relatedVariations.Select(v => new VariationListItemViewModel
                 {
                     Id = v.Id,
@@ -294,7 +450,7 @@ namespace MuhleOP.Controllers
                 }).ToList(),
                 CanReview = (User.IsInRole("Admin") || User.IsInRole("Project Manager")) && inspection.Status == "Completed",
                 CanRequestVariation = (User.IsInRole("Admin") || User.IsInRole("Project Manager") || User.IsInRole("Site Manager") || User.IsInRole("Client"))
-                    && (inspection.ActionRequired || (inspection.Score.HasValue && inspection.Score.Value < 80) || inspection.Status != "Reviewed")
+                    && (inspection.ActionRequired || (inspection.Score.HasValue && inspection.Score.Value < 80) || inspection.Status != "Reviewed" || hasCritical)
             };
 
             return View(vm);
@@ -358,7 +514,8 @@ namespace MuhleOP.Controllers
             var staff = ResolveCurrentStaff();
             IQueryable<SiteInspection> query = db.SiteInspections
                 .Include(i => i.Project)
-                .Include(i => i.PerformedBy);
+                .Include(i => i.PerformedBy)
+                .Include(i => i.NonConformances);
 
             if (User.IsInRole("Admin"))
             {
@@ -403,7 +560,8 @@ namespace MuhleOP.Controllers
                     StatusBadgeColor = GetInspectionStatusColor(i.Status),
                     Score = i.Score,
                     ActionRequired = i.ActionRequired,
-                    IsPassed = i.IsPassed
+                    IsPassed = i.IsPassed,
+                    HasCriticalNonConformance = i.NonConformances != null && i.NonConformances.Any(nc => nc.Severity == "Critical")
                 }).ToList();
 
             var vm = new InspectionQueueViewModel
@@ -426,8 +584,31 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Request Variation
+        // Request Variation & Non-Conformance Actions
         // ------------------------------------------------------------------
+
+        [Authorize(Roles = "Admin, Project Manager, Site Manager")]
+        public ActionResult RequestVariationFromNonConformance(int nonConformanceId)
+        {
+            var nc = db.NonConformances
+                .Include(n => n.SiteInspection)
+                .Include(n => n.SiteInspection.Project)
+                .FirstOrDefault(n => n.Id == nonConformanceId);
+
+            if (nc == null || nc.SiteInspection == null)
+            {
+                TempData["ErrorMessage"] = "Non-conformance not found.";
+                return RedirectToAction("Index");
+            }
+
+            if (!UserCanViewInspection(nc.SiteInspection))
+            {
+                TempData["ErrorMessage"] = "You do not have permission to access this inspection.";
+                return RedirectToAction("Index");
+            }
+
+            return RedirectToAction("RequestVariation", new { inspectionId = nc.SiteInspectionId, prefillNonConformanceId = nc.Id });
+        }
 
         [Authorize(Roles = "Admin, Project Manager, Site Manager, Client")]
         public ActionResult RequestVariation(int? inspectionId = null)
@@ -438,10 +619,17 @@ namespace MuhleOP.Controllers
                 VariationTypes = GetVariationTypeSelectList(null)
             };
 
+            int? prefillNcId = null;
+            if (Request.QueryString["prefillNonConformanceId"] != null && int.TryParse(Request.QueryString["prefillNonConformanceId"], out int parsedNcId))
+            {
+                prefillNcId = parsedNcId;
+            }
+
             if (inspectionId.HasValue)
             {
                 var inspection = db.SiteInspections
                     .Include(i => i.Project)
+                    .Include(i => i.NonConformances)
                     .FirstOrDefault(i => i.Id == inspectionId.Value);
 
                 if (inspection != null && UserCanViewInspection(inspection))
@@ -449,6 +637,20 @@ namespace MuhleOP.Controllers
                     model.SiteInspectionId = inspection.Id;
                     model.ProjectId = inspection.ProjectId;
                     model.RelatedInspectionSummary = $"{inspection.InspectionType} on {inspection.InspectionDate:dd MMM yyyy} – {inspection.InspectionArea}";
+
+                    if (prefillNcId.HasValue)
+                    {
+                        var nc = inspection.NonConformances?.FirstOrDefault(n => n.Id == prefillNcId.Value);
+                        if (nc != null)
+                        {
+                            model.NonConformanceId = nc.Id;
+                            model.VariationType = "Scope Change";
+                            model.Description = $"Non-conformance {nc.ReferenceNumber}: {nc.Description}";
+                            model.Reason = "Critical/quality non-conformance found during inspection";
+                            model.PrefillSummary = $"Pre-filled from Non-Conformance {nc.ReferenceNumber} ({nc.Severity} severity)";
+                        }
+                    }
+
                     if (string.IsNullOrWhiteSpace(model.Description) && !string.IsNullOrWhiteSpace(inspection.Findings))
                         model.Description = "Triggered by inspection findings: " + inspection.Findings;
                     if (string.IsNullOrWhiteSpace(model.Reason) && inspection.ActionRequired)
@@ -484,7 +686,6 @@ namespace MuhleOP.Controllers
                         return View(RepopulateRequestVariation(model));
                     }
 
-                    // Optional inspection link validation
                     if (model.SiteInspectionId.HasValue)
                     {
                         var insp = db.SiteInspections.Find(model.SiteInspectionId.Value);
@@ -507,14 +708,13 @@ namespace MuhleOP.Controllers
                         RequestedBy = User.Identity.Name,
                         RequestDate = DateTime.Now,
                         Status = "Requested",
-                        SiteInspectionId = model.SiteInspectionId
-                        // VariationNumber is set by the entity constructor – do not overwrite
+                        SiteInspectionId = model.SiteInspectionId,
+                        NonConformanceId = model.NonConformanceId
                     };
 
                     db.ProjectVariations.Add(variation);
                     await db.SaveChangesAsync();
 
-                    // Supporting documents
                     if (model.SupportingDocuments != null && model.SupportingDocuments.ContentLength > 0)
                     {
                         try
@@ -534,7 +734,6 @@ namespace MuhleOP.Controllers
                         }
                     }
 
-                    // Notify Project Manager + Admins
                     var pm = db.Staff.Find(project.ProjectManagerId);
                     if (pm != null && !string.IsNullOrEmpty(pm.UserId))
                     {
@@ -714,7 +913,6 @@ namespace MuhleOP.Controllers
                         ApproverName = a.ApproverName,
                         ApprovalStatus = a.ApprovalStatus,
                         Comments = a.Comments,
-                        // FIX: ApprovalDate is DateTime? on the entity, non-nullable on the view-model
                         ApprovalDate = a.ApprovalDate ?? DateTime.MinValue,
                         ApprovalLevel = a.ApprovalLevel
                     }).ToList(),
@@ -754,7 +952,6 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("VariationDetails", new { id });
             }
 
-            // Extra ownership: non-Admin PM must manage the project
             if (!User.IsInRole("Admin"))
             {
                 var staff = ResolveCurrentStaff();
@@ -849,7 +1046,6 @@ namespace MuhleOP.Controllers
                         };
                         db.VariationApprovals.Add(approval);
 
-                        // Update project baseline
                         if (variation.Project != null)
                         {
                             if (variation.Project.Budget != null && variation.ImpactOnCost.HasValue)
@@ -890,12 +1086,10 @@ namespace MuhleOP.Controllers
                             ApprovalLevel = 1
                         };
                         db.VariationApprovals.Add(approval);
-                        // Do NOT touch Project.Budget or EstimatedEndDate
                     }
 
                     await db.SaveChangesAsync();
 
-                    // Notify Client + Admins
                     if (variation.Project?.Client != null && !string.IsNullOrEmpty(variation.Project.Client.UserId))
                     {
                         var title = model.Decision == "Approve" ? "Variation Approved" : "Variation Rejected";
@@ -1067,6 +1261,19 @@ namespace MuhleOP.Controllers
         {
             model.Projects = GetProjectSelectListForUser();
             model.InspectionTypes = GetInspectionTypeSelectList(model.InspectionType);
+            model.TemplateItems = db.InspectionTemplateItems
+                .Where(t => t.IsActive)
+                .OrderBy(t => t.InspectionType)
+                .ThenBy(t => t.Order)
+                .ToList()
+                .Select(t => new InspectionTemplateItemViewModel
+                {
+                    Id = t.Id,
+                    InspectionType = t.InspectionType,
+                    ItemLabel = t.ItemLabel,
+                    Category = t.Category,
+                    Order = t.Order
+                }).ToList();
             return model;
         }
 
@@ -1105,7 +1312,6 @@ namespace MuhleOP.Controllers
         {
             if (string.IsNullOrEmpty(userId)) return;
             await CreateNotification(userId, title, message, type, link);
-            // Email omitted for brevity – pattern matches ProjectController if EmailHelper is available
         }
 
         protected override void Dispose(bool disposing)

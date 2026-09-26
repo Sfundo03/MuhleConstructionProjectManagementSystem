@@ -1,28 +1,23 @@
-﻿
-@model MuhleOP.ViewModels.InspectionDetailsViewModel
+﻿@model MuhleOP.ViewModels.InspectionDetailsViewModel
 @{
-    ViewBag.Title = "Inspection Details";
+    ViewBag.Title = "Inspection Details #" + Model.Id;
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="mb-0">Inspection #@Model.Id</h4>
     <div>
-        <a href="@Url.Action("InspectionQueue")" class="btn btn-outline-secondary btn-sm">Queue</a>
-        @if (Model.CanRequestVariation)
-        {
-            <a href="@Url.Action("RequestVariation", new { inspectionId = Model.Id })" class="btn btn-warning btn-sm">
-                <i class="fas fa-exchange-alt me-1"></i> Request Variation
-            </a>
-        }
+        <h4 class="mb-0">Inspection #@Model.Id – @Model.InspectionType</h4>
+        <span class="text-secondary">Project: @Model.ProjectName (@Model.ProjectCode)</span>
+    </div>
+    <div>
+        <a href="@Url.Action("InspectionQueue")" class="btn btn-outline-secondary btn-sm me-2">Back to Queue</a>
         @if (Model.CanReview)
         {
-            using (Html.BeginForm("MarkInspectionReviewed", "Quality", FormMethod.Post, new { style = "display:inline;" }))
+            using (Html.BeginForm("MarkInspectionReviewed", "Quality", new { id = Model.Id }, FormMethod.Post, new { style = "display:inline;" }))
             {
                 @Html.AntiForgeryToken()
-                <input type="hidden" name="id" value="@Model.Id" />
                 <button type="submit" class="btn btn-success btn-sm">
-                    <i class="fas fa-check me-1"></i> Mark as Reviewed
+                    <i class="fas fa-check-circle me-1"></i> Mark as Reviewed
                 </button>
             }
         }
@@ -38,123 +33,239 @@
     <div class="alert alert-danger alert-dismissible">@TempData["ErrorMessage"]</div>
 }
 
-<div class="row g-3">
+@if (Model.HasCriticalNonConformance)
+{
+    <div class="alert alert-danger shadow-sm mb-4">
+        <i class="fas fa-triangle-exclamation fa-lg me-2"></i>
+        <strong>CRITICAL SAFETY ISSUE RECORDED:</strong> This inspection recorded a critical safety issue. The affected task is halted pending resolution.
+    </div>
+}
+
+<div class="row g-4">
     <div class="col-md-8">
-        <div class="card mb-3">
+        <div class="card mb-4">
             <div class="card-header fw-semibold">Inspection Information</div>
             <div class="card-body">
                 <div class="row mb-2">
-                    <div class="col-sm-4 text-secondary">Project</div>
-                    <div class="col-sm-8">@Model.ProjectName (@Model.ProjectCode)</div>
+                    <div class="col-sm-3 text-secondary">Inspection Area</div>
+                    <div class="col-sm-9">@(string.IsNullOrWhiteSpace(Model.InspectionArea) ? "N/A" : Model.InspectionArea)</div>
                 </div>
                 <div class="row mb-2">
-                    <div class="col-sm-4 text-secondary">Type</div>
-                    <div class="col-sm-8">@Model.InspectionType</div>
+                    <div class="col-sm-3 text-secondary">Inspection Date</div>
+                    <div class="col-sm-9">@Model.InspectionDate.ToString("dd MMM yyyy")</div>
                 </div>
                 <div class="row mb-2">
-                    <div class="col-sm-4 text-secondary">Area</div>
-                    <div class="col-sm-8">@(Model.InspectionArea ?? "—")</div>
+                    <div class="col-sm-3 text-secondary">Performed By</div>
+                    <div class="col-sm-9">@Model.PerformedByName</div>
                 </div>
                 <div class="row mb-2">
-                    <div class="col-sm-4 text-secondary">Date</div>
-                    <div class="col-sm-8">@Model.InspectionDate.ToString("dd MMM yyyy")</div>
+                    <div class="col-sm-3 text-secondary">Status</div>
+                    <div class="col-sm-9"><span class="badge bg-@Model.StatusBadgeColor">@Model.Status</span></div>
                 </div>
                 <div class="row mb-2">
-                    <div class="col-sm-4 text-secondary">Performed By</div>
-                    <div class="col-sm-8">@Model.PerformedByName</div>
+                    <div class="col-sm-3 text-secondary">Score</div>
+                    <div class="col-sm-9">@(Model.Score.HasValue ? Model.Score.Value + "/100" : "N/A")</div>
                 </div>
                 <div class="row mb-2">
-                    <div class="col-sm-4 text-secondary">Status</div>
-                    <div class="col-sm-8">
-                        <span class="badge bg-@Model.StatusBadgeColor">@Model.Status</span>
-                        @if (Model.IsPassed)
-                        {
-                            <span class="badge bg-success ms-1">Passed</span>
-                        }
-                        else
-                        {
-                            <span class="badge bg-danger ms-1">Not Passed</span>
-                        }
-                    </div>
-                </div>
-                @if (Model.Score.HasValue)
-                {
-                    <div class="row mb-2">
-                        <div class="col-sm-4 text-secondary">Score</div>
-                        <div class="col-sm-8">@Model.Score / 100</div>
-                    </div>
-                }
-                <div class="row mb-2">
-                    <div class="col-sm-4 text-secondary">Findings</div>
-                    <div class="col-sm-8">@Model.Findings</div>
+                    <div class="col-sm-3 text-secondary">Findings</div>
+                    <div class="col-sm-9" style="white-space: pre-wrap;">@Model.Findings</div>
                 </div>
                 @if (!string.IsNullOrWhiteSpace(Model.Recommendations))
                 {
                     <div class="row mb-2">
-                        <div class="col-sm-4 text-secondary">Recommendations</div>
-                        <div class="col-sm-8">@Model.Recommendations</div>
+                        <div class="col-sm-3 text-secondary">Recommendations</div>
+                        <div class="col-sm-9" style="white-space: pre-wrap;">@Model.Recommendations</div>
                     </div>
                 }
-                @if (Model.ActionRequired)
+                @if (!string.IsNullOrWhiteSpace(Model.MeasurementNotes))
                 {
                     <div class="row mb-2">
-                        <div class="col-sm-4 text-secondary">Action Items</div>
-                        <div class="col-sm-8">
-                            <span class="badge bg-danger">Action Required</span>
-                            <div class="mt-1">@Model.ActionItems</div>
-                            @if (Model.DueDate.HasValue)
+                        <div class="col-sm-3 text-secondary">Measurement Notes</div>
+                        <div class="col-sm-9"><code>@Model.MeasurementNotes</code></div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Checklist Results -->
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">Checklist Results</div>
+            <div class="card-body p-0">
+                @if (Model.ItemResults != null && Model.ItemResults.Any())
+                {
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Category</th>
+                                <th>Result</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var res in Model.ItemResults)
                             {
-                                <div class="small text-secondary">Due: @Model.DueDate.Value.ToString("dd MMM yyyy")</div>
+                                var badgeCol = res.Result == "Pass" ? "success" : (res.Result == "Fail" ? "danger" : (res.Result == "Partial" ? "warning" : "secondary"));
+                                <tr>
+                                    <td>@res.ItemLabel</td>
+                                    <td><span class="badge bg-secondary">@res.Category</span></td>
+                                    <td><span class="badge bg-@badgeCol">@res.Result</span></td>
+                                    <td>@(string.IsNullOrWhiteSpace(res.Notes) ? "—" : res.Notes)</td>
+                                </tr>
                             }
-                        </div>
-                    </div>
+                        </tbody>
+                    </table>
                 }
-                @if (!string.IsNullOrWhiteSpace(Model.ReviewedBy))
+                else
                 {
-                    <div class="row mb-2">
-                        <div class="col-sm-4 text-secondary">Reviewed By</div>
-                        <div class="col-sm-8">@Model.ReviewedBy on @(Model.ReviewDate?.ToString("dd MMM yyyy HH:mm"))</div>
-                    </div>
+                    <div class="p-3 text-muted">No checklist item results recorded for this inspection.</div>
+                }
+            </div>
+        </div>
+
+        <!-- Non-Conformances Register -->
+        <div class="card mb-4">
+            <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                <span>Non-Conformances Register</span>
+                @if (Model.CanRequestVariation)
+                {
+                    <a href="@Url.Action("RequestVariation", new { inspectionId = Model.Id })" class="btn btn-warning btn-sm">
+                        <i class="fas fa-exchange-alt me-1"></i> Request Variation
+                    </a>
+                }
+            </div>
+            <div class="card-body p-0">
+                @if (Model.NonConformances != null && Model.NonConformances.Any())
+                {
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Ref #</th>
+                                <th>Description</th>
+                                <th>Severity</th>
+                                <th>Responsible</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var nc in Model.NonConformances)
+                            {
+                                var sevBadge = nc.Severity == "Critical" ? "danger" : (nc.Severity == "Major" ? "warning" : "secondary");
+                                <tr>
+                                    <td class="fw-bold">@nc.ReferenceNumber</td>
+                                    <td>@nc.Description</td>
+                                    <td><span class="badge bg-@sevBadge">@nc.Severity</span></td>
+                                    <td>@nc.ResponsibleParty</td>
+                                    <td><span class="badge bg-info">@nc.Status</span></td>
+                                    <td>
+                                        <a href="@Url.Action("RequestVariationFromNonConformance", new { nonConformanceId = nc.Id })" class="btn btn-outline-primary btn-sm" title="Request Variation from Non-Conformance">
+                                            <i class="fas fa-plus me-1"></i> Variation
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="p-3 text-muted">No non-conformances registered.</div>
                 }
             </div>
         </div>
     </div>
+
     <div class="col-md-4">
-        <div class="card mb-3">
-            <div class="card-header fw-semibold">Attachments</div>
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">Review & Verification</div>
             <div class="card-body">
-                @if (!string.IsNullOrWhiteSpace(Model.PhotosPath))
+                <div class="mb-3">
+                    <span class="text-secondary d-block small">Action Required</span>
+                    <span class="fw-bold @(Model.ActionRequired ? "text-danger" : "text-success")">
+                        @(Model.ActionRequired ? "Yes" : "No")
+                    </span>
+                </div>
+                @if (Model.ActionRequired)
                 {
-                    <a href="@Model.PhotosPath" target="_blank" class="d-block mb-2">
-                        <i class="fas fa-image me-1"></i> Photos
-                    </a>
+                    <div class="mb-3">
+                        <span class="text-secondary d-block small">Action Items</span>
+                        <p class="mb-0">@Model.ActionItems</p>
+                    </div>
+                    <div class="mb-3">
+                        <span class="text-secondary d-block small">Due Date</span>
+                        <span class="fw-bold">@(Model.DueDate.HasValue ? Model.DueDate.Value.ToString("dd MMM yyyy") : "N/A")</span>
+                    </div>
                 }
-                @if (!string.IsNullOrWhiteSpace(Model.ReportPath))
+                <div class="mb-3">
+                    <span class="text-secondary d-block small">Reviewed By</span>
+                    <span class="fw-bold">@(string.IsNullOrWhiteSpace(Model.ReviewedBy) ? "Pending Review" : Model.ReviewedBy)</span>
+                </div>
+                @if (Model.ReviewDate.HasValue)
                 {
-                    <a href="@Model.ReportPath" target="_blank" class="d-block">
-                        <i class="fas fa-file-alt me-1"></i> Report
-                    </a>
-                }
-                @if (string.IsNullOrWhiteSpace(Model.PhotosPath) && string.IsNullOrWhiteSpace(Model.ReportPath))
-                {
-                    <span class="text-secondary">No attachments</span>
+                    <div class="mb-3">
+                        <span class="text-secondary d-block small">Review Date</span>
+                        <span class="fw-bold">@Model.ReviewDate.Value.ToString("dd MMM yyyy HH:mm")</span>
+                    </div>
                 }
             </div>
         </div>
-        @if (Model.RelatedVariations != null && Model.RelatedVariations.Any())
-        {
-            <div class="card">
-                <div class="card-header fw-semibold">Related Variations</div>
-                <ul class="list-group list-group-flush">
-                    @foreach (var v in Model.RelatedVariations)
-                    {
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <a href="@Url.Action("VariationDetails", new { id = v.Id })">@v.VariationNumber</a>
-                            <span class="badge bg-@v.StatusBadgeColor">@v.Status</span>
-                        </li>
-                    }
-                </ul>
+
+        <!-- Digital Sign-Off Card -->
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">Sign-Off & Authentication</div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <span class="text-secondary d-block small">Signed Off By</span>
+                    <span class="fw-bold">@(string.IsNullOrWhiteSpace(Model.SignedOffBy) ? "N/A" : Model.SignedOffBy)</span>
+                </div>
+                <div class="mb-3">
+                    <span class="text-secondary d-block small">Signed Off Date</span>
+                    <span class="fw-bold">@(Model.SignedOffDate.HasValue ? Model.SignedOffDate.Value.ToString("dd MMM yyyy HH:mm") : "N/A")</span>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(Model.SignatureDataPath))
+                {
+                    <div class="mb-2">
+                        <span class="text-secondary d-block small mb-1">Digital Signature</span>
+                        <div class="border p-2 bg-light rounded text-center">
+                            <img src="@Model.SignatureDataPath" alt="Site Manager Signature" style="max-height:80px; max-width:100%;" />
+                        </div>
+                    </div>
+                }
             </div>
-        }
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">Attached Files</div>
+            <div class="card-body">
+                @if (!string.IsNullOrWhiteSpace(Model.PhotosPath))
+                {
+                    <div class="mb-3">
+                        <span class="text-secondary d-block small mb-1">Inspection Photos</span>
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach (var pPath in Model.PhotosPath.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                            {
+                                <a href="@pPath" target="_blank" class="border rounded p-1 bg-light">
+                                    <img src="@pPath" alt="Photo" style="width:60px; height:60px; object-fit:cover;" />
+                                </a>
+                            }
+                        </div>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.ReportPath))
+                {
+                    <div>
+                        <span class="text-secondary d-block small mb-1">Report Document</span>
+                        <a href="@Model.ReportPath" target="_blank" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-file-pdf me-1"></i> Download Report
+                        </a>
+                    </div>
+                }
+                @if (string.IsNullOrWhiteSpace(Model.PhotosPath) && string.IsNullOrWhiteSpace(Model.ReportPath))
+                {
+                    <p class="text-muted mb-0 small">No files attached.</p>
+                }
+            </div>
+        </div>
     </div>
 </div>

@@ -5,6 +5,77 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MuhleOP.Models
 {
+    public class InspectionTemplateItem
+    {
+        [Key] public int Id { get; set; }
+
+        [Required, StringLength(50)]
+        public string InspectionType { get; set; } // Safety, Quality, Progress, Compliance
+
+        [Required, StringLength(200)]
+        public string ItemLabel { get; set; }
+
+        [StringLength(50)]
+        public string Category { get; set; } // Foundation, Framing, Electrical, Plumbing, etc.
+
+        public int Order { get; set; }
+
+        public bool IsActive { get; set; }
+    }
+
+    public class InspectionItemResult
+    {
+        [Key] public int Id { get; set; }
+
+        [Required] public int SiteInspectionId { get; set; }
+        [ForeignKey("SiteInspectionId")]
+        public virtual SiteInspection SiteInspection { get; set; }
+
+        [Required] public int TemplateItemId { get; set; }
+        [ForeignKey("TemplateItemId")]
+        public virtual InspectionTemplateItem TemplateItem { get; set; }
+
+        [Required, StringLength(20)]
+        public string Result { get; set; } // Pass, Fail, Partial, N/A
+
+        [StringLength(1000)]
+        public string Notes { get; set; }
+    }
+
+    public class NonConformance
+    {
+        [Key] public int Id { get; set; }
+
+        [Required, StringLength(20)]
+        public string ReferenceNumber { get; set; } // e.g. NC-0001
+
+        [Required] public int SiteInspectionId { get; set; }
+        [ForeignKey("SiteInspectionId")]
+        public virtual SiteInspection SiteInspection { get; set; }
+
+        [Required, StringLength(200)]
+        public string Description { get; set; }
+
+        [Required, StringLength(20)]
+        public string Severity { get; set; } // Minor, Major, Critical
+
+        [Required, StringLength(100)]
+        public string ResponsibleParty { get; set; }
+
+        [StringLength(50)]
+        public string Status { get; set; } // Open, In Progress, Closed
+
+        public DateTime? DueDate { get; set; }
+
+        public DateTime CreatedDate { get; set; }
+
+        public NonConformance()
+        {
+            CreatedDate = DateTime.Now;
+            Status = "Open";
+        }
+    }
+
     public class SiteInspection
     {
         [Key]
@@ -83,6 +154,25 @@ namespace MuhleOP.Models
         [Display(Name = "Created Date")]
         public DateTime CreatedDate { get; set; }
 
+        [Display(Name = "Measurement Notes")]
+        [StringLength(2000)]
+        public string MeasurementNotes { get; set; }
+
+        [Display(Name = "Signed Off By")]
+        [StringLength(100)]
+        public string SignedOffBy { get; set; }
+
+        [Display(Name = "Signed Off Date")]
+        public DateTime? SignedOffDate { get; set; }
+
+        [Display(Name = "Signature Data Path")]
+        [StringLength(500)]
+        public string SignatureDataPath { get; set; }
+
+        // Navigation properties
+        public virtual ICollection<InspectionItemResult> ItemResults { get; set; }
+        public virtual ICollection<NonConformance> NonConformances { get; set; }
+
         public SiteInspection()
         {
             InspectionDate = DateTime.Now;
@@ -90,6 +180,8 @@ namespace MuhleOP.Models
             IsPassed = false;
             ActionRequired = false;
             CreatedDate = DateTime.Now;
+            ItemResults = new List<InspectionItemResult>();
+            NonConformances = new List<NonConformance>();
         }
     }
 
@@ -109,6 +201,12 @@ namespace MuhleOP.Models
 
         [ForeignKey("SiteInspectionId")]
         public virtual SiteInspection SiteInspection { get; set; }
+
+        // Link back to specific non-conformance (optional)
+        public int? NonConformanceId { get; set; }
+
+        [ForeignKey("NonConformanceId")]
+        public virtual NonConformance NonConformance { get; set; }
 
         [Required]
         [Display(Name = "Variation Number")]
