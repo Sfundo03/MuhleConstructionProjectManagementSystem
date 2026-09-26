@@ -1,5 +1,4 @@
-﻿
-@model MuhleOP.ViewModels.VariationDetailsViewModel
+﻿@model MuhleOP.ViewModels.VariationDetailsViewModel
 @{
     ViewBag.Title = "Variation " + Model.VariationNumber;
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -15,6 +14,12 @@
                 <i class="fas fa-gavel me-1"></i> Approve / Reject
             </a>
         }
+        @if (Model.CanDownloadVariationOrder)
+        {
+            <a href="@Url.Action("DownloadVariationOrder", new { id = Model.Id })" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-file-pdf me-1"></i> Download Variation Order
+            </a>
+        }
     </div>
 </div>
 
@@ -25,6 +30,65 @@
 @if (TempData["ErrorMessage"] != null)
 {
     <div class="alert alert-danger alert-dismissible">@TempData["ErrorMessage"]</div>
+}
+
+@if (Model.CanValidate)
+{
+    <div class="card border-warning mb-3">
+        <div class="card-header bg-warning text-dark fw-semibold">Client Variation Pending Validation</div>
+        <div class="card-body">
+            @using (Html.BeginForm("ValidateVariation", "Quality", FormMethod.Post))
+            {
+                @Html.AntiForgeryToken()
+                @Html.Hidden("id", Model.Id)
+                <div class="mb-3">
+                    <label class="form-label">Validation Notes</label>
+                    <textarea name="validationNotes" class="form-control" rows="2" placeholder="Enter validation remarks before forwarding..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-warning btn-sm">
+                    <i class="fas fa-check-circle me-1"></i> Validate & Forward
+                </button>
+            }
+        </div>
+    </div>
+}
+
+@if (Model.CanFinanceApprove)
+{
+    <div class="card border-primary mb-3">
+        <div class="card-header bg-primary text-white fw-semibold">Finance Officer Review Gate</div>
+        <div class="card-body">
+            <p>This high-cost variation exceeds the threshold and requires Finance Officer sign-off.</p>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    @using (Html.BeginForm("FinanceApproveVariation", "Quality", FormMethod.Post))
+                    {
+                        @Html.AntiForgeryToken()
+                        @Html.Hidden("id", Model.Id)
+                        <div class="mb-2">
+                            <textarea name="financeNotes" class="form-control form-control-sm" rows="2" placeholder="Finance approval notes..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-sm w-100">
+                            <i class="fas fa-check me-1"></i> Finance Approve
+                        </button>
+                    }
+                </div>
+                <div class="col-md-6">
+                    @using (Html.BeginForm("FinanceRejectVariation", "Quality", FormMethod.Post))
+                    {
+                        @Html.AntiForgeryToken()
+                        @Html.Hidden("id", Model.Id)
+                        <div class="mb-2">
+                            <textarea name="financeNotes" class="form-control form-control-sm" rows="2" placeholder="Finance rejection reason..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-danger btn-sm w-100">
+                            <i class="fas fa-times me-1"></i> Finance Reject
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
 <div class="row g-3">
@@ -62,15 +126,42 @@
                         <div class="col-sm-8">@Model.ImpactOnScope</div>
                     </div>
                 }
+                @if (!string.IsNullOrWhiteSpace(Model.ImpactOnQuality))
+                {
+                    <div class="row mb-2">
+                        <div class="col-sm-4 text-secondary">Impact on Quality</div>
+                        <div class="col-sm-8">@Model.ImpactOnQuality</div>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.ImpactOnResources))
+                {
+                    <div class="row mb-2">
+                        <div class="col-sm-4 text-secondary">Impact on Resources</div>
+                        <div class="col-sm-8">@Model.ImpactOnResources</div>
+                    </div>
+                }
                 <div class="row mb-2">
                     <div class="col-sm-4 text-secondary">Cost Impact</div>
-                    <div class="col-sm-8">@(Model.ImpactOnCost.HasValue ? "R" + Model.ImpactOnCost.Value.ToString("N2") : "—")</div>
+                    <div class="col-sm-8">
+                        @(Model.ImpactOnCost.HasValue ? "R" + Model.ImpactOnCost.Value.ToString("N2") : "—")
+                        @if (Model.ApprovedCostCap.HasValue)
+                        {
+                            <span class="badge bg-info ms-2">Capped at R@Model.ApprovedCostCap.Value.ToString("N2")</span>
+                        }
+                    </div>
                 </div>
                 <div class="row mb-2">
                     <div class="col-sm-4 text-secondary">Timeline Impact</div>
                     <div class="col-sm-8">@(Model.ImpactOnTimelineDays.HasValue ? Model.ImpactOnTimelineDays + " day(s)" : "—")</div>
                 </div>
-                @if (Model.Status == "Approved" || Model.Status == "Rejected")
+                @if (Model.FinanceOfficerApproved)
+                {
+                    <div class="row mb-2">
+                        <div class="col-sm-4 text-secondary">Finance Authorisation</div>
+                        <div class="col-sm-8 text-success">Approved by @Model.FinanceOfficerApprovedBy on @(Model.FinanceOfficerApprovalDate?.ToString("dd MMM yyyy HH:mm"))</div>
+                    </div>
+                }
+                @if (Model.Status == "Approved" || Model.Status == "Rejected" || Model.Status == "ConditionalApproval")
                 {
                     <hr />
                     <div class="row mb-2">
@@ -84,7 +175,7 @@
                             <div class="col-sm-8 text-danger">@Model.RejectionReason</div>
                         </div>
                     }
-                    if (Model.Status == "Approved")
+                    if (Model.Status == "Approved" || Model.Status == "ConditionalApproval")
                     {
                         <div class="row mb-2">
                             <div class="col-sm-4 text-secondary">Implementation Date</div>
@@ -101,6 +192,41 @@
                 }
             </div>
         </div>
+
+        @if (Model.BaselineSnapshots != null && Model.BaselineSnapshots.Any())
+        {
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">Baseline History & Snapshots</div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date / By</th>
+                                <th>Previous Est. Cost</th>
+                                <th>New Est. Cost</th>
+                                <th>Previous End Date</th>
+                                <th>New End Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var snap in Model.BaselineSnapshots)
+                            {
+                                <tr>
+                                    <td>
+                                        <div><strong>@snap.SnapshottedBy</strong></div>
+                                        <div class="small text-secondary">@snap.SnapshottedDate.ToString("dd MMM yyyy HH:mm")</div>
+                                    </td>
+                                    <td>R@snap.PreviousBudgetEstimated.ToString("N2")</td>
+                                    <td class="fw-semibold text-primary">R@snap.NewBudgetEstimated.ToString("N2")</td>
+                                    <td>@(snap.PreviousEstimatedEndDate.HasValue ? snap.PreviousEstimatedEndDate.Value.ToString("dd MMM yyyy") : "—")</td>
+                                    <td class="fw-semibold text-primary">@(snap.NewEstimatedEndDate.HasValue ? snap.NewEstimatedEndDate.Value.ToString("dd MMM yyyy") : "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
     </div>
     <div class="col-md-4">
         @if (Model.LinkedInspectionId.HasValue)
@@ -119,9 +245,17 @@
             <div class="card mb-3">
                 <div class="card-header fw-semibold">Supporting Documents</div>
                 <div class="card-body">
-                    <a href="@Model.SupportingDocumentsPath" target="_blank">
-                        <i class="fas fa-file me-1"></i> Download
-                    </a>
+                    @foreach (var docPath in Model.SupportingDocumentsPath.Split(';'))
+                    {
+                        if (!string.IsNullOrWhiteSpace(docPath))
+                        {
+                            <div class="mb-1">
+                                <a href="@docPath" target="_blank">
+                                    <i class="fas fa-file me-1"></i> @System.IO.Path.GetFileName(docPath)
+                                </a>
+                            </div>
+                        }
+                    }
                 </div>
             </div>
         }
@@ -133,9 +267,9 @@
                     @foreach (var a in Model.Approvals)
                     {
                         <li class="list-group-item">
-                            <div class="fw-semibold">@a.ApproverName</div>
+                            <div class="fw-semibold">@a.ApproverName <span class="badge bg-secondary">Level @a.ApprovalLevel</span></div>
                             <div class="small">
-                                <span class="badge bg-@(a.ApprovalStatus == "Approved" ? "success" : "danger")">@a.ApprovalStatus</span>
+                                <span class="badge bg-@(a.ApprovalStatus == "Approved" ? "success" : (a.ApprovalStatus == "Rejected" ? "danger" : "warning"))">@a.ApprovalStatus</span>
                                 @a.ApprovalDate.ToString("dd MMM yyyy")
                             </div>
                             @if (!string.IsNullOrWhiteSpace(a.Comments))

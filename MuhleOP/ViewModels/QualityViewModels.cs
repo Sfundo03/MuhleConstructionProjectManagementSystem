@@ -220,14 +220,25 @@ namespace MuhleOP.ViewModels
         [DataType(DataType.MultilineText)]
         public string ImpactOnScope { get; set; }
 
+        [Display(Name = "Impact on Quality")]
+        [DataType(DataType.MultilineText)]
+        public string ImpactOnQuality { get; set; }
+
+        [Display(Name = "Impact on Resources")]
+        [DataType(DataType.MultilineText)]
+        public string ImpactOnResources { get; set; }
+
         [Display(Name = "Impact on Cost (R)")]
         public decimal? ImpactOnCost { get; set; }
 
         [Display(Name = "Impact on Timeline (Days)")]
         public int? ImpactOnTimelineDays { get; set; }
 
-        [Display(Name = "Supporting Documents (optional)")]
-        public HttpPostedFileBase SupportingDocuments { get; set; }
+        [Display(Name = "Supporting Documents (multiple optional)")]
+        public IEnumerable<HttpPostedFileBase> SupportingDocuments { get; set; }
+
+        public bool IsDraft { get; set; }
+        public bool IsClientInitiated { get; set; }
 
         public List<SelectListItem> Projects { get; set; } = new List<SelectListItem>();
         public List<SelectListItem> VariationTypes { get; set; } = new List<SelectListItem>();
@@ -245,6 +256,9 @@ namespace MuhleOP.ViewModels
         public string RequestedBy { get; set; }
         public decimal? ImpactOnCost { get; set; }
         public int? ImpactOnTimelineDays { get; set; }
+        public bool IsPendingValidation { get; set; }
+        public bool IsPendingFinanceApproval { get; set; }
+        public bool IsConditionalApproval { get; set; }
     }
 
     public class VariationQueueViewModel
@@ -269,8 +283,16 @@ namespace MuhleOP.ViewModels
         public string Description { get; set; }
         public string Reason { get; set; }
         public string ImpactOnScope { get; set; }
+        public string ImpactOnQuality { get; set; }
+        public string ImpactOnResources { get; set; }
         public decimal? ImpactOnCost { get; set; }
         public int? ImpactOnTimelineDays { get; set; }
+        public decimal? ApprovedCostCap { get; set; }
+        public bool IsConditionalApproval { get; set; }
+        public bool FinanceOfficerApproved { get; set; }
+        public string FinanceOfficerApprovedBy { get; set; }
+        public DateTime? FinanceOfficerApprovalDate { get; set; }
+        public string VariationOrderPdfPath { get; set; }
         public string RequestedBy { get; set; }
         public DateTime RequestDate { get; set; }
         public string Status { get; set; }
@@ -284,7 +306,11 @@ namespace MuhleOP.ViewModels
         public int? LinkedInspectionId { get; set; }
         public string LinkedInspectionSummary { get; set; }
         public List<VariationApprovalItemViewModel> Approvals { get; set; } = new List<VariationApprovalItemViewModel>();
+        public List<BaselineSnapshotViewModel> BaselineSnapshots { get; set; } = new List<BaselineSnapshotViewModel>();
         public bool CanApprove { get; set; }
+        public bool CanValidate { get; set; }
+        public bool CanFinanceApprove { get; set; }
+        public bool CanDownloadVariationOrder { get; set; }
     }
 
     public class VariationApprovalItemViewModel
@@ -294,6 +320,21 @@ namespace MuhleOP.ViewModels
         public string Comments { get; set; }
         public DateTime ApprovalDate { get; set; }
         public int ApprovalLevel { get; set; }
+    }
+
+    public class BaselineSnapshotViewModel
+    {
+        public int Id { get; set; }
+        public decimal PreviousBudgetEstimated { get; set; }
+        public decimal PreviousBudgetAllocated { get; set; }
+        public decimal PreviousBudgetRemaining { get; set; }
+        public DateTime? PreviousEstimatedEndDate { get; set; }
+        public decimal NewBudgetEstimated { get; set; }
+        public decimal NewBudgetAllocated { get; set; }
+        public decimal NewBudgetRemaining { get; set; }
+        public DateTime? NewEstimatedEndDate { get; set; }
+        public string SnapshottedBy { get; set; }
+        public DateTime SnapshottedDate { get; set; }
     }
 
     public class ApproveVariationViewModel
@@ -318,5 +359,16 @@ namespace MuhleOP.ViewModels
         [Display(Name = "Comments / Notes")]
         [DataType(DataType.MultilineText)]
         public string Comments { get; set; }
+
+        [Display(Name = "Conditional Approval")]
+        public bool IsConditionalApproval { get; set; }
+
+        [Display(Name = "Approved Cost Cap (R)")]
+        public decimal? ApprovedCostCap { get; set; }
+
+        [Display(Name = "Confirm Critical Path Impact")]
+        public bool ConfirmedCriticalPath { get; set; }
+
+        public string CriticalPathWarning { get; set; }
     }
 }

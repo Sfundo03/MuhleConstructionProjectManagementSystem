@@ -80,6 +80,7 @@ namespace MuhleOP.Models
         public DbSet<InspectionItemResult> InspectionItemResults { get; set; }
         public DbSet<NonConformance> NonConformances { get; set; }
         public DbSet<ProjectVariation> ProjectVariations { get; set; }
+        public DbSet<ProjectBaselineSnapshot> ProjectBaselineSnapshots { get; set; }
         public DbSet<VariationApproval> VariationApprovals { get; set; }
 
         // Finance
@@ -327,6 +328,18 @@ namespace MuhleOP.Models
                 .WithMany(p => p.Variations)
                 .HasForeignKey(pv => pv.ProjectId)
                 .WillCascadeOnDelete(true);
+
+            modelBuilder.Entity<ProjectBaselineSnapshot>()
+                .HasRequired(pbs => pbs.Project)
+                .WithMany()
+                .HasForeignKey(pbs => pbs.ProjectId)
+                .WillCascadeOnDelete(false);
+
+            modelBuilder.Entity<ProjectBaselineSnapshot>()
+                .HasRequired(pbs => pbs.Variation)
+                .WithMany(v => v.BaselineSnapshots)
+                .HasForeignKey(pbs => pbs.VariationId)
+                .WillCascadeOnDelete(false);
 
             // UC19 Entity Configurations
             modelBuilder.Entity<SiteInspection>()

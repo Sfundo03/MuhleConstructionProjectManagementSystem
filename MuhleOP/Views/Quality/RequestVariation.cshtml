@@ -1,5 +1,4 @@
-﻿
-@model MuhleOP.ViewModels.RequestVariationViewModel
+﻿@model MuhleOP.ViewModels.RequestVariationViewModel
 @{
     ViewBag.Title = "Request Variation";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -14,6 +13,7 @@
 {
     @Html.AntiForgeryToken()
     @Html.HiddenFor(m => m.SiteInspectionId)
+    @Html.HiddenFor(m => m.IsDraft, new { id = "IsDraftField" })
 
     <div class="card">
         <div class="card-body">
@@ -44,28 +44,52 @@
                     @Html.TextAreaFor(m => m.Reason, new { @class = "form-control", rows = 2 })
                     @Html.ValidationMessageFor(m => m.Reason, "", new { @class = "text-danger" })
                 </div>
-                <div class="col-12">
+                <div class="col-md-6">
                     <label class="form-label">@Html.DisplayNameFor(m => m.ImpactOnScope)</label>
                     @Html.TextAreaFor(m => m.ImpactOnScope, new { @class = "form-control", rows = 2 })
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.ImpactOnQuality)</label>
+                    @Html.TextAreaFor(m => m.ImpactOnQuality, new { @class = "form-control", rows = 2 })
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.ImpactOnResources)</label>
+                    @Html.TextAreaFor(m => m.ImpactOnResources, new { @class = "form-control", rows = 2 })
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.SupportingDocuments)</label>
+                    <input type="file" name="SupportingDocuments" class="form-control" multiple="multiple" />
+                </div>
+                <div class="col-md-6">
                     <label class="form-label">@Html.DisplayNameFor(m => m.ImpactOnCost)</label>
                     @Html.TextBoxFor(m => m.ImpactOnCost, new { @class = "form-control", type = "number", step = "0.01" })
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6">
                     <label class="form-label">@Html.DisplayNameFor(m => m.ImpactOnTimelineDays)</label>
                     @Html.TextBoxFor(m => m.ImpactOnTimelineDays, new { @class = "form-control", type = "number" })
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">@Html.DisplayNameFor(m => m.SupportingDocuments)</label>
-                    <input type="file" name="SupportingDocuments" class="form-control" />
                 </div>
             </div>
         </div>
         <div class="card-footer text-end">
-            <button type="submit" class="btn btn-warning">
+            <button type="submit" id="btnSaveDraft" class="btn btn-secondary me-2">
+                <i class="fas fa-save me-1"></i> Save as Draft
+            </button>
+            <button type="submit" id="btnSubmit" class="btn btn-warning">
                 <i class="fas fa-paper-plane me-1"></i> Submit Variation Request
             </button>
         </div>
     </div>
+}
+
+@section Scripts {
+    <script>
+        $(function () {
+            $('#btnSaveDraft').on('click', function () {
+                $('#IsDraftField').val('True');
+            });
+            $('#btnSubmit').on('click', function () {
+                $('#IsDraftField').val('False');
+            });
+        });
+    </script>
 }

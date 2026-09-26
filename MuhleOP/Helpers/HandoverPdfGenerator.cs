@@ -321,6 +321,95 @@ namespace MuhleOP.Helpers
             }
         }
 
+        public static byte[] GenerateVariationOrder(ProjectVariation variation, Project project, Client client)
+        {
+            using (var stream = new MemoryStream())
+            {
+                var document = new Document(PageSize.A4, 50, 50, 60, 60);
+                PdfWriter.GetInstance(document, stream);
+                document.Open();
+
+                var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 20, DarkColor);
+                var subtitleFont = FontFactory.GetFont(FontFactory.HELVETICA, 11, MutedColor);
+                var headingFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 13, GoldColor);
+                var labelFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10, DarkColor);
+                var bodyFont = FontFactory.GetFont(FontFactory.HELVETICA, 10, DarkColor);
+                var smallMuted = FontFactory.GetFont(FontFactory.HELVETICA, 8, MutedColor);
+
+                document.Add(new Paragraph("VARIATION ORDER", titleFont));
+                document.Add(new Paragraph($"Reference: {variation.VariationNumber}", subtitleFont));
+                document.Add(new Paragraph(" "));
+
+                var statusLabel = variation.Status?.ToUpper() ?? "APPROVED";
+                var statusPara = new Paragraph($"Status: {statusLabel}", labelFont);
+                document.Add(statusPara);
+                document.Add(new Paragraph(" "));
+
+                var partiesTable = new PdfPTable(2) { WidthPercentage = 100 };
+                partiesTable.SetWidths(new float[] { 1, 1 });
+                AddPartyCell(partiesTable, "MUHLEOP", "MuhleOP", labelFont, bodyFont);
+                AddPartyCell(partiesTable, "CLIENT", client != null ? $"{client.CompanyName}\n{client.PrimaryContactName}\n{client.ContactEmail}" : "—", labelFont, bodyFont);
+                document.Add(partiesTable);
+                document.Add(new Paragraph(" "));
+
+                document.Add(new Paragraph("PROJECT DETAILS", headingFont));
+                var projectTable = new PdfPTable(2) { WidthPercentage = 100 };
+                projectTable.SetWidths(new float[] { 1, 1 });
+                AddDetailRow(projectTable, "Project Name", project?.ProjectName, labelFont, bodyFont);
+                AddDetailRow(projectTable, "Project Code", project?.ProjectCode, labelFont, bodyFont);
+                AddDetailRow(projectTable, "Project Location", project?.ProjectLocation, labelFont, bodyFont);
+                AddDetailRow(projectTable, "Project Manager", project?.ProjectManager != null ? project.ProjectManager.FullName : "-", labelFont, bodyFont);
+                document.Add(projectTable);
+                document.Add(new Paragraph(" "));
+
+                document.Add(new Paragraph("VARIATION DETAILS", headingFont));
+                var detailsTable = new PdfPTable(2) { WidthPercentage = 100 };
+                detailsTable.SetWidths(new float[] { 1, 1 });
+                AddDetailRow(detailsTable, "Variation Type", variation.VariationType, labelFont, bodyFont);
+                AddDetailRow(detailsTable, "Requested By", variation.RequestedBy, labelFont, bodyFont);
+                AddDetailRow(detailsTable, "Request Date", variation.RequestDate.ToString("dd MMM yyyy HH:mm"), labelFont, bodyFont);
+                AddDetailRow(detailsTable, "Approval Date", variation.ApprovalDate.HasValue ? variation.ApprovalDate.Value.ToString("dd MMM yyyy HH:mm") : "-", labelFont, bodyFont);
+                AddDetailRow(detailsTable, "Approved By", variation.ApprovedBy ?? "-", labelFont, bodyFont);
+                document.Add(detailsTable);
+                document.Add(new Paragraph(" "));
+
+                AddSection(document, "Description", variation.Description, headingFont, bodyFont);
+                AddSection(document, "Reason / Justification", variation.Reason, headingFont, bodyFont);
+
+                document.Add(new Paragraph("IMPACT SUMMARY", headingFont));
+                var impactTable = new PdfPTable(2) { WidthPercentage = 100 };
+                impactTable.SetWidths(new float[] { 1, 1 });
+                AddDetailRow(impactTable, "Impact on Scope", variation.ImpactOnScope, labelFont, bodyFont);
+                AddDetailRow(impactTable, "Impact on Quality", variation.ImpactOnQuality, labelFont, bodyFont);
+                AddDetailRow(impactTable, "Impact on Resources", variation.ImpactOnResources, labelFont, bodyFont);
+
+                decimal displayCost = variation.ApprovedCostCap ?? variation.ImpactOnCost ?? 0m;
+                string costText = variation.ApprovedCostCap.HasValue ? $"R{displayCost.N2OrString()} (Capped from R{variation.ImpactOnCost?.ToString("N2") ?? "0.00"})" : (variation.ImpactOnCost.HasValue ? $"R{variation.ImpactOnCost.Value:N2}" : "—");
+                AddDetailRow(impactTable, "Cost Impact", costText, labelFont, bodyFont);
+                AddDetailRow(impactTable, "Timeline Impact", variation.ImpactOnTimelineDays.HasValue ? $"{variation.ImpactOnTimelineDays} day(s)" : "—", labelFont, bodyFont);
+                document.Add(impactTable);
+                document.Add(new Paragraph(" "));
+
+                if (variation.FinanceOfficerApproved == true)
+                {
+                    document.Add(new Paragraph("FINANCIAL AUTHORISATION", headingFont));
+                    document.Add(new Paragraph($"Approved by Finance Officer: {variation.FinanceOfficerApprovedBy} on {variation.FinanceOfficerApprovalDate?.ToString("dd MMM yyyy HH:mm")}", bodyFont));
+                    document.Add(new Paragraph(" "));
+                }
+
+                var line = new Paragraph(new Chunk(new iTextSharp.text.pdf.draw.LineSeparator(0.5f, 100, MutedColor, Element.ALIGN_CENTER, 1)));
+                document.Add(line);
+                document.Add(new Paragraph(" "));
+                document.Add(new Paragraph("This is a system-generated variation order.", smallMuted));
+                document.Add(new Paragraph($"Generated: {DateTime.Now:dd MMM yyyy HH:mm}", smallMuted));
+
+                document.Close();
+                return stream.ToArray();
+            }
+        }
+
+        private static string N2OrString(this decimal val) => val.ToString("N2");
+
         private static void AddPartyCell(PdfPTable table, string label, string value, Font labelFont, Font bodyFont)
         {
             var cell = new PdfPCell { Border = Rectangle.NO_BORDER, Padding = 6 };

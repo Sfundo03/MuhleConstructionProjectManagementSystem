@@ -6,10 +6,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
+using System.Configuration;
 using Microsoft.AspNet.Identity;
 using Microsoft.AspNet.Identity.Owin;
 using MuhleOP.Models;
 using MuhleOP.ViewModels;
+using MuhleOP.Helpers;
 
 namespace MuhleOP.Controllers
 {
@@ -74,7 +76,7 @@ namespace MuhleOP.Controllers
             var vm = new QualityIndexViewModel
             {
                 TotalInspections = inspections.Count(),
-                VariationsPending = variations.Count(v => v.Status == "Requested" || v.Status == "Under Review"),
+                VariationsPending = variations.Count(v => v.Status == "Requested" || v.Status == "Under Review" || v.Status == "PendingValidation" || v.Status == "PendingFinanceApproval"),
                 VariationsApprovedThisMonth = variations.Count(v => v.Status == "Approved" && v.ApprovalDate >= monthStart),
                 ProjectsWithActiveNonConformances = inspections
                     .Where(i => i.ActionRequired && i.Status != "Reviewed")
@@ -616,7 +618,8 @@ namespace MuhleOP.Controllers
             var model = new RequestVariationViewModel
             {
                 Projects = GetProjectSelectListForUser(),
-                VariationTypes = GetVariationTypeSelectList(null)
+                VariationTypes = GetVariationTypeSelectList(null),
+                IsClientInitiated = User.IsInRole("Client")
             };
 
             int? prefillNcId = null;
@@ -666,6 +669,8 @@ namespace MuhleOP.Controllers
         [Authorize(Roles = "Admin, Project Manager, Site Manager, Client")]
         public async Task<ActionResult> RequestVariation(RequestVariationViewModel model)
         {
+            model.IsClientInitiated = User.IsInRole("Client");
+
             if (ModelState.IsValid)
             {
                 try
@@ -696,6 +701,20 @@ namespace MuhleOP.Controllers
                         }
                     }
 
+                    string status;
+                    if (model.IsDraft)
+                    {
+                        status = "Draft";
+                    }
+                    else if (model.IsClientInitiated)
+                    {
+                        status = "PendingValidation";
+                    }
+                    else
+                    {
+                        status = "Requested";
+                    }
+
                     var variation = new ProjectVariation
                     {
                         ProjectId = model.ProjectId,
@@ -703,11 +722,13 @@ namespace MuhleOP.Controllers
                         Description = model.Description,
                         Reason = model.Reason,
                         ImpactOnScope = model.ImpactOnScope,
+                        ImpactOnQuality = model.ImpactOnQuality,
+                        ImpactOnResources = model.ImpactOnResources,
                         ImpactOnCost = model.ImpactOnCost,
                         ImpactOnTimelineDays = model.ImpactOnTimelineDays,
                         RequestedBy = User.Identity.Name,
                         RequestDate = DateTime.Now,
-                        Status = "Requested",
+                        Status = status,
                         SiteInspectionId = model.SiteInspectionId,
                         NonConformanceId = model.NonConformanceId
                     };
@@ -715,49 +736,95 @@ namespace MuhleOP.Controllers
                     db.ProjectVariations.Add(variation);
                     await db.SaveChangesAsync();
 
-                    if (model.SupportingDocuments != null && model.SupportingDocuments.ContentLength > 0)
+                    // Generate Year-based Reference Number
+                    try
                     {
-                        try
+                        variation.VariationNumber = GenerateVariationNumberForYear(variation.RequestDate.Year);
+                        await db.SaveChangesAsync();
+                    }
+                    catch (Exception numEx)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Number generation failed: {numEx.Message}");
+                        variation.VariationNumber = $"VAR-{variation.RequestDate.Year}-{variation.Id:D4}";
+                        await db.SaveChangesAsync();
+                    }
+
+                    if (model.SupportingDocuments != null && model.SupportingDocuments.Any())
+                    {
+                        var paths = new List<string>();
+                        foreach (var doc in model.SupportingDocuments)
                         {
-                            var folder = Server.MapPath($"~/Uploads/Variations/{variation.Id}");
-                            if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-                            var ext = Path.GetExtension(model.SupportingDocuments.FileName);
-                            var fileName = Guid.NewGuid().ToString("N") + ext;
-                            var physicalPath = Path.Combine(folder, fileName);
-                            model.SupportingDocuments.SaveAs(physicalPath);
-                            variation.SupportingDocumentsPath = $"/Uploads/Variations/{variation.Id}/{fileName}";
+                            if (doc != null && doc.ContentLength > 0)
+                            {
+                                try
+                                {
+                                    var folder = Server.MapPath($"~/Uploads/Variations/{variation.Id}");
+                                    if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+                                    var ext = Path.GetExtension(doc.FileName);
+                                    var fileName = Guid.NewGuid().ToString("N") + ext;
+                                    var physicalPath = Path.Combine(folder, fileName);
+                                    doc.SaveAs(physicalPath);
+                                    paths.Add($"/Uploads/Variations/{variation.Id}/{fileName}");
+                                }
+                                catch (Exception docEx)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Supporting doc upload failed: {docEx.Message}");
+                                }
+                            }
+                        }
+                        if (paths.Any())
+                        {
+                            variation.SupportingDocumentsPath = string.Join(";", paths);
                             await db.SaveChangesAsync();
                         }
-                        catch (Exception docEx)
+                    }
+
+                    if (!model.IsDraft)
+                    {
+                        var pm = db.Staff.Find(project.ProjectManagerId);
+                        if (model.IsClientInitiated)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Supporting doc upload failed: {docEx.Message}");
+                            if (pm != null && !string.IsNullOrEmpty(pm.UserId))
+                            {
+                                await NotifyStakeholder(
+                                    pm.UserId,
+                                    "Variation pending your validation",
+                                    $"Variation {variation.VariationNumber} ({variation.VariationType}) submitted by client on '{project.ProjectName}' requires validation.",
+                                    "Project",
+                                    $"/Quality/VariationDetails/{variation.Id}"
+                                );
+                            }
+                        }
+                        else
+                        {
+                            if (pm != null && !string.IsNullOrEmpty(pm.UserId) && pm.UserId != User.Identity.GetUserId())
+                            {
+                                await NotifyStakeholder(
+                                    pm.UserId,
+                                    "Variation Requested",
+                                    $"Variation {variation.VariationNumber} ({variation.VariationType}) has been requested on '{project.ProjectName}' by {User.Identity.Name}.",
+                                    "Project",
+                                    $"/Quality/VariationDetails/{variation.Id}"
+                                );
+                            }
+
+                            var adminIds = db.Users.ToList()
+                                .Where(u => UserManager.IsInRole(u.Id, "Admin"))
+                                .Select(u => u.Id)
+                                .ToList();
+                            foreach (var adminId in adminIds)
+                            {
+                                if (adminId != User.Identity.GetUserId())
+                                {
+                                    await CreateNotification(adminId, "Variation Requested",
+                                        $"Variation {variation.VariationNumber} requested on '{project.ProjectName}'.",
+                                        "Project", $"/Quality/VariationDetails/{variation.Id}");
+                                }
+                            }
                         }
                     }
 
-                    var pm = db.Staff.Find(project.ProjectManagerId);
-                    if (pm != null && !string.IsNullOrEmpty(pm.UserId))
-                    {
-                        await NotifyStakeholder(
-                            pm.UserId,
-                            "Variation Requested",
-                            $"Variation {variation.VariationNumber} ({variation.VariationType}) has been requested on '{project.ProjectName}' by {User.Identity.Name}.",
-                            "Project",
-                            $"/Quality/VariationDetails/{variation.Id}"
-                        );
-                    }
-
-                    var adminIds = db.Users.ToList()
-                        .Where(u => UserManager.IsInRole(u.Id, "Admin"))
-                        .Select(u => u.Id)
-                        .ToList();
-                    foreach (var adminId in adminIds)
-                    {
-                        await CreateNotification(adminId, "Variation Requested",
-                            $"Variation {variation.VariationNumber} requested on '{project.ProjectName}'.",
-                            "Project", $"/Quality/VariationDetails/{variation.Id}");
-                    }
-
-                    TempData["SuccessMessage"] = $"Variation {variation.VariationNumber} submitted successfully.";
+                    TempData["SuccessMessage"] = model.IsDraft ? $"Variation {variation.VariationNumber} saved as draft." : $"Variation {variation.VariationNumber} submitted successfully.";
                     return RedirectToAction("VariationDetails", new { id = variation.Id });
                 }
                 catch (Exception ex)
@@ -770,11 +837,60 @@ namespace MuhleOP.Controllers
             return View(RepopulateRequestVariation(model));
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin, Project Manager")]
+        public async Task<ActionResult> ValidateVariation(int id, string validationNotes)
+        {
+            var variation = db.ProjectVariations
+                .Include(v => v.Project)
+                .Include(v => v.Project.Client)
+                .FirstOrDefault(v => v.Id == id);
+
+            if (variation == null)
+            {
+                TempData["ErrorMessage"] = "Variation not found.";
+                return RedirectToAction("VariationQueue");
+            }
+
+            if (!UserCanViewVariation(variation))
+            {
+                TempData["ErrorMessage"] = "You do not have permission to validate this variation.";
+                return RedirectToAction("VariationQueue");
+            }
+
+            if (variation.Status != "PendingValidation")
+            {
+                TempData["ErrorMessage"] = "This variation is not awaiting validation.";
+                return RedirectToAction("VariationDetails", new { id });
+            }
+
+            variation.Status = "Requested";
+            string stamp = $"[{DateTime.Now:yyyy-MM-dd HH:mm} by {User.Identity.Name}] Validated & Forwarded: {validationNotes}";
+            variation.Reason = string.IsNullOrWhiteSpace(variation.Reason) ? stamp : variation.Reason + "\n" + stamp;
+
+            await db.SaveChangesAsync();
+
+            if (variation.Project?.Client != null && !string.IsNullOrEmpty(variation.Project.Client.UserId))
+            {
+                await NotifyStakeholder(
+                    variation.Project.Client.UserId,
+                    "Variation Validated",
+                    $"Your variation {variation.VariationNumber} on '{variation.Project.ProjectName}' has passed validation and is now awaiting approval.",
+                    "Project",
+                    $"/Quality/VariationDetails/{variation.Id}"
+                );
+            }
+
+            TempData["SuccessMessage"] = "Variation validated and forwarded for approval.";
+            return RedirectToAction("VariationDetails", new { id });
+        }
+
         // ------------------------------------------------------------------
         // Variation Queue / Details
         // ------------------------------------------------------------------
 
-        [Authorize(Roles = "Admin, Project Manager, Client")]
+        [Authorize(Roles = "Admin, Project Manager, Client, Finance Officer, Site Manager")]
         public ActionResult VariationQueue(string status = null, int? projectId = null, string type = null)
         {
             var staff = ResolveCurrentStaff();
@@ -784,7 +900,7 @@ namespace MuhleOP.Controllers
             IQueryable<ProjectVariation> query = db.ProjectVariations
                 .Include(v => v.Project);
 
-            if (User.IsInRole("Admin"))
+            if (User.IsInRole("Admin") || User.IsInRole("Finance Officer"))
             {
                 // all
             }
@@ -792,6 +908,11 @@ namespace MuhleOP.Controllers
             {
                 var pmIds = db.Projects.Where(p => p.ProjectManagerId == staff.Id).Select(p => p.Id).ToList();
                 query = query.Where(v => pmIds.Contains(v.ProjectId));
+            }
+            else if (User.IsInRole("Site Manager") && staff != null)
+            {
+                var smIds = db.Projects.Where(p => p.SiteManagerId == staff.Id).Select(p => p.Id).ToList();
+                query = query.Where(v => smIds.Contains(v.ProjectId));
             }
             else if (User.IsInRole("Client") && client != null)
             {
@@ -824,7 +945,10 @@ namespace MuhleOP.Controllers
                     RequestDate = v.RequestDate,
                     RequestedBy = v.RequestedBy,
                     ImpactOnCost = v.ImpactOnCost,
-                    ImpactOnTimelineDays = v.ImpactOnTimelineDays
+                    ImpactOnTimelineDays = v.ImpactOnTimelineDays,
+                    IsPendingValidation = v.Status == "PendingValidation",
+                    IsPendingFinanceApproval = v.Status == "PendingFinanceApproval",
+                    IsConditionalApproval = v.Status == "ConditionalApproval"
                 }).ToList();
 
             var vm = new VariationQueueViewModel
@@ -837,8 +961,12 @@ namespace MuhleOP.Controllers
                 Statuses = new List<SelectListItem>
                 {
                     new SelectListItem { Value = "", Text = "All Statuses" },
+                    new SelectListItem { Value = "Draft", Text = "Draft" },
+                    new SelectListItem { Value = "PendingValidation", Text = "Pending Validation" },
                     new SelectListItem { Value = "Requested", Text = "Requested" },
                     new SelectListItem { Value = "Under Review", Text = "Under Review" },
+                    new SelectListItem { Value = "PendingFinanceApproval", Text = "Pending Finance Approval" },
+                    new SelectListItem { Value = "ConditionalApproval", Text = "Conditional Approval" },
                     new SelectListItem { Value = "Approved", Text = "Approved" },
                     new SelectListItem { Value = "Rejected", Text = "Rejected" },
                     new SelectListItem { Value = "Implemented", Text = "Implemented" }
@@ -849,7 +977,7 @@ namespace MuhleOP.Controllers
             return View(vm);
         }
 
-        [Authorize(Roles = "Admin, Project Manager, Client")]
+        [Authorize(Roles = "Admin, Project Manager, Client, Finance Officer, SiteManager")]
         public ActionResult VariationDetails(int id)
         {
             var variation = db.ProjectVariations
@@ -857,6 +985,7 @@ namespace MuhleOP.Controllers
                 .Include(v => v.Project.Client)
                 .Include(v => v.Project.ProjectManager)
                 .Include(v => v.Approvals)
+                .Include(v => v.BaselineSnapshots)
                 .FirstOrDefault(v => v.Id == id);
 
             if (variation == null)
@@ -879,6 +1008,23 @@ namespace MuhleOP.Controllers
                     .FirstOrDefault(i => i.Id == variation.SiteInspectionId.Value);
             }
 
+            var snapshotsList = (variation.BaselineSnapshots ?? Enumerable.Empty<ProjectBaselineSnapshot>())
+                .OrderByDescending(s => s.SnapshottedDate)
+                .Select(s => new BaselineSnapshotViewModel
+                {
+                    Id = s.Id,
+                    PreviousBudgetEstimated = s.PreviousBudgetEstimated,
+                    PreviousBudgetAllocated = s.PreviousBudgetAllocated,
+                    PreviousBudgetRemaining = s.PreviousBudgetRemaining,
+                    PreviousEstimatedEndDate = s.PreviousEstimatedEndDate,
+                    NewBudgetEstimated = s.NewBudgetEstimated,
+                    NewBudgetAllocated = s.NewBudgetAllocated,
+                    NewBudgetRemaining = s.NewBudgetRemaining,
+                    NewEstimatedEndDate = s.NewEstimatedEndDate,
+                    SnapshottedBy = s.SnapshottedBy,
+                    SnapshottedDate = s.SnapshottedDate
+                }).ToList();
+
             var vm = new VariationDetailsViewModel
             {
                 Id = variation.Id,
@@ -890,8 +1036,16 @@ namespace MuhleOP.Controllers
                 Description = variation.Description,
                 Reason = variation.Reason,
                 ImpactOnScope = variation.ImpactOnScope,
+                ImpactOnQuality = variation.ImpactOnQuality,
+                ImpactOnResources = variation.ImpactOnResources,
                 ImpactOnCost = variation.ImpactOnCost,
                 ImpactOnTimelineDays = variation.ImpactOnTimelineDays,
+                ApprovedCostCap = variation.ApprovedCostCap,
+                IsConditionalApproval = variation.Status == "ConditionalApproval",
+                FinanceOfficerApproved = variation.FinanceOfficerApproved ?? false,
+                FinanceOfficerApprovedBy = variation.FinanceOfficerApprovedBy,
+                FinanceOfficerApprovalDate = variation.FinanceOfficerApprovalDate,
+                VariationOrderPdfPath = variation.VariationOrderPdfPath,
                 RequestedBy = variation.RequestedBy,
                 RequestDate = variation.RequestDate,
                 Status = variation.Status,
@@ -916,8 +1070,12 @@ namespace MuhleOP.Controllers
                         ApprovalDate = a.ApprovalDate ?? DateTime.MinValue,
                         ApprovalLevel = a.ApprovalLevel
                     }).ToList(),
+                BaselineSnapshots = snapshotsList,
                 CanApprove = (User.IsInRole("Admin") || User.IsInRole("Project Manager"))
-                    && (variation.Status == "Requested" || variation.Status == "Under Review")
+                    && (variation.Status == "Requested" || variation.Status == "Under Review"),
+                CanValidate = (User.IsInRole("Admin") || User.IsInRole("Project Manager")) && variation.Status == "PendingValidation",
+                CanFinanceApprove = User.IsInRole("Finance Officer") && variation.Status == "PendingFinanceApproval",
+                CanDownloadVariationOrder = !string.IsNullOrEmpty(variation.VariationOrderPdfPath)
             };
 
             return View(vm);
@@ -962,6 +1120,14 @@ namespace MuhleOP.Controllers
                 }
             }
 
+            string cpWarning = null;
+            if (variation.ImpactOnTimelineDays.HasValue && variation.ImpactOnTimelineDays.Value > 0 && variation.Project?.EstimatedEndDate.HasValue == true)
+            {
+                var currentEnd = variation.Project.EstimatedEndDate.Value;
+                var newEnd = currentEnd.AddDays(variation.ImpactOnTimelineDays.Value);
+                cpWarning = $"Approving this variation will extend the project end date by {variation.ImpactOnTimelineDays.Value} day(s), from {currentEnd:dd MMM yyyy} to {newEnd:dd MMM yyyy}.";
+            }
+
             var model = new ApproveVariationViewModel
             {
                 VariationId = variation.Id,
@@ -972,7 +1138,8 @@ namespace MuhleOP.Controllers
                 Reason = variation.Reason,
                 ImpactOnCost = variation.ImpactOnCost,
                 ImpactOnTimelineDays = variation.ImpactOnTimelineDays,
-                ImplementationDate = DateTime.Today
+                ImplementationDate = DateTime.Today,
+                CriticalPathWarning = cpWarning
             };
 
             return View(model);
@@ -986,6 +1153,31 @@ namespace MuhleOP.Controllers
             if (model.Decision != "Approve" && model.Decision != "Reject")
             {
                 ModelState.AddModelError("Decision", "Please choose Approve or Reject.");
+            }
+
+            if (model.Decision == "Reject" && string.IsNullOrWhiteSpace(model.Comments))
+            {
+                ModelState.AddModelError("Comments", "A rejection reason is required.");
+            }
+
+            if (model.Decision == "Approve" && model.ImpactOnTimelineDays.HasValue && model.ImpactOnTimelineDays.Value > 0)
+            {
+                if (string.IsNullOrWhiteSpace(model.Comments) && !model.ConfirmedCriticalPath)
+                {
+                    ModelState.AddModelError("ConfirmedCriticalPath", "Please confirm you have reviewed the schedule impact.");
+                }
+            }
+
+            if (model.Decision == "Approve" && model.IsConditionalApproval)
+            {
+                if (!model.ApprovedCostCap.HasValue || model.ApprovedCostCap.Value <= 0)
+                {
+                    ModelState.AddModelError("ApprovedCostCap", "An approved cost cap greater than zero is required for conditional approval.");
+                }
+                else if (model.ImpactOnCost.HasValue && model.ApprovedCostCap.Value > model.ImpactOnCost.Value)
+                {
+                    ModelState.AddModelError("ApprovedCostCap", "The approved cost cap cannot exceed the requested cost impact.");
+                }
             }
 
             if (ModelState.IsValid)
@@ -1028,44 +1220,122 @@ namespace MuhleOP.Controllers
 
                     if (model.Decision == "Approve")
                     {
-                        variation.Status = "Approved";
-                        variation.ApprovedBy = User.Identity.Name;
-                        variation.ApprovalDate = DateTime.Now;
-                        variation.ImplementationDate = model.ImplementationDate ?? DateTime.Now;
-                        variation.ImplementationNotes = model.Comments;
+                        decimal effectiveCost = model.IsConditionalApproval ? model.ApprovedCostCap.Value : (variation.ImpactOnCost ?? 0m);
 
-                        var approval = new VariationApproval
+                        // Check Finance Officer Threshold
+                        decimal threshold = 100000m;
+                        if (decimal.TryParse(ConfigurationManager.AppSettings["VariationFinanceApprovalThreshold"], out decimal customThreshold))
                         {
-                            VariationId = variation.Id,
-                            ApproverName = User.Identity.Name,
-                            ApproverEmail = User.Identity.Name,
-                            ApprovalStatus = "Approved",
-                            Comments = model.Comments,
-                            ApprovalDate = DateTime.Now,
-                            ApprovalLevel = 1
-                        };
-                        db.VariationApprovals.Add(approval);
+                            threshold = customThreshold;
+                        }
 
-                        if (variation.Project != null)
+                        bool requiresFinanceApproval = effectiveCost > threshold && !User.IsInRole("Finance Officer");
+
+                        if (requiresFinanceApproval)
                         {
-                            if (variation.Project.Budget != null && variation.ImpactOnCost.HasValue)
+                            variation.Status = "PendingFinanceApproval";
+                            variation.ApprovedBy = User.Identity.Name;
+                            variation.ApprovalDate = DateTime.Now;
+                            if (model.IsConditionalApproval)
                             {
-                                var delta = variation.ImpactOnCost.Value;
-                                variation.Project.Budget.EstimatedCost += delta;
-                                variation.Project.Budget.AllocatedAmount += delta;
-                                variation.Project.Budget.RemainingAmount += delta;
-                                variation.Project.Budget.LastUpdated = DateTime.Now;
+                                variation.ApprovedCostCap = model.ApprovedCostCap;
+                            }
+                            variation.ImplementationDate = model.ImplementationDate ?? DateTime.Now;
+                            variation.ImplementationNotes = model.Comments;
+
+                            var approval = new VariationApproval
+                            {
+                                VariationId = variation.Id,
+                                ApproverName = User.Identity.Name,
+                                ApproverEmail = User.Identity.Name,
+                                ApprovalStatus = "Pending",
+                                Comments = model.Comments,
+                                ApprovalDate = DateTime.Now,
+                                ApprovalLevel = 2
+                            };
+                            db.VariationApprovals.Add(approval);
+                            await db.SaveChangesAsync();
+
+                            var financeOfficers = db.Users.ToList()
+                                .Where(u => UserManager.IsInRole(u.Id, "Finance Officer"))
+                                .Select(u => u.Id)
+                                .ToList();
+                            foreach (var foId in financeOfficers)
+                            {
+                                await CreateNotification(foId, "Variation awaiting your approval",
+                                    $"{variation.VariationNumber} on '{variation.Project?.ProjectName}' exceeds R{threshold:N0} and requires finance approval.",
+                                    "Project", $"/Quality/VariationDetails/{variation.Id}");
                             }
 
-                            if (variation.ImpactOnTimelineDays.HasValue && variation.ImpactOnTimelineDays.Value > 0
-                                && variation.Project.EstimatedEndDate.HasValue)
+                            TempData["SuccessMessage"] = "Variation approved by PM and forwarded to Finance Officer due to high cost impact.";
+                            return RedirectToAction("VariationDetails", new { id = variation.Id });
+                        }
+                        else
+                        {
+                            variation.Status = model.IsConditionalApproval ? "ConditionalApproval" : "Approved";
+                            variation.ApprovedBy = User.Identity.Name;
+                            variation.ApprovalDate = DateTime.Now;
+                            if (model.IsConditionalApproval)
                             {
-                                variation.Project.EstimatedEndDate = variation.Project.EstimatedEndDate.Value
-                                    .AddDays(variation.ImpactOnTimelineDays.Value);
+                                variation.ApprovedCostCap = model.ApprovedCostCap;
+                            }
+                            variation.ImplementationDate = model.ImplementationDate ?? DateTime.Now;
+                            variation.ImplementationNotes = model.Comments;
+
+                            var approval = new VariationApproval
+                            {
+                                VariationId = variation.Id,
+                                ApproverName = User.Identity.Name,
+                                ApproverEmail = User.Identity.Name,
+                                ApprovalStatus = "Approved",
+                                Comments = model.Comments,
+                                ApprovalDate = DateTime.Now,
+                                ApprovalLevel = 1
+                            };
+                            db.VariationApprovals.Add(approval);
+
+                            if (variation.Project != null)
+                            {
+                                RecordBaselineSnapshot(variation);
+
+                                if (variation.Project.Budget != null)
+                                {
+                                    var delta = effectiveCost;
+                                    variation.Project.Budget.EstimatedCost += delta;
+                                    variation.Project.Budget.AllocatedAmount += delta;
+                                    variation.Project.Budget.RemainingAmount += delta;
+                                    variation.Project.Budget.LastUpdated = DateTime.Now;
+                                }
+
+                                if (variation.ImpactOnTimelineDays.HasValue && variation.ImpactOnTimelineDays.Value > 0
+                                    && variation.Project.EstimatedEndDate.HasValue)
+                                {
+                                    variation.Project.EstimatedEndDate = variation.Project.EstimatedEndDate.Value
+                                        .AddDays(variation.ImpactOnTimelineDays.Value);
+                                }
+
+                                variation.Project.LastModifiedDate = DateTime.Now;
+                                variation.Project.LastModifiedBy = User.Identity.Name;
                             }
 
-                            variation.Project.LastModifiedDate = DateTime.Now;
-                            variation.Project.LastModifiedBy = User.Identity.Name;
+                            await db.SaveChangesAsync();
+
+                            // Generate Variation Order PDF
+                            try
+                            {
+                                var pdfBytes = HandoverPdfGenerator.GenerateVariationOrder(variation, variation.Project, variation.Project?.Client);
+                                var folder = Server.MapPath("~/Uploads/VariationOrders");
+                                if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+                                var fileName = $"VariationOrder_{variation.Id}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
+                                var physicalPath = Path.Combine(folder, fileName);
+                                System.IO.File.WriteAllBytes(physicalPath, pdfBytes);
+                                variation.VariationOrderPdfPath = $"/Uploads/VariationOrders/{fileName}";
+                                await db.SaveChangesAsync();
+                            }
+                            catch (Exception pdfEx)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Variation Order PDF generation failed: {pdfEx.Message}");
+                            }
                         }
                     }
                     else // Reject
@@ -1086,9 +1356,8 @@ namespace MuhleOP.Controllers
                             ApprovalLevel = 1
                         };
                         db.VariationApprovals.Add(approval);
+                        await db.SaveChangesAsync();
                     }
-
-                    await db.SaveChangesAsync();
 
                     if (variation.Project?.Client != null && !string.IsNullOrEmpty(variation.Project.Client.UserId))
                     {
@@ -1106,10 +1375,13 @@ namespace MuhleOP.Controllers
                         .ToList();
                     foreach (var adminId in adminIds)
                     {
-                        await CreateNotification(adminId,
-                            model.Decision == "Approve" ? "Variation Approved" : "Variation Rejected",
-                            $"Variation {variation.VariationNumber} was {model.Decision.ToLower()}d by {User.Identity.Name}.",
-                            "Project", $"/Quality/VariationDetails/{variation.Id}");
+                        if (adminId != User.Identity.GetUserId())
+                        {
+                            await CreateNotification(adminId,
+                                model.Decision == "Approve" ? "Variation Approved" : "Variation Rejected",
+                                $"Variation {variation.VariationNumber} was {model.Decision.ToLower()}d by {User.Identity.Name}.",
+                                "Project", $"/Quality/VariationDetails/{variation.Id}");
+                        }
                     }
 
                     TempData["SuccessMessage"] = model.Decision == "Approve"
@@ -1127,9 +1399,231 @@ namespace MuhleOP.Controllers
             return View(model);
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Finance Officer")]
+        public async Task<ActionResult> FinanceApproveVariation(int id, string financeNotes)
+        {
+            var variation = db.ProjectVariations
+                .Include(v => v.Project)
+                .Include(v => v.Project.Budget)
+                .Include(v => v.Project.Client)
+                .FirstOrDefault(v => v.Id == id);
+
+            if (variation == null || variation.Status != "PendingFinanceApproval")
+            {
+                TempData["ErrorMessage"] = "Variation not found or not awaiting finance approval.";
+                return RedirectToAction("VariationQueue");
+            }
+
+            decimal effectiveCost = variation.ApprovedCostCap ?? variation.ImpactOnCost ?? 0m;
+
+            variation.Status = "Approved";
+            variation.FinanceOfficerApproved = true;
+            variation.FinanceOfficerApprovedBy = User.Identity.Name;
+            variation.FinanceOfficerApprovalDate = DateTime.Now;
+
+            var approval = new VariationApproval
+            {
+                VariationId = variation.Id,
+                ApproverName = User.Identity.Name,
+                ApproverEmail = User.Identity.Name,
+                ApprovalStatus = "Approved",
+                Comments = financeNotes,
+                ApprovalDate = DateTime.Now,
+                ApprovalLevel = 2
+            };
+            db.VariationApprovals.Add(approval);
+
+            if (variation.Project != null)
+            {
+                RecordBaselineSnapshot(variation);
+
+                if (variation.Project.Budget != null)
+                {
+                    variation.Project.Budget.EstimatedCost += effectiveCost;
+                    variation.Project.Budget.AllocatedAmount += effectiveCost;
+                    variation.Project.Budget.RemainingAmount += effectiveCost;
+                    variation.Project.Budget.LastUpdated = DateTime.Now;
+                }
+
+                if (variation.ImpactOnTimelineDays.HasValue && variation.ImpactOnTimelineDays.Value > 0
+                    && variation.Project.EstimatedEndDate.HasValue)
+                {
+                    variation.Project.EstimatedEndDate = variation.Project.EstimatedEndDate.Value
+                        .AddDays(variation.ImpactOnTimelineDays.Value);
+                }
+
+                variation.Project.LastModifiedDate = DateTime.Now;
+                variation.Project.LastModifiedBy = User.Identity.Name;
+            }
+
+            await db.SaveChangesAsync();
+
+            // Generate Variation Order PDF
+            try
+            {
+                var pdfBytes = HandoverPdfGenerator.GenerateVariationOrder(variation, variation.Project, variation.Project?.Client);
+                var folder = Server.MapPath("~/Uploads/VariationOrders");
+                if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+                var fileName = $"VariationOrder_{variation.Id}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
+                var physicalPath = Path.Combine(folder, fileName);
+                System.IO.File.WriteAllBytes(physicalPath, pdfBytes);
+                variation.VariationOrderPdfPath = $"/Uploads/VariationOrders/{fileName}";
+                await db.SaveChangesAsync();
+            }
+            catch (Exception pdfEx)
+            {
+                System.Diagnostics.Debug.WriteLine($"Variation Order PDF generation failed: {pdfEx.Message}");
+            }
+
+            // Notify PM, Client, Admins
+            if (variation.Project != null)
+            {
+                var pm = db.Staff.Find(variation.Project.ProjectManagerId);
+                if (pm != null && !string.IsNullOrEmpty(pm.UserId))
+                {
+                    await NotifyStakeholder(pm.UserId, "Finance Approved Variation", $"Variation {variation.VariationNumber} approved by Finance.", "Project", $"/Quality/VariationDetails/{variation.Id}");
+                }
+                if (variation.Project.Client != null && !string.IsNullOrEmpty(variation.Project.Client.UserId))
+                {
+                    await NotifyStakeholder(variation.Project.Client.UserId, "Variation Approved", $"Variation {variation.VariationNumber} has been approved.", "Project", $"/Quality/VariationDetails/{variation.Id}");
+                }
+            }
+
+            TempData["SuccessMessage"] = "Variation approved by Finance and baseline updated.";
+            return RedirectToAction("VariationDetails", new { id });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Finance Officer")]
+        public async Task<ActionResult> FinanceRejectVariation(int id, string financeNotes)
+        {
+            var variation = db.ProjectVariations
+                .Include(v => v.Project)
+                .Include(v => v.Project.Client)
+                .FirstOrDefault(v => v.Id == id);
+
+            if (variation == null || variation.Status != "PendingFinanceApproval")
+            {
+                TempData["ErrorMessage"] = "Variation not found or not awaiting finance approval.";
+                return RedirectToAction("VariationQueue");
+            }
+
+            variation.Status = "Rejected";
+            variation.RejectionReason = financeNotes;
+            variation.FinanceOfficerApproved = false;
+            variation.FinanceOfficerApprovedBy = User.Identity.Name;
+            variation.FinanceOfficerApprovalDate = DateTime.Now;
+
+            var approval = new VariationApproval
+            {
+                VariationId = variation.Id,
+                ApproverName = User.Identity.Name,
+                ApproverEmail = User.Identity.Name,
+                ApprovalStatus = "Rejected",
+                Comments = financeNotes,
+                ApprovalDate = DateTime.Now,
+                ApprovalLevel = 2
+            };
+            db.VariationApprovals.Add(approval);
+            await db.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Variation rejected by Finance.";
+            return RedirectToAction("VariationDetails", new { id });
+        }
+
+        [Authorize(Roles = "Admin, Project Manager, Site Manager, Client, Finance Officer")]
+        public ActionResult DownloadVariationOrder(int id)
+        {
+            var variation = db.ProjectVariations
+                .Include(v => v.Project)
+                .FirstOrDefault(v => v.Id == id);
+
+            if (variation == null || !UserCanViewVariation(variation))
+            {
+                TempData["ErrorMessage"] = "Variation not found or access denied.";
+                return RedirectToAction("VariationQueue");
+            }
+
+            if (string.IsNullOrEmpty(variation.VariationOrderPdfPath))
+            {
+                TempData["ErrorMessage"] = "Variation order PDF is not available.";
+                return RedirectToAction("VariationDetails", new { id });
+            }
+
+            var physicalPath = Server.MapPath("~" + variation.VariationOrderPdfPath);
+            if (!System.IO.File.Exists(physicalPath))
+            {
+                TempData["ErrorMessage"] = "PDF file not found on server.";
+                return RedirectToAction("VariationDetails", new { id });
+            }
+
+            var bytes = System.IO.File.ReadAllBytes(physicalPath);
+            return File(bytes, "application/pdf", $"VariationOrder_{variation.VariationNumber}.pdf");
+        }
+
         // ------------------------------------------------------------------
         // Helpers
         // ------------------------------------------------------------------
+
+        private string GenerateVariationNumberForYear(int year)
+        {
+            string prefix = $"VAR-{year}-";
+            var lastVar = db.ProjectVariations
+                .Where(v => v.VariationNumber != null && v.VariationNumber.StartsWith(prefix))
+                .OrderByDescending(v => v.Id)
+                .FirstOrDefault();
+
+            int nextNum = 1;
+            if (lastVar != null && lastVar.VariationNumber.Length >= prefix.Length + 4)
+            {
+                string suffix = lastVar.VariationNumber.Substring(prefix.Length);
+                if (int.TryParse(suffix, out int parsedNum))
+                {
+                    nextNum = parsedNum + 1;
+                }
+            }
+            return $"{prefix}{nextNum:D4}";
+        }
+
+        private void RecordBaselineSnapshot(ProjectVariation variation)
+        {
+            if (variation?.Project?.Budget == null) return;
+            var budget = variation.Project.Budget;
+
+            decimal effectiveCost = variation.ApprovedCostCap ?? variation.ImpactOnCost ?? 0m;
+            int timelineDays = variation.ImpactOnTimelineDays ?? 0;
+
+            decimal prevEst = budget.EstimatedCost;
+            decimal prevAlloc = budget.AllocatedAmount;
+            decimal prevRem = budget.RemainingAmount;
+            DateTime? prevEnd = variation.Project.EstimatedEndDate;
+
+            decimal newEst = prevEst + effectiveCost;
+            decimal newAlloc = prevAlloc + effectiveCost;
+            decimal newRem = prevRem + effectiveCost;
+            DateTime? newEnd = prevEnd.HasValue && timelineDays > 0 ? prevEnd.Value.AddDays(timelineDays) : prevEnd;
+
+            var snapshot = new ProjectBaselineSnapshot
+            {
+                ProjectId = variation.ProjectId,
+                VariationId = variation.Id,
+                PreviousBudgetEstimated = prevEst,
+                PreviousBudgetAllocated = prevAlloc,
+                PreviousBudgetRemaining = prevRem,
+                PreviousEstimatedEndDate = prevEnd,
+                NewBudgetEstimated = newEst,
+                NewBudgetAllocated = newAlloc,
+                NewBudgetRemaining = newRem,
+                NewEstimatedEndDate = newEnd,
+                SnapshottedBy = User.Identity.Name,
+                SnapshottedDate = DateTime.Now
+            };
+
+            db.ProjectBaselineSnapshots.Add(snapshot);
+        }
 
         private Staff ResolveCurrentStaff()
         {
@@ -1156,13 +1650,15 @@ namespace MuhleOP.Controllers
 
         private bool UserCanViewVariation(ProjectVariation variation)
         {
-            if (User.IsInRole("Admin")) return true;
+            if (User.IsInRole("Admin") || User.IsInRole("Finance Officer")) return true;
             var staff = ResolveCurrentStaff();
             var userId = User.Identity.GetUserId();
             var client = db.Clients.FirstOrDefault(c => c.UserId == userId);
 
             if (User.IsInRole("Project Manager") && staff != null)
                 return variation.Project != null && variation.Project.ProjectManagerId == staff.Id;
+            if (User.IsInRole("Site Manager") && staff != null)
+                return variation.Project != null && variation.Project.SiteManagerId == staff.Id;
             if (User.IsInRole("Client") && client != null)
                 return variation.Project != null && variation.Project.ClientId == client.Id;
             return false;
@@ -1192,7 +1688,7 @@ namespace MuhleOP.Controllers
 
             IQueryable<Project> query = db.Projects.Where(p => p.IsActive);
 
-            if (User.IsInRole("Admin"))
+            if (User.IsInRole("Admin") || User.IsInRole("Finance Officer"))
             {
                 // all active
             }
@@ -1248,8 +1744,12 @@ namespace MuhleOP.Controllers
         {
             switch (status)
             {
+                case "Draft": return "secondary";
+                case "PendingValidation": return "warning";
                 case "Requested": return "warning";
                 case "Under Review": return "info";
+                case "PendingFinanceApproval": return "primary";
+                case "ConditionalApproval": return "info";
                 case "Approved": return "success";
                 case "Rejected": return "danger";
                 case "Implemented": return "primary";

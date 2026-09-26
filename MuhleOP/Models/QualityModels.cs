@@ -230,11 +230,36 @@ namespace MuhleOP.Models
         [DataType(DataType.MultilineText)]
         public string ImpactOnScope { get; set; }
 
+        [StringLength(2000)]
+        [Display(Name = "Impact on Quality")]
+        public string ImpactOnQuality { get; set; }
+
+        [StringLength(2000)]
+        [Display(Name = "Impact on Resources")]
+        public string ImpactOnResources { get; set; }
+
         [Display(Name = "Impact on Cost")]
         public decimal? ImpactOnCost { get; set; }
 
         [Display(Name = "Impact on Timeline")]
         public int? ImpactOnTimelineDays { get; set; }
+
+        [Display(Name = "Approved Cost Cap")]
+        public decimal? ApprovedCostCap { get; set; }
+
+        [Display(Name = "Finance Officer Approved")]
+        public bool? FinanceOfficerApproved { get; set; }
+
+        [StringLength(100)]
+        [Display(Name = "Finance Officer Approved By")]
+        public string FinanceOfficerApprovedBy { get; set; }
+
+        [Display(Name = "Finance Officer Approval Date")]
+        public DateTime? FinanceOfficerApprovalDate { get; set; }
+
+        [StringLength(500)]
+        [Display(Name = "Variation Order PDF Path")]
+        public string VariationOrderPdfPath { get; set; }
 
         [Display(Name = "Requested By")]
         public string RequestedBy { get; set; }
@@ -243,7 +268,7 @@ namespace MuhleOP.Models
         public DateTime RequestDate { get; set; }
 
         [Display(Name = "Status")]
-        public string Status { get; set; } // Requested, Under Review, Approved, Rejected, Implemented
+        public string Status { get; set; } // Draft, PendingValidation, Requested, Under Review, PendingFinanceApproval, ConditionalApproval, Approved, Rejected, Implemented
 
         [Display(Name = "Approved By")]
         public string ApprovedBy { get; set; }
@@ -267,18 +292,46 @@ namespace MuhleOP.Models
 
         // Navigation Properties
         public virtual ICollection<VariationApproval> Approvals { get; set; }
+        public virtual ICollection<ProjectBaselineSnapshot> BaselineSnapshots { get; set; }
 
         public ProjectVariation()
         {
             RequestDate = DateTime.Now;
             Status = "Requested";
-            VariationNumber = GenerateVariationNumber();
+            VariationNumber = "VAR-PENDING";
             Approvals = new List<VariationApproval>();
+            BaselineSnapshots = new List<ProjectBaselineSnapshot>();
         }
+    }
 
-        private string GenerateVariationNumber()
+    public class ProjectBaselineSnapshot
+    {
+        [Key] public int Id { get; set; }
+
+        [Required] public int ProjectId { get; set; }
+        [ForeignKey("ProjectId")]
+        public virtual Project Project { get; set; }
+
+        [Required] public int VariationId { get; set; }
+        [ForeignKey("VariationId")]
+        public virtual ProjectVariation Variation { get; set; }
+
+        public decimal PreviousBudgetEstimated { get; set; }
+        public decimal PreviousBudgetAllocated { get; set; }
+        public decimal PreviousBudgetRemaining { get; set; }
+        public DateTime? PreviousEstimatedEndDate { get; set; }
+
+        public decimal NewBudgetEstimated { get; set; }
+        public decimal NewBudgetAllocated { get; set; }
+        public decimal NewBudgetRemaining { get; set; }
+        public DateTime? NewEstimatedEndDate { get; set; }
+
+        [StringLength(100)] public string SnapshottedBy { get; set; }
+        public DateTime SnapshottedDate { get; set; }
+
+        public ProjectBaselineSnapshot()
         {
-            return "VAR" + DateTime.Now.ToString("yyyyMMdd") + new Random().Next(1000, 9999).ToString();
+            SnapshottedDate = DateTime.Now;
         }
     }
 
