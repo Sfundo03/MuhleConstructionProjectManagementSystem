@@ -41,6 +41,8 @@ namespace MuhleOP.ViewModels
         public DateTime? NextMaintenanceDate { get; set; }
         public string MaintenanceBadgeColor { get; set; }
         public string MaintenanceBadgeText { get; set; }
+        public bool IsEscalated { get; set; }
+        public bool IsDelayFlagged { get; set; }
     }
 
     public class CreateEquipmentViewModel
@@ -249,6 +251,8 @@ namespace MuhleOP.ViewModels
         public string StatusBadgeColor { get; set; }
         public string TechnicianName { get; set; }
         public decimal TotalCost { get; set; }
+        public bool IsEscalated { get; set; }
+        public bool IsDelayFlagged { get; set; }
     }
 
     public class EquipmentRepairDetailsViewModel
@@ -276,6 +280,51 @@ namespace MuhleOP.ViewModels
         public DateTime? VerificationDate { get; set; }
         public string ReportedBy { get; set; }
         public DateTime CreatedDate { get; set; }
+
+        // UC17 Postcondition Surfacing
+        public decimal? ActualHours { get; set; }
+        public DateTime? RevisedCompletionDate { get; set; }
+        public string PhotoEvidencePath { get; set; }
+        public bool IsDelayFlagged { get; set; }
+        public bool IsEscalated { get; set; }
+        public string ProcurementRequestReference { get; set; }
+        public string CancellationReason { get; set; }
+
+        public List<RepairProgressLogItemViewModel> ProgressLogs { get; set; } = new List<RepairProgressLogItemViewModel>();
+        public List<RepairPartUsageItemViewModel> PartUsages { get; set; } = new List<RepairPartUsageItemViewModel>();
+    }
+
+    public class RepairProgressLogItemViewModel
+    {
+        public int Id { get; set; }
+        public string Status { get; set; }
+        public string Notes { get; set; }
+        public string PartsUsedSummary { get; set; }
+        public decimal? ActualHours { get; set; }
+        public DateTime? RevisedCompletionDate { get; set; }
+        public string PhotoPath { get; set; }
+        public string ChangedBy { get; set; }
+        public DateTime ChangedAt { get; set; }
+        public string ChangeType { get; set; }
+        public bool IsDelayFlagged { get; set; }
+    }
+
+    public class RepairPartUsageItemViewModel
+    {
+        public int Id { get; set; }
+        public string PartName { get; set; }
+        public string PartCode { get; set; }
+        public int QuantityUsed { get; set; }
+        public decimal UnitCostAtUse { get; set; }
+        public decimal TotalCost => QuantityUsed * UnitCostAtUse;
+        public DateTime UsedDate { get; set; }
+        public string RecordedBy { get; set; }
+    }
+
+    public class UpdateRepairPartInputModel
+    {
+        public int EquipmentPartId { get; set; }
+        public int QuantityUsed { get; set; }
     }
 
     public class ReportDamageViewModel
@@ -355,7 +404,30 @@ namespace MuhleOP.ViewModels
         [Display(Name = "Status")]
         public string Status { get; set; }
 
+        // UC17 Additions
+        [Display(Name = "Actual Hours")]
+        public decimal? ActualHours { get; set; }
+
+        [Display(Name = "Revised Completion Date")]
+        [DataType(DataType.Date)]
+        public DateTime? RevisedCompletionDate { get; set; }
+
+        [Display(Name = "Photo Evidence")]
+        public HttpPostedFileBase PhotoEvidence { get; set; }
+
+        [Display(Name = "Cancellation Reason")]
+        [DataType(DataType.MultilineText)]
+        public string CancellationReason { get; set; }
+
+        public string OriginalStatus { get; set; }
+
+        [Required]
+        public byte[] RowVersion { get; set; }
+
+        public List<UpdateRepairPartInputModel> PartsUsed { get; set; } = new List<UpdateRepairPartInputModel>();
+
         public List<SelectListItem> StatusOptions { get; set; } = new List<SelectListItem>();
+        public List<SelectListItem> AvailableParts { get; set; } = new List<SelectListItem>();
     }
 
     public class CheckOutRepairViewModel

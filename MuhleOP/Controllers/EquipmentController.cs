@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.Entity;
+using System.Data.Entity.Infrastructure;
 using System.Data.Entity.Validation;
 using System.Globalization;
 using System.IO;
@@ -449,7 +450,9 @@ namespace MuhleOP.Controllers
                         Status = r.Status,
                         StatusBadgeColor = GetRepairStatusColor(r.Status),
                         TechnicianName = r.TechnicianName,
-                        TotalCost = r.TotalCost
+                        TotalCost = r.TotalCost,
+                        IsEscalated = r.IsEscalated,
+                        IsDelayFlagged = r.ProgressLogs != null && r.ProgressLogs.Any(l => l.IsDelayFlagged)
                     }).ToList()
             };
 
@@ -718,6 +721,7 @@ namespace MuhleOP.Controllers
             var query = db.EquipmentRepairs
                 .Include(r => r.Equipment)
                 .Include(r => r.Equipment.AssignedProject)
+                .Include(r => r.ProgressLogs)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(status))
@@ -738,15 +742,17 @@ namespace MuhleOP.Controllers
                     Status = r.Status,
                     StatusBadgeColor = GetRepairStatusColor(r.Status),
                     TechnicianName = r.TechnicianName,
-                    TotalCost = r.TotalCost
+                    TotalCost = r.TotalCost,
+                    IsEscalated = r.IsEscalated,
+                    IsDelayFlagged = r.ProgressLogs != null && r.ProgressLogs.Any(l => l.IsDelayFlagged)
                 }).ToList();
 
-            var all = db.EquipmentRepairs.ToList();
+            var all = db.EquipmentRepairs.Include(r => r.ProgressLogs).ToList();
             var viewModel = new EquipmentRepairQueueViewModel
             {
                 Items = items,
                 ReportedCount = all.Count(r => r.Status == "Reported"),
-                InRepairCount = all.Count(r => r.Status == "In Repair" || r.Status == "Awaiting Parts"),
+                InRepairCount = all.Count(r => r.Status == "In Repair" || r.Status == "Awaiting Parts" || r.Status == "Awaiting Approval"),
                 ReadyForVerificationCount = all.Count(r => r.Status == "Ready for Verification"),
                 VerifiedCount = all.Count(r => r.Status == "Verified"),
                 ActiveFilter = status ?? "all"
@@ -761,6 +767,8 @@ namespace MuhleOP.Controllers
             var repair = db.EquipmentRepairs
                 .Include(r => r.Equipment)
                 .Include(r => r.Equipment.AssignedProject)
+                .Include(r => r.ProgressLogs)
+                .Include(r => r.PartUsages.Select(u => u.EquipmentPart))
                 .FirstOrDefault(r => r.Id == id);
 
             if (repair == null)
@@ -792,7 +800,41 @@ namespace MuhleOP.Controllers
                 VerifiedBy = repair.VerifiedBy,
                 VerificationDate = repair.VerificationDate,
                 ReportedBy = repair.ReportedBy,
-                CreatedDate = repair.CreatedDate
+                CreatedDate = repair.CreatedDate,
+                ActualHours = repair.ActualHours,
+                RevisedCompletionDate = repair.RevisedCompletionDate,
+                PhotoEvidencePath = repair.PhotoEvidencePath,
+                IsDelayFlagged = repair.ProgressLogs != null && repair.ProgressLogs.Any(l => l.IsDelayFlagged),
+                IsEscalated = repair.IsEscalated,
+                ProcurementRequestReference = repair.ProcurementRequestReference,
+                CancellationReason = repair.CancellationReason,
+                ProgressLogs = (repair.ProgressLogs ?? Enumerable.Empty<RepairProgressLog>())
+                    .OrderByDescending(l => l.ChangedAt)
+                    .Select(l => new RepairProgressLogItemViewModel
+                    {
+                        Id = l.Id,
+                        Status = l.Status,
+                        Notes = l.Notes,
+                        PartsUsedSummary = l.PartsUsedSummary,
+                        ActualHours = l.ActualHours,
+                        RevisedCompletionDate = l.RevisedCompletionDate,
+                        PhotoPath = l.PhotoPath,
+                        ChangedBy = l.ChangedBy,
+                        ChangedAt = l.ChangedAt,
+                        ChangeType = l.ChangeType,
+                        IsDelayFlagged = l.IsDelayFlagged
+                    }).ToList(),
+                PartUsages = (repair.PartUsages ?? Enumerable.Empty<RepairPartUsage>())
+                    .Select(u => new RepairPartUsageItemViewModel
+                    {
+                        Id = u.Id,
+                        PartName = u.EquipmentPart?.PartName ?? "Unknown Part",
+                        PartCode = u.EquipmentPart?.PartCode,
+                        QuantityUsed = u.QuantityUsed,
+                        UnitCostAtUse = u.UnitCostAtUse,
+                        UsedDate = u.UsedDate,
+                        RecordedBy = u.RecordedBy
+                    }).ToList()
             };
 
             return View(vm);
@@ -862,10 +904,15 @@ namespace MuhleOP.Controllers
 
                     repair.Status = "In Repair";
                     repair.TechnicianName = Def(viewModel.TechnicianName);
+                    repair.EstimatedDurationDays = (int)(viewModel.WorkshopSlotEnd - viewModel.WorkshopSlotStart).TotalDays;
+                    if (repair.EstimatedDurationDays < 1) repair.EstimatedDurationDays = 1;
 
                     var slotNote = $"Workshop slot: {viewModel.WorkshopSlotStart:dd MMM yyyy} – {viewModel.WorkshopSlotEnd:dd MMM yyyy}. Check-in: {Def(viewModel.CheckInNotes)}. ";
                     if (!string.IsNullOrWhiteSpace(viewModel.RequiredParts))
+                    {
                         slotNote += $"Required parts: {viewModel.RequiredParts.Trim()}. ";
+                        repair.PartsReplaced = viewModel.RequiredParts.Trim();
+                    }
 
                     repair.RepairNotes = slotNote + Def(repair.RepairNotes) +
                         $" [{DateTime.Now:yyyy-MM-dd HH:mm} by {User.Identity.Name}] Status → In Repair";
@@ -911,7 +958,7 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Part F — Update Progress
+        // Part F — Update Progress (UC17 Enhanced)
         // ------------------------------------------------------------------
 
         [Authorize(Roles = "Admin, Site Manager")]
@@ -919,6 +966,7 @@ namespace MuhleOP.Controllers
         {
             var repair = db.EquipmentRepairs
                 .Include(r => r.Equipment)
+                .Include(r => r.PartUsages)
                 .FirstOrDefault(r => r.Id == id);
 
             if (repair == null)
@@ -933,6 +981,16 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("RepairQueue");
             }
 
+            var availablePartsList = db.EquipmentParts
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.PartName)
+                .Select(p => new SelectListItem
+                {
+                    Value = p.Id.ToString(),
+                    Text = p.PartName + (!string.IsNullOrEmpty(p.PartCode) ? " (" + p.PartCode + ")" : "") + " [Stock: " + p.QuantityOnHand + "]"
+                })
+                .ToList();
+
             var viewModel = new UpdateRepairProgressViewModel
             {
                 RepairId = repair.Id,
@@ -944,7 +1002,18 @@ namespace MuhleOP.Controllers
                 TotalCost = repair.TotalCost,
                 RepairNotes = repair.RepairNotes,
                 Status = repair.Status,
-                StatusOptions = GetRepairProgressStatusSelectList(repair.Status)
+                OriginalStatus = repair.Status,
+                ActualHours = repair.ActualHours,
+                RevisedCompletionDate = repair.RevisedCompletionDate,
+                RowVersion = repair.RowVersion,
+                StatusOptions = GetRepairProgressStatusSelectList(repair.Status),
+                AvailableParts = availablePartsList,
+                PartsUsed = (repair.PartUsages ?? Enumerable.Empty<RepairPartUsage>())
+                    .Select(u => new UpdateRepairPartInputModel
+                    {
+                        EquipmentPartId = u.EquipmentPartId,
+                        QuantityUsed = u.QuantityUsed
+                    }).ToList()
             };
 
             return View(viewModel);
@@ -961,14 +1030,14 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("RepairQueue");
             }
 
-            // ----- Culture-safe decimal parsing (fixes "332.8 is not valid") -----
-            // The form posts dots (en-US / invariant). SA culture expects commas.
             FixDecimalBinding(viewModel, "PartsCost", v => viewModel.PartsCost = v);
             FixDecimalBinding(viewModel, "LabourCost", v => viewModel.LabourCost = v);
-            // TotalCost is always recalculated server-side — ignore posted value
+            if (viewModel.ActualHours.HasValue)
+            {
+                FixDecimalBinding(viewModel, "ActualHours", v => viewModel.ActualHours = v);
+            }
             ModelState.Remove("TotalCost");
             viewModel.TotalCost = viewModel.PartsCost + viewModel.LabourCost;
-            // ---------------------------------------------------------------------
 
             if (ModelState.IsValid)
             {
@@ -976,6 +1045,8 @@ namespace MuhleOP.Controllers
                 {
                     var repair = db.EquipmentRepairs
                         .Include(r => r.Equipment)
+                        .Include(r => r.ProgressLogs)
+                        .Include(r => r.PartUsages)
                         .FirstOrDefault(r => r.Id == viewModel.RepairId);
 
                     if (repair == null || repair.Status == "Verified" || repair.Status == "Cancelled")
@@ -984,19 +1055,249 @@ namespace MuhleOP.Controllers
                         return RedirectToAction("RepairQueue");
                     }
 
+                    // 12. Concurrent update detection
+                    if (viewModel.RowVersion != null && repair.RowVersion != null)
+                    {
+                        if (!viewModel.RowVersion.SequenceEqual(repair.RowVersion))
+                        {
+                            ModelState.AddModelError("", "This ticket was updated by another user while you were editing it. Please reload and try again.");
+                            RepopulateUpdateProgressVM(viewModel, repair);
+                            return View(viewModel);
+                        }
+                    }
+
+                    var newStatus = string.IsNullOrWhiteSpace(viewModel.Status) ? repair.Status : viewModel.Status.Trim();
+
+                    // 4. Status-transition validation
+                    if (!IsValidRepairStatusTransition(repair.Status, newStatus))
+                    {
+                        ModelState.AddModelError("Status", $"Invalid status transition from '{repair.Status}' to '{newStatus}'.");
+                        RepopulateUpdateProgressVM(viewModel, repair);
+                        return View(viewModel);
+                    }
+
+                    // Required parts check for Ready for Verification
+                    if (newStatus == "Ready for Verification" && !string.IsNullOrWhiteSpace(repair.PartsReplaced))
+                    {
+                        // Check if required parts are logged in PartUsages or specified
+                        var currentPartIds = (viewModel.PartsUsed ?? new List<UpdateRepairPartInputModel>())
+                            .Where(p => p.QuantityUsed > 0)
+                            .Select(p => p.EquipmentPartId)
+                            .ToList();
+                        if (!currentPartIds.Any() && repair.PartUsages != null && !repair.PartUsages.Any())
+                        {
+                            ModelState.AddModelError("", "All required parts must be logged and recorded before transitioning to Ready for Verification.");
+                            RepopulateUpdateProgressVM(viewModel, repair);
+                            return View(viewModel);
+                        }
+                    }
+
+                    // 11. Repair cancelled validation
+                    if (newStatus == "Cancelled")
+                    {
+                        if (string.IsNullOrWhiteSpace(viewModel.CancellationReason))
+                        {
+                            ModelState.AddModelError("CancellationReason", "Cancellation reason is required when cancelling a repair.");
+                            RepopulateUpdateProgressVM(viewModel, repair);
+                            return View(viewModel);
+                        }
+                        repair.CancellationReason = viewModel.CancellationReason.Trim();
+                    }
+
+                    // 10. Technician reassignment check
+                    bool technicianChanged = !string.Equals(repair.TechnicianName, viewModel.TechnicianName, StringComparison.OrdinalIgnoreCase);
+                    string oldTechnicianName = repair.TechnicianName;
+
                     repair.TechnicianName = Def(viewModel.TechnicianName);
                     repair.PartsReplaced = Def(viewModel.PartsReplaced);
                     repair.PartsCost = viewModel.PartsCost;
                     repair.LabourCost = viewModel.LabourCost;
                     repair.TotalCost = viewModel.PartsCost + viewModel.LabourCost;
-                    repair.Status = string.IsNullOrWhiteSpace(viewModel.Status) ? repair.Status : viewModel.Status.Trim();
+                    repair.ActualHours = viewModel.ActualHours;
 
-                    repair.RepairNotes = Def(repair.RepairNotes) +
-                        $" [{DateTime.Now:yyyy-MM-dd HH:mm} by {User.Identity.Name}] Status → {repair.Status}. Notes: {Def(viewModel.RepairNotes)}";
+                    DateTime? oldRevisedDate = repair.RevisedCompletionDate;
+                    repair.RevisedCompletionDate = viewModel.RevisedCompletionDate;
 
-                    if (viewModel.Status == "Cancelled" && repair.Equipment != null)
+                    string oldStatus = repair.Status;
+                    repair.Status = newStatus;
+
+                    // Photo upload handling
+                    string photoRelativePath = null;
+                    if (viewModel.PhotoEvidence != null && viewModel.PhotoEvidence.ContentLength > 0)
                     {
-                        repair.Equipment.Status = "Available";
+                        try
+                        {
+                            var folder = Server.MapPath($"~/Uploads/EquipmentDamage/{repair.Id}");
+                            if (!Directory.Exists(folder))
+                                Directory.CreateDirectory(folder);
+
+                            var ext = Path.GetExtension(viewModel.PhotoEvidence.FileName) ?? ".jpg";
+                            var fileName = Guid.NewGuid().ToString("N") + ext;
+                            var physicalPath = Path.Combine(folder, fileName);
+                            viewModel.PhotoEvidence.SaveAs(physicalPath);
+
+                            photoRelativePath = $"/Uploads/EquipmentDamage/{repair.Id}/{fileName}";
+                            repair.PhotoEvidencePath = photoRelativePath;
+                        }
+                        catch (Exception photoEx)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Photo upload failed: {photoEx.Message}");
+                        }
+                    }
+
+                    // Inventory & Parts Usage processing
+                    string partsSummary = string.Empty;
+                    if (viewModel.PartsUsed != null && viewModel.PartsUsed.Any())
+                    {
+                        foreach (var partInput in viewModel.PartsUsed.Where(p => p.QuantityUsed > 0))
+                        {
+                            var partEntity = db.EquipmentParts.Find(partInput.EquipmentPartId);
+                            if (partEntity != null)
+                            {
+                                int qty = partInput.QuantityUsed;
+                                decimal unitCost = partEntity.UnitCost ?? 0m;
+
+                                var usage = new RepairPartUsage
+                                {
+                                    EquipmentRepairId = repair.Id,
+                                    EquipmentPartId = partEntity.Id,
+                                    QuantityUsed = qty,
+                                    UnitCostAtUse = unitCost,
+                                    UsedDate = DateTime.Now,
+                                    RecordedBy = User.Identity.Name
+                                };
+                                db.RepairPartUsages.Add(usage);
+
+                                // Update inventory stock
+                                partEntity.QuantityOnHand -= qty;
+                                if (partEntity.QuantityOnHand < 0) partEntity.QuantityOnHand = 0;
+
+                                var movement = new StockMovement
+                                {
+                                    EquipmentPartId = partEntity.Id,
+                                    MovementType = "OUT",
+                                    Quantity = -qty,
+                                    BalanceAfter = partEntity.QuantityOnHand,
+                                    Reason = $"Repair #{repair.Id} - {repair.Equipment?.EquipmentName}",
+                                    RecordedBy = User.Identity.Name,
+                                    RecordedAt = DateTime.Now
+                                };
+                                db.StockMovements.Add(movement);
+
+                                partsSummary += $"{partEntity.PartName} (x{qty}); ";
+                            }
+                        }
+                    }
+
+                    // 5. Delay Flag check
+                    bool isDelayed = false;
+                    DateTime baselineDate = repair.RepairDate;
+                    if (repair.EstimatedDurationDays.HasValue && repair.EstimatedDurationDays > 0)
+                    {
+                        baselineDate = repair.RepairDate.AddDays(repair.EstimatedDurationDays.Value);
+                    }
+                    if (repair.RevisedCompletionDate.HasValue && repair.RevisedCompletionDate.Value > baselineDate)
+                    {
+                        isDelayed = true;
+                    }
+
+                    // 6. Recalculate equipment expected-availability date
+                    if (newStatus == "In Repair" || newStatus == "Awaiting Parts" || newStatus == "Awaiting Approval" || newStatus == "Ready for Verification")
+                    {
+                        if (repair.RevisedCompletionDate.HasValue && repair.Equipment != null)
+                        {
+                            repair.Equipment.NextMaintenanceDate = repair.RevisedCompletionDate.Value;
+                        }
+                    }
+
+                    // 8. Procurement Request if Awaiting Parts
+                    if (newStatus == "Awaiting Parts" && string.IsNullOrEmpty(repair.ProcurementRequestReference))
+                    {
+                        repair.ProcurementRequestReference = $"PR-{repair.Id:D5}-{DateTime.Now:yyyyMMdd}";
+                        // Notify Finance Officers
+                        var financeOfficerIds = db.Staff.Where(s => s.Role == "Finance Officer" && s.IsActive && s.UserId != null).Select(s => s.UserId).ToList();
+                        foreach (var foId in financeOfficerIds)
+                        {
+                            await CreateNotification(foId, $"Procurement request opened — RT-{repair.Id}", $"A procurement request {repair.ProcurementRequestReference} has been opened for repair #{repair.Id}.", "Maintenance", $"/Equipment/RepairDetails/{repair.Id}");
+                        }
+                    }
+
+                    // 9. Escalation check (3x estimated duration)
+                    if (repair.EstimatedDurationDays.HasValue && repair.EstimatedDurationDays > 0)
+                    {
+                        double elapsedDays = (DateTime.Today - repair.RepairDate).TotalDays;
+                        if (elapsedDays > 3 * repair.EstimatedDurationDays.Value && !repair.IsEscalated)
+                        {
+                            repair.IsEscalated = true;
+                            // Notify Project Manager
+                            var assignment = db.EquipmentAssignments.Include(a => a.Project).Include(a => a.Project.ProjectManager).Where(a => a.EquipmentId == repair.EquipmentId).OrderByDescending(a => a.AssignedDate).FirstOrDefault();
+                            if (assignment?.Project?.ProjectManager?.UserId != null)
+                            {
+                                await CreateNotification(assignment.Project.ProjectManager.UserId, $"Repair Escalated — RT-{repair.Id}", $"Repair #{repair.Id} for '{repair.Equipment?.EquipmentName}' has been escalated due to prolonged duration.", "Maintenance", $"/Equipment/RepairDetails/{repair.Id}");
+                            }
+
+                            var escalationLog = new RepairProgressLog
+                            {
+                                EquipmentRepairId = repair.Id,
+                                Status = repair.Status,
+                                Notes = "Repair escalated automatically due to 3x duration threshold exceeded.",
+                                ChangedBy = Def(User.Identity.Name),
+                                ChangedByUserId = User.Identity.GetUserId(),
+                                ChangedAt = DateTime.Now,
+                                ChangeType = "Escalation",
+                                IsDelayFlagged = isDelayed
+                            };
+                            db.RepairProgressLogs.Add(escalationLog);
+                        }
+                    }
+
+                    // 10. Technician Reassignment handling
+                    if (technicianChanged)
+                    {
+                        var reassignLog = new RepairProgressLog
+                        {
+                            EquipmentRepairId = repair.Id,
+                            Status = repair.Status,
+                            Notes = $"Technician reassigned from '{oldTechnicianName}' to '{repair.TechnicianName}'.",
+                            ChangedBy = Def(User.Identity.Name),
+                            ChangedByUserId = User.Identity.GetUserId(),
+                            ChangedAt = DateTime.Now,
+                            ChangeType = "Reassignment",
+                            IsDelayFlagged = isDelayed
+                        };
+                        db.RepairProgressLogs.Add(reassignLog);
+
+                        // Notify old and new staff if matched by name
+                        try
+                        {
+                            if (!string.IsNullOrEmpty(oldTechnicianName))
+                            {
+                                var oldStaff = db.Staff.FirstOrDefault(s => (s.FirstName + " " + s.LastName).ToLower() == oldTechnicianName.ToLower() && s.UserId != null);
+                                if (oldStaff != null)
+                                {
+                                    await CreateNotification(oldStaff.UserId, "Reassigned from Repair", $"You have been unassigned from repair #{repair.Id}.", "Maintenance", $"/Equipment/RepairDetails/{repair.Id}");
+                                }
+                            }
+                            if (!string.IsNullOrEmpty(repair.TechnicianName))
+                            {
+                                var newStaff = db.Staff.FirstOrDefault(s => (s.FirstName + " " + s.LastName).ToLower() == repair.TechnicianName.ToLower() && s.UserId != null);
+                                if (newStaff != null)
+                                {
+                                    await CreateNotification(newStaff.UserId, "Assigned to Repair", $"You have been assigned as technician for repair #{repair.Id}.", "Maintenance", $"/Equipment/RepairDetails/{repair.Id}");
+                                }
+                            }
+                        }
+                        catch (Exception staffEx)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Technician notification failed: {staffEx.Message}");
+                        }
+                    }
+
+                    // 11. Repair cancelled / write-off
+                    if (newStatus == "Cancelled" && repair.Equipment != null)
+                    {
+                        repair.Equipment.IsActive = false;
+                        repair.Equipment.Status = "Retired";
                         repair.Equipment.AssignedProjectId = null;
 
                         var activeAssignments = db.EquipmentAssignments
@@ -1006,13 +1307,65 @@ namespace MuhleOP.Controllers
                         {
                             a.IsActive = false;
                             a.ActualReturnDate = DateTime.Now;
-                            a.ConditionOnReturn = "Cancelled repair";
+                            a.ConditionOnReturn = "Cancelled repair / Retired";
                         }
                     }
 
+                    // Append traditional one-line summary to RepairNotes
+                    string changeTypeStr = technicianChanged ? "Reassignment" : (newStatus != oldStatus ? "StatusChange" : "Progress");
+                    repair.RepairNotes = Def(repair.RepairNotes) +
+                        $" [{DateTime.Now:yyyy-MM-dd HH:mm} by {User.Identity.Name}] Status → {repair.Status}. Notes: {Def(viewModel.RepairNotes)}";
+
+                    // 1. Immutable progress history log
+                    var progressLog = new RepairProgressLog
+                    {
+                        EquipmentRepairId = repair.Id,
+                        Status = repair.Status,
+                        Notes = Def(viewModel.RepairNotes),
+                        PartsUsedSummary = partsSummary,
+                        ActualHours = repair.ActualHours,
+                        RevisedCompletionDate = repair.RevisedCompletionDate,
+                        PhotoPath = photoRelativePath,
+                        ChangedBy = Def(User.Identity.Name),
+                        ChangedByUserId = Def(User.Identity.GetUserId()),
+                        ChangedAt = DateTime.Now,
+                        ChangeType = changeTypeStr,
+                        IsDelayFlagged = isDelayed
+                    };
+                    db.RepairProgressLogs.Add(progressLog);
+
                     await db.SaveChangesAsync();
 
-                    if (viewModel.Status == "Ready for Verification")
+                    // 7. Notifications to Project / Site Manager if date changed, awaiting parts, or ready for verification
+                    bool dateChanged = oldRevisedDate != repair.RevisedCompletionDate;
+                    if (dateChanged || newStatus == "Awaiting Parts" || newStatus == "Ready for Verification")
+                    {
+                        var assignment = db.EquipmentAssignments
+                            .Include(a => a.Project)
+                            .Include(a => a.Project.ProjectManager)
+                            .Include(a => a.Project.SiteManager)
+                            .Where(a => a.EquipmentId == repair.EquipmentId)
+                            .OrderByDescending(a => a.AssignedDate)
+                            .FirstOrDefault();
+
+                        if (assignment?.Project != null)
+                        {
+                            string notifTitle = $"Repair Update — RT-{repair.Id}";
+                            string notifMsg = $"Repair #{repair.Id} for '{repair.Equipment?.EquipmentName}' status updated to {newStatus}.";
+                            if (dateChanged) notifMsg += $" Revised completion: {repair.RevisedCompletionDate:dd MMM yyyy}.";
+
+                            if (assignment.Project.ProjectManager?.UserId != null)
+                            {
+                                await NotifyStakeholder(assignment.Project.ProjectManager.UserId, notifTitle, notifMsg, "Maintenance", $"/Equipment/RepairDetails/{repair.Id}");
+                            }
+                            if (assignment.Project.SiteManager?.UserId != null)
+                            {
+                                await NotifyStakeholder(assignment.Project.SiteManager.UserId, notifTitle, notifMsg, "Maintenance", $"/Equipment/RepairDetails/{repair.Id}");
+                            }
+                        }
+                    }
+
+                    if (newStatus == "Ready for Verification")
                     {
                         try
                         {
@@ -1028,8 +1381,12 @@ namespace MuhleOP.Controllers
                         }
                     }
 
-                    TempData["SuccessMessage"] = "Repair progress updated.";
+                    TempData["SuccessMessage"] = "Repair progress updated successfully.";
                     return RedirectToAction("RepairDetails", new { id = repair.Id });
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    ModelState.AddModelError("", "This ticket was updated by another user while you were editing it. Please reload and try again.");
                 }
                 catch (DbEntityValidationException dbEx)
                 {
@@ -1050,7 +1407,7 @@ namespace MuhleOP.Controllers
                 }
             }
 
-            viewModel.StatusOptions = GetRepairProgressStatusSelectList(viewModel.Status);
+            RepopulateUpdateProgressVM(viewModel, null);
             return View(viewModel);
         }
 
@@ -1209,13 +1566,58 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
+        // UC17 Helpers & Transition Validator
+        // ------------------------------------------------------------------
+
+        private static bool IsValidRepairStatusTransition(string from, string to)
+        {
+            if (string.Equals(from, to, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            switch (from)
+            {
+                case "Reported":
+                    return to == "In Repair";
+                case "In Repair":
+                    return to == "Awaiting Parts" || to == "Ready for Verification" || to == "Awaiting Approval" || to == "Cancelled";
+                case "Awaiting Parts":
+                    return to == "In Repair" || to == "Cancelled";
+                case "Awaiting Approval":
+                    return to == "In Repair" || to == "Ready for Verification";
+                case "Ready for Verification":
+                    return to == "In Repair" || to == "Verified";
+                case "Verified":
+                case "Cancelled":
+                    return false;
+                default:
+                    return false;
+            }
+        }
+
+        private void RepopulateUpdateProgressVM(UpdateRepairProgressViewModel viewModel, EquipmentRepair repair)
+        {
+            if (viewModel == null) return;
+            viewModel.StatusOptions = GetRepairProgressStatusSelectList(viewModel.Status);
+            viewModel.AvailableParts = db.EquipmentParts
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.PartName)
+                .Select(p => new SelectListItem
+                {
+                    Value = p.Id.ToString(),
+                    Text = p.PartName + (!string.IsNullOrEmpty(p.PartCode) ? " (" + p.PartCode + ")" : "") + " [Stock: " + p.QuantityOnHand + "]"
+                })
+                .ToList();
+
+            if (repair != null && viewModel.RowVersion == null)
+            {
+                viewModel.RowVersion = repair.RowVersion;
+            }
+        }
+
+        // ------------------------------------------------------------------
         // Helpers
         // ------------------------------------------------------------------
 
-        /// <summary>
-        /// Re-parses a decimal form field using InvariantCulture and CurrentCulture.
-        /// Fixes "The value '332.8' is not valid" when the server culture uses comma decimals.
-        /// </summary>
         private void FixDecimalBinding(object viewModel, string propertyName, Action<decimal> setter)
         {
             var raw = Request.Form[propertyName];
@@ -1297,6 +1699,10 @@ namespace MuhleOP.Controllers
                 }
             }
 
+            var latestRepair = e.Repairs != null ? e.Repairs.OrderByDescending(r => r.CreatedDate).FirstOrDefault() : null;
+            bool isEsc = latestRepair != null && latestRepair.IsEscalated;
+            bool isDelay = latestRepair != null && latestRepair.ProgressLogs != null && latestRepair.ProgressLogs.Any(l => l.IsDelayFlagged);
+
             return new EquipmentListItemViewModel
             {
                 Id = e.Id,
@@ -1312,7 +1718,9 @@ namespace MuhleOP.Controllers
                 AssignedProjectName = e.AssignedProject != null ? e.AssignedProject.ProjectName : null,
                 NextMaintenanceDate = e.NextMaintenanceDate,
                 MaintenanceBadgeColor = badgeColor,
-                MaintenanceBadgeText = badgeText
+                MaintenanceBadgeText = badgeText,
+                IsEscalated = isEsc,
+                IsDelayFlagged = isDelay
             };
         }
 
@@ -1475,7 +1883,7 @@ namespace MuhleOP.Controllers
 
         private List<SelectListItem> GetRepairProgressStatusSelectList(string selected)
         {
-            var items = new[] { "In Repair", "Awaiting Parts", "Ready for Verification", "Cancelled" };
+            var items = new[] { "In Repair", "Awaiting Parts", "Awaiting Approval", "Ready for Verification", "Cancelled" };
             return items.Select(c => new SelectListItem { Value = c, Text = c, Selected = c == selected }).ToList();
         }
 
@@ -1511,7 +1919,8 @@ namespace MuhleOP.Controllers
             {
                 case "Reported": return "danger";
                 case "In Repair": return "warning";
-                case "Awaiting Parts": return "info";
+                case "Awaiting Parts":
+                case "Awaiting Approval": return "info";
                 case "Ready for Verification": return "primary";
                 case "Verified": return "success";
                 case "Cancelled": return "secondary";

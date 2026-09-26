@@ -252,11 +252,166 @@ namespace MuhleOP.Models
         [Display(Name = "Created Date")]
         public DateTime CreatedDate { get; set; }
 
+        // UC17 Additive Fields & Navigations
+        public decimal? ActualHours { get; set; }
+        public DateTime? RevisedCompletionDate { get; set; }
+
+        [StringLength(500)]
+        public string PhotoEvidencePath { get; set; }
+
+        [StringLength(50)]
+        public string ProcurementRequestReference { get; set; }
+
+        [StringLength(500)]
+        public string CancellationReason { get; set; }
+
+        public bool IsEscalated { get; set; }
+        public int? EstimatedDurationDays { get; set; }
+
+        [Timestamp]
+        public byte[] RowVersion { get; set; }
+
+        public virtual ICollection<RepairProgressLog> ProgressLogs { get; set; }
+        public virtual ICollection<RepairPartUsage> PartUsages { get; set; }
+
         public EquipmentRepair()
         {
             RepairDate = DateTime.Now;
             Status = "Reported";
             CreatedDate = DateTime.Now;
+            ProgressLogs = new List<RepairProgressLog>();
+            PartUsages = new List<RepairPartUsage>();
+        }
+    }
+
+    public class RepairProgressLog
+    {
+        [Key] public int Id { get; set; }
+
+        [Required] public int EquipmentRepairId { get; set; }
+        [ForeignKey("EquipmentRepairId")]
+        public virtual EquipmentRepair EquipmentRepair { get; set; }
+
+        [Required, StringLength(50)]
+        public string Status { get; set; }
+
+        [StringLength(2000)]
+        public string Notes { get; set; }
+
+        [StringLength(500)]
+        public string PartsUsedSummary { get; set; }
+
+        public decimal? ActualHours { get; set; }
+
+        public DateTime? RevisedCompletionDate { get; set; }
+
+        [StringLength(500)]
+        public string PhotoPath { get; set; }
+
+        [Required, StringLength(100)]
+        public string ChangedBy { get; set; }
+
+        [Required, StringLength(128)]
+        public string ChangedByUserId { get; set; }
+
+        public DateTime ChangedAt { get; set; }
+
+        [StringLength(20)]
+        public string ChangeType { get; set; } // Progress, StatusChange, Parts, Photo, Escalation, Reassignment, Cancelled, Delay
+
+        public bool IsDelayFlagged { get; set; }
+
+        public RepairProgressLog()
+        {
+            ChangedAt = DateTime.Now;
+        }
+    }
+
+    public class EquipmentPart
+    {
+        [Key] public int Id { get; set; }
+
+        [Required, StringLength(100)]
+        public string PartName { get; set; }
+
+        [StringLength(50)]
+        public string PartCode { get; set; }
+
+        [StringLength(50)]
+        public string Unit { get; set; } // e.g. "each", "metre", "litre"
+
+        public int QuantityOnHand { get; set; }
+
+        public int MinimumStockLevel { get; set; }
+
+        public decimal? UnitCost { get; set; }
+
+        public bool IsActive { get; set; }
+
+        public virtual ICollection<RepairPartUsage> PartUsages { get; set; }
+        public virtual ICollection<StockMovement> StockMovements { get; set; }
+
+        public EquipmentPart()
+        {
+            IsActive = true;
+            PartUsages = new List<RepairPartUsage>();
+            StockMovements = new List<StockMovement>();
+        }
+    }
+
+    public class RepairPartUsage
+    {
+        [Key] public int Id { get; set; }
+
+        [Required] public int EquipmentRepairId { get; set; }
+        [ForeignKey("EquipmentRepairId")]
+        public virtual EquipmentRepair EquipmentRepair { get; set; }
+
+        [Required] public int EquipmentPartId { get; set; }
+        [ForeignKey("EquipmentPartId")]
+        public virtual EquipmentPart EquipmentPart { get; set; }
+
+        public int QuantityUsed { get; set; }
+
+        public decimal UnitCostAtUse { get; set; }
+
+        public DateTime UsedDate { get; set; }
+
+        [StringLength(100)]
+        public string RecordedBy { get; set; }
+
+        public RepairPartUsage()
+        {
+            UsedDate = DateTime.Now;
+        }
+    }
+
+    public class StockMovement
+    {
+        [Key] public int Id { get; set; }
+
+        [Required] public int EquipmentPartId { get; set; }
+        [ForeignKey("EquipmentPartId")]
+        public virtual EquipmentPart EquipmentPart { get; set; }
+
+        [Required, StringLength(20)]
+        public string MovementType { get; set; } // IN, OUT, ADJUST
+
+        public int Quantity { get; set; } // signed: negative for OUT
+
+        public int BalanceAfter { get; set; }
+
+        [StringLength(500)]
+        public string Reason { get; set; }
+
+        [StringLength(100)]
+        public string RecordedBy { get; set; }
+
+        public DateTime RecordedAt { get; set; }
+
+        public StockMovement()
+        {
+            RecordedAt = DateTime.Now;
         }
     }
 }
