@@ -54,6 +54,10 @@
                 <!-- Parts Inventory Sub-Form -->
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Inventory Parts Used</label>
+                    <div class="form-check mb-2">
+                        @Html.CheckBoxFor(m => m.NoPartsNeeded, new { @class = "form-check-input", id = "noPartsNeededCheck" })
+                        <label class="form-check-label small" for="noPartsNeededCheck">No parts needed / Bypass part logging verification</label>
+                    </div>
                     <div id="partsContainer">
                         @if (Model.PartsUsed != null && Model.PartsUsed.Any())
                         {

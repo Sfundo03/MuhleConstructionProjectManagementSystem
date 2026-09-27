@@ -508,6 +508,9 @@ namespace MuhleOP.ViewModels
         [DataType(DataType.MultilineText)]
         public string CancellationReason { get; set; }
 
+        [Display(Name = "No Parts Needed")]
+        public bool NoPartsNeeded { get; set; }
+
         public string OriginalStatus { get; set; }
 
         [Required]

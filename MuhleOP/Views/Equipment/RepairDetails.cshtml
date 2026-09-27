@@ -59,9 +59,9 @@
                 <div class="card-header bg-light fw-semibold">Costs & Timeline</div>
                 <div class="card-body">
                     <ul class="list-unstyled mb-0">
-                        <li><strong>Parts Cost:</strong> R@Model.PartsCost.ToString("N2")</li>
-                        <li><strong>Labour Cost:</strong> R@Model.LabourCost.ToString("N2")</li>
-                        <li><strong>Total Cost:</strong> R@Model.TotalCost.ToString("N2")</li>
+                        <li><strong>Parts Cost:</strong> R@(Model.PartsCost.ToString("N2"))</li>
+                        <li><strong>Labour Cost:</strong> R@(Model.LabourCost.ToString("N2"))</li>
+                        <li><strong>Total Cost:</strong> R@(Model.TotalCost.ToString("N2"))</li>
                         <li><strong>Actual Hours:</strong> @(Model.ActualHours.HasValue ? Model.ActualHours.Value.ToString("0.##") + " hrs" : "N/A")</li>
                         <li><strong>Revised Completion:</strong> @(Model.RevisedCompletionDate.HasValue ? Model.RevisedCompletionDate.Value.ToString("dd MMM yyyy") : "N/A")</li>
                         @if (Model.IsEscalated)

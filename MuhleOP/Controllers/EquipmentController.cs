@@ -1210,7 +1210,7 @@ namespace MuhleOP.Controllers
                                     EquipmentRepairId = repair.Id,
                                     EquipmentPartId = part.Id,
                                     QuantityUsed = row.QuantityUsed,
-                                    UnitCostAtUse = part.Unit ?? 0m,
+                                    UnitCostAtUse = part.UnitCost ?? 0m,
                                     UsedDate = DateTime.Now,
                                     RecordedBy = User.Identity.Name
                                 };
@@ -1438,8 +1438,8 @@ namespace MuhleOP.Controllers
                         return View(viewModel);
                     }
 
-                    // Required parts check for Ready for Verification
-                    if (newStatus == "Ready for Verification" && !string.IsNullOrWhiteSpace(repair.PartsReplaced))
+                    // Required parts check for Ready for Verification (bypassed if NoPartsNeeded is checked)
+                    if (newStatus == "Ready for Verification" && !viewModel.NoPartsNeeded && !string.IsNullOrWhiteSpace(repair.PartsReplaced))
                     {
                         var currentPartIds = (viewModel.PartsUsed ?? new List<UpdateRepairPartInputModel>())
                             .Where(p => p.QuantityUsed > 0)
