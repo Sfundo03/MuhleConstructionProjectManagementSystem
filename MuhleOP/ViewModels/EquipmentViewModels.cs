@@ -257,7 +257,6 @@ namespace MuhleOP.ViewModels
         public bool IsEscalated { get; set; }
         public bool IsDelayFlagged { get; set; }
 
-        // Enhanced Fields
         public string Severity { get; set; }
         public string SeverityBadgeColor { get; set; }
         public string Priority { get; set; }
@@ -293,7 +292,6 @@ namespace MuhleOP.ViewModels
         public string ReportedBy { get; set; }
         public DateTime CreatedDate { get; set; }
 
-        // UC17 Postcondition Surfacing
         public decimal? ActualHours { get; set; }
         public DateTime? RevisedCompletionDate { get; set; }
         public string PhotoEvidencePath { get; set; }
@@ -302,7 +300,6 @@ namespace MuhleOP.ViewModels
         public string ProcurementRequestReference { get; set; }
         public string CancellationReason { get; set; }
 
-        // Enhanced Lifecycle Fields
         public string Severity { get; set; }
         public string SeverityBadgeColor { get; set; }
         public string Priority { get; set; }
@@ -355,7 +352,7 @@ namespace MuhleOP.ViewModels
 
     public class UpdateRepairPartInputModel
     {
-        public int EquipmentPartId { get; set; }
+        public int? EquipmentPartId { get; set; }
         public int QuantityUsed { get; set; }
     }
 
@@ -364,9 +361,6 @@ namespace MuhleOP.ViewModels
         public int? EquipmentPartId { get; set; }
         public int QuantityUsed { get; set; }
         public bool IsPendingOrder { get; set; }
-        public string NewPartName { get; set; }
-        public string NewPartCode { get; set; }
-        public string NewPartUnit { get; set; }
     }
 
     public class ReportDamageViewModel
@@ -397,119 +391,51 @@ namespace MuhleOP.ViewModels
         public List<SelectListItem> SeverityOptions { get; set; } = new List<SelectListItem>();
     }
 
-    public class ScheduleRepairViewModel
-    {
-        public int RepairId { get; set; }
-        public string EquipmentName { get; set; }
-        public string CurrentStatus { get; set; }
-
-        [Required(ErrorMessage = "Technician name is required")]
-        [Display(Name = "Technician Name")]
-        [StringLength(100)]
-        public string TechnicianName { get; set; }
-
-        [Display(Name = "Technician")]
-        public int? TechnicianId { get; set; }
-
-        [Required(ErrorMessage = "Repair category is required")]
-        [Display(Name = "Repair Category")]
-        public string RepairCategory { get; set; }
-
-        [Display(Name = "Diagnosis Notes")]
-        [DataType(DataType.MultilineText)]
-        public string DiagnosisNotes { get; set; }
-
-        [Required(ErrorMessage = "Priority is required")]
-        [Display(Name = "Priority")]
-        public string Priority { get; set; }
-
-        [Display(Name = "Estimated Parts Cost")]
-        public decimal? EstimatedPartsCost { get; set; }
-
-        [Display(Name = "Estimated Labour Cost")]
-        public decimal? EstimatedLabourCost { get; set; }
-
-        [Required(ErrorMessage = "Workshop start date is required")]
-        [Display(Name = "Workshop Slot Start")]
-        [DataType(DataType.Date)]
-        public DateTime WorkshopSlotStart { get; set; }
-
-        [Required(ErrorMessage = "Workshop end date is required")]
-        [Display(Name = "Workshop Slot End")]
-        [DataType(DataType.Date)]
-        public DateTime WorkshopSlotEnd { get; set; }
-
-        [Display(Name = "Required Parts (Free Text)")]
-        [DataType(DataType.MultilineText)]
-        public string RequiredParts { get; set; }
-
-        [Display(Name = "Parts Notes")]
-        [DataType(DataType.MultilineText)]
-        public string PartsNotes { get; set; }
-
-        [Display(Name = "Check-In Notes")]
-        [DataType(DataType.MultilineText)]
-        public string CheckInNotes { get; set; }
-
-        public List<RepairPartInputModel> PartsToUse { get; set; } = new List<RepairPartInputModel>();
-        public List<SelectListItem> AvailableParts { get; set; } = new List<SelectListItem>();
-        public bool AnyPendingParts { get; set; }
-        public string NewPartName { get; set; }
-        public string NewPartCode { get; set; }
-        public string NewPartUnit { get; set; }
-        public int? NewPartQuantityNeeded { get; set; }
-
-        public List<SelectListItem> AvailableTechnicians { get; set; } = new List<SelectListItem>();
-        public List<SelectListItem> PriorityOptions { get; set; } = new List<SelectListItem>();
-        public List<SelectListItem> CategoryOptions { get; set; } = new List<SelectListItem>();
-    }
-
     public class UpdateRepairProgressViewModel
     {
         public int RepairId { get; set; }
         public string EquipmentName { get; set; }
 
+        public int CurrentStepNumber { get; set; }
+        public string CurrentStepTitle { get; set; }
+
+        [Display(Name = "Technician")]
+        public int? TechnicianId { get; set; }
+        public List<SelectListItem> AvailableTechnicians { get; set; } = new List<SelectListItem>();
+
         [Display(Name = "Technician Name")]
         [StringLength(100)]
         public string TechnicianName { get; set; }
 
-        [Display(Name = "Parts Replaced")]
-        [DataType(DataType.MultilineText)]
-        public string PartsReplaced { get; set; }
-
-        [Display(Name = "Parts Cost")]
-        public decimal PartsCost { get; set; }
-
-        [Display(Name = "Labour Cost")]
-        public decimal LabourCost { get; set; }
-
-        [Display(Name = "Total Cost")]
-        public decimal TotalCost { get; set; }
-
-        [Display(Name = "Repair Notes")]
-        [DataType(DataType.MultilineText)]
-        public string RepairNotes { get; set; }
-
-        [Required(ErrorMessage = "Status is required")]
-        [Display(Name = "Status")]
-        public string Status { get; set; }
-
-        [Display(Name = "Actual Hours")]
-        public decimal? ActualHours { get; set; }
-
-        [Display(Name = "Revised Completion Date")]
+        [Display(Name = "Estimated Finish Date")]
         [DataType(DataType.Date)]
         public DateTime? RevisedCompletionDate { get; set; }
 
-        [Display(Name = "Photo Evidence")]
+        [Display(Name = "Photo Evidence (optional)")]
         public HttpPostedFileBase PhotoEvidence { get; set; }
+
+        [Display(Name = "No Parts Needed (Skip Parts Step)")]
+        public bool NoPartsNeeded { get; set; }
+
+        [Display(Name = "Parts Cost (R)")]
+        public decimal PartsCost { get; set; }
+
+        [Display(Name = "Labour Cost (R)")]
+        public decimal LabourCost { get; set; }
+
+        [Display(Name = "Total Cost (R)")]
+        public decimal TotalCost { get; set; }
+
+        [Display(Name = "Repair Status / Current Step")]
+        public string Status { get; set; } // [Required] removed since it's auto-managed
+
+        [Display(Name = "Repair Notes / Progress Details")]
+        [DataType(DataType.MultilineText)]
+        public string RepairNotes { get; set; }
 
         [Display(Name = "Cancellation Reason")]
         [DataType(DataType.MultilineText)]
         public string CancellationReason { get; set; }
-
-        [Display(Name = "No Parts Needed")]
-        public bool NoPartsNeeded { get; set; }
 
         public string OriginalStatus { get; set; }
 
@@ -517,7 +443,6 @@ namespace MuhleOP.ViewModels
         public byte[] RowVersion { get; set; }
 
         public List<UpdateRepairPartInputModel> PartsUsed { get; set; } = new List<UpdateRepairPartInputModel>();
-
         public List<SelectListItem> StatusOptions { get; set; } = new List<SelectListItem>();
         public List<SelectListItem> AvailableParts { get; set; } = new List<SelectListItem>();
     }

@@ -4,8 +4,28 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<div class="container py-4" style="max-width: 680px;">
-    <h2 class="mb-4">Update Progress — @Model.EquipmentName</h2>
+<div class="container py-4" style="max-width: 720px;">
+    <h2 class="mb-2">Update Progress — @Model.EquipmentName</h2>
+    <p class="text-muted mb-4"><i class="fas fa-shoe-prints me-1"></i>Current Step: <strong>@Model.CurrentStepTitle</strong></p>
+
+    <!-- Step Progress Tracker Bar -->
+    <div class="row g-2 mb-4 text-center">
+        <div class="col-4">
+            <div class="p-2 rounded border @(Model.CurrentStepNumber == 1 ? "bg-primary text-white fw-bold shadow-sm" : "bg-light text-muted")">
+                1. Schedule &amp; Tech
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="p-2 rounded border @(Model.CurrentStepNumber == 2 ? "bg-primary text-white fw-bold shadow-sm" : "bg-light text-muted")">
+                2. Parts Management
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="p-2 rounded border @(Model.CurrentStepNumber == 3 ? "bg-primary text-white fw-bold shadow-sm" : "bg-light text-muted")">
+                3. Cost &amp; Verification
+            </div>
+        </div>
+    </div>
 
     @using (Html.BeginForm("UpdateRepairProgress", "Equipment", FormMethod.Post, new { enctype = "multipart/form-data" }))
     {
@@ -14,115 +34,121 @@
         @Html.HiddenFor(m => m.EquipmentName)
         @Html.HiddenFor(m => m.OriginalStatus)
         @Html.HiddenFor(m => m.RowVersion)
+        @Html.HiddenFor(m => m.CurrentStepNumber)
         @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
 
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label">Status <span class="text-danger">*</span></label>
-                    @Html.DropDownListFor(m => m.Status, Model.StatusOptions, new { @class = "form-select", id = "statusDropdown", required = "required" })
-                    @Html.ValidationMessageFor(m => m.Status, "", new { @class = "text-danger small" })
-                </div>
-
-                <div class="mb-3" id="cancellationReasonDiv" style="display:none;">
-                    <label class="form-label">Cancellation Reason <span class="text-danger">*</span></label>
-                    @Html.TextAreaFor(m => m.CancellationReason, new { @class = "form-control", rows = 3, placeholder = "Provide reason for cancellation / write-off..." })
-                    @Html.ValidationMessageFor(m => m.CancellationReason, "", new { @class = "text-danger small" })
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Technician Name</label>
-                    @Html.TextBoxFor(m => m.TechnicianName, new { @class = "form-control" })
-                </div>
-
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Actual Hours</label>
-                        @Html.TextBoxFor(m => m.ActualHours, new { @class = "form-control", type = "number", step = "0.5" })
+                <!-- Step 1: Technician Assignment & Estimated Finish Time -->
+                @if (Model.CurrentStepNumber == 1)
+                {
+                    <div class="card border mb-3 bg-light">
+                        <div class="card-header bg-white fw-semibold"><i class="fas fa-user-gear me-1"></i> Step 1: Technician &amp; Schedule</div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Assign Technician <span class="text-danger">*</span></label>
+                                @Html.DropDownListFor(m => m.TechnicianId, Model.AvailableTechnicians, "Select technician...", new { @class = "form-select", required = "required" })
+                                @Html.ValidationMessageFor(m => m.TechnicianId, "", new { @class = "text-danger small" })
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Estimated Finish Date (Revised Completion)</label>
+                                @Html.TextBoxFor(m => m.RevisedCompletionDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Photo Evidence (optional)</label>
+                                <input type="file" name="PhotoEvidence" class="form-control" accept="image/*" />
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Revised Completion Date</label>
-                        @Html.TextBoxFor(m => m.RevisedCompletionDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
-                    </div>
-                </div>
+                }
 
-                <div class="mb-3">
-                    <label class="form-label">Parts Replaced (Free Text)</label>
-                    @Html.TextAreaFor(m => m.PartsReplaced, new { @class = "form-control", rows = 2 })
-                </div>
-
-                <!-- Parts Inventory Sub-Form -->
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Inventory Parts Used</label>
-                    <div class="form-check mb-2">
-                        @Html.CheckBoxFor(m => m.NoPartsNeeded, new { @class = "form-check-input", id = "noPartsNeededCheck" })
-                        <label class="form-check-label small" for="noPartsNeededCheck">No parts needed / Bypass part logging verification</label>
-                    </div>
-                    <div id="partsContainer">
-                        @if (Model.PartsUsed != null && Model.PartsUsed.Any())
-                        {
-                            for (int i = 0; i < Model.PartsUsed.Count; i++)
-                            {
-                                <div class="row g-2 mb-2 part-row">
-                                    <div class="col-7">
-                                        @Html.DropDownList(string.Format("PartsUsed[{0}].EquipmentPartId", i), new SelectList(Model.AvailableParts, "Value", "Text", Model.PartsUsed[i].EquipmentPartId), "Select part...", new { @class = "form-select form-select-sm" })
-                                    </div>
-                                    <div class="col-3">
-                                        @Html.TextBox(string.Format("PartsUsed[{0}].QuantityUsed", i), Model.PartsUsed[i].QuantityUsed, new { @class = "form-control form-control-sm", type = "number", min = "1", placeholder = "Qty" })
-                                    </div>
-                                    <div class="col-2">
-                                        <button type="button" class="btn btn-outline-danger btn-sm w-100 remove-part-row">Remove</button>
-                                    </div>
+                <!-- Step 2: Parts Management -->
+                @if (Model.CurrentStepNumber == 2)
+                {
+                    <div class="card border mb-3 bg-light">
+                        <div class="card-header bg-white fw-semibold"><i class="fas fa-boxes-stacked me-1"></i> Step 2: Parts Management</div>
+                        <div class="card-body">
+                            <div class="form-check mb-3">
+                                @Html.CheckBoxFor(m => m.NoPartsNeeded, new { @class = "form-check-input", id = "noPartsNeededCheck" })
+                                <label class="form-check-label fw-semibold text-dark" for="noPartsNeededCheck">No parts needed (Skip parts selection)</label>
+                            </div>
+                            <div id="partsSelectionSection">
+                                <div id="partsContainer">
+                                    @if (Model.PartsUsed != null && Model.PartsUsed.Any())
+                                    {
+                                        for (int i = 0; i < Model.PartsUsed.Count; i++)
+                                        {
+                                            <div class="row g-2 mb-2 part-row">
+                                                <div class="col-7">
+                                                    @Html.DropDownList(string.Format("PartsUsed[{0}].EquipmentPartId", i), new SelectList(Model.AvailableParts, "Value", "Text", Model.PartsUsed[i].EquipmentPartId), "Select part...", new { @class = "form-select form-select-sm" })
+                                                </div>
+                                                <div class="col-3">
+                                                    @Html.TextBox(string.Format("PartsUsed[{0}].QuantityUsed", i), Model.PartsUsed[i].QuantityUsed, new { @class = "form-control form-control-sm", type = "number", min = "1", placeholder = "Qty" })
+                                                </div>
+                                                <div class="col-2">
+                                                    <button type="button" class="btn btn-outline-danger btn-sm w-100 remove-part-row">Remove</button>
+                                                </div>
+                                            </div>
+                                        }
+                                    }
                                 </div>
-                            }
-                        }
+                                <button type="button" id="addPartRowBtn" class="btn btn-outline-secondary btn-sm mt-1">+ Add Part from Inventory</button>
+                                <small class="text-muted d-block mt-2">Note: If selected parts exceed current stock levels, the system will automatically notify the Project Manager.</small>
+                            </div>
+                        </div>
                     </div>
-                    <button type="button" id="addPartRowBtn" class="btn btn-outline-secondary btn-sm mt-1">+ Add Part</button>
-                </div>
+                }
 
-                <div class="row g-3 mb-3">
-                    <div class="col-md-4">
-                        <label class="form-label">Parts Cost</label>
-                        @Html.TextBoxFor(m => m.PartsCost, new { @class = "form-control", type = "number", step = "0.01", id = "partsCost" })
+                <!-- Step 3: Cost Input & Ready for Verification -->
+                @if (Model.CurrentStepNumber == 3)
+                {
+                    <div class="card border mb-3 bg-light">
+                        <div class="card-header bg-white fw-semibold"><i class="fas fa-calculator me-1"></i> Step 3: Cost Input</div>
+                        <div class="card-body">
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Parts Cost (R)</label>
+                                    @Html.TextBoxFor(m => m.PartsCost, new { @class = "form-control", type = "number", step = "0.01", id = "partsCost" })
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Labour Cost (R)</label>
+                                    @Html.TextBoxFor(m => m.LabourCost, new { @class = "form-control", type = "number", step = "0.01", id = "labourCost" })
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Total Cost (R)</label>
+                                    @Html.TextBoxFor(m => m.TotalCost, new { @class = "form-control fw-bold bg-white", type = "number", step = "0.01", id = "totalCost", @readonly = "readonly" })
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Labour Cost</label>
-                        @Html.TextBoxFor(m => m.LabourCost, new { @class = "form-control", type = "number", step = "0.01", id = "labourCost" })
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Total Cost</label>
-                        @Html.TextBoxFor(m => m.TotalCost, new { @class = "form-control", type = "number", step = "0.01", id = "totalCost", @readonly = "readonly" })
-                    </div>
-                </div>
+                }
 
-                <div class="mb-3">
-                    <label class="form-label">Photo Evidence (optional)</label>
-                    <input type="file" name="PhotoEvidence" class="form-control" accept="image/*" />
-                </div>
-
+                <!-- Repair Notes -->
                 <div class="mb-3">
                     <label class="form-label">Repair Notes / Progress Details</label>
-                    @Html.TextAreaFor(m => m.RepairNotes, new { @class = "form-control", rows = 4 })
+                    @Html.TextAreaFor(m => m.RepairNotes, new { @class = "form-control", rows = 3, placeholder = "Enter notes for this step..." })
                 </div>
             </div>
         </div>
 
-        <button type="submit" class="btn btn-primary">Save Progress</button>
-        <a href="@Url.Action("RepairDetails", new { id = Model.RepairId })" class="btn btn-outline-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg w-100 mb-2">Save Step Progress &amp; Continue</button>
+        <a href="@Url.Action("RepairDetails", new { id = Model.RepairId })" class="btn btn-outline-secondary w-100">Cancel</a>
     }
 </div>
 
 @section Scripts {
     <script>
         (function () {
-            // Cost calculation
+            // Auto calculate total cost
             var p = document.getElementById('partsCost');
             var l = document.getElementById('labourCost');
             var t = document.getElementById('totalCost');
             function sum() {
-                var a = parseFloat(p.value) || 0;
-                var b = parseFloat(l.value) || 0;
-                t.value = (a + b).toFixed(2);
+                var a = parseFloat(p ? p.value : 0) || 0;
+                var b = parseFloat(l ? l.value : 0) || 0;
+                if (t) {
+                    t.value = (a + b).toFixed(2);
+                }
             }
             if (p && l && t) {
                 p.addEventListener('input', sum);
@@ -130,24 +156,20 @@
                 sum();
             }
 
-            // Cancellation reason toggle
-            var statusDropdown = document.getElementById('statusDropdown');
-            var cancelDiv = document.getElementById('cancellationReasonDiv');
-            function checkStatus() {
-                if (statusDropdown && cancelDiv) {
-                    if (statusDropdown.value === 'Cancelled') {
-                        cancelDiv.style.display = 'block';
-                    } else {
-                        cancelDiv.style.display = 'none';
-                    }
+            // Toggle parts section based on checkbox
+            var noPartsCheck = document.getElementById('noPartsNeededCheck');
+            var partsSection = document.getElementById('partsSelectionSection');
+            function toggleParts() {
+                if (noPartsCheck && partsSection) {
+                    partsSection.style.display = noPartsCheck.checked ? 'none' : 'block';
                 }
             }
-            if (statusDropdown) {
-                statusDropdown.addEventListener('change', checkStatus);
-                checkStatus();
+            if (noPartsCheck) {
+                noPartsCheck.addEventListener('change', toggleParts);
+                toggleParts();
             }
 
-            // Dynamic Parts Row Management (jQuery)
+            // Dynamic Parts Row Management
             var availablePartsOptions = @Html.Raw(Json.Encode(Model.AvailableParts));
             $('#addPartRowBtn').on('click', function () {
                 var index = $('#partsContainer .part-row').length;
@@ -166,7 +188,6 @@
 
             $(document).on('click', '.remove-part-row', function () {
                 $(this).closest('.part-row').remove();
-                // Re-index names
                 $('#partsContainer .part-row').each(function (idx, el) {
                     $(el).find('select').attr('name', 'PartsUsed[' + idx + '].EquipmentPartId');
                     $(el).find('input').attr('name', 'PartsUsed[' + idx + '].QuantityUsed');
