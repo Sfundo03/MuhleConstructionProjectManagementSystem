@@ -6,6 +6,7 @@ using System.Data.Entity.Validation;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Mail;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web;
@@ -94,11 +95,33 @@ namespace MuhleOP.Controllers
         [Authorize(Roles = "Admin")]
         public ActionResult Create()
         {
+            var defaultCat = "Heavy Equipment";
             var viewModel = new CreateEquipmentViewModel
             {
                 Status = "Available",
                 Condition = "Good",
-                Categories = GetCategorySelectList(null),
+                Category = defaultCat,
+                SerialNumber = GenerateSerialNumber(defaultCat),
+                EquipmentNameSuggestions = new List<string>
+                {
+                    "Excavator", "Mini Excavator", "Backhoe Loader", "Bulldozer",
+                    "Wheel Loader", "Skid Steer Loader", "Forklift", "Telehandler",
+                    "Tower Crane", "Mobile Crane", "Crawler Crane", "Boom Lift",
+                    "Scissor Lift", "Concrete Mixer", "Concrete Pump", "Concrete Vibrator",
+                    "Compactor", "Plate Compactor", "Vibratory Roller", "Dump Truck",
+                    "Tipper Truck", "Flatbed Truck", "Pickup Truck", "Water Tanker",
+                    "Generator", "Air Compressor", "Jackhammer", "Demolition Hammer",
+                    "Angle Grinder", "Welding Machine", "Scaffolding Set", "Power Trowel",
+                    "Concrete Saw", "Reinforcement Bender", "Bar Cutting Machine",
+                    "Survey Level", "Total Station", "Van", "Bakkie", "Trailer"
+                },
+                CategorySuggestions = new List<string>
+                {
+                    "Heavy Equipment", "Light Equipment", "Tools", "Vehicles",
+                    "Safety Gear", "Other", "Lifting Equipment", "Concrete Equipment",
+                    "Earthmoving Equipment", "Power Tools", "Survey Equipment"
+                },
+                Categories = GetCategorySelectList(defaultCat),
                 Conditions = GetConditionSelectList(null),
                 Statuses = GetStatusSelectList(null),
                 MaintenanceFrequencies = GetMaintenanceFrequencySelectList(null)
@@ -452,7 +475,8 @@ namespace MuhleOP.Controllers
                         TechnicianName = r.TechnicianName,
                         TotalCost = r.TotalCost,
                         IsEscalated = r.IsEscalated,
-                        IsDelayFlagged = r.ProgressLogs != null && r.ProgressLogs.Any(l => l.IsDelayFlagged)
+                        IsDelayFlagged = r.ProgressLogs != null && r.ProgressLogs.Any(l => l.IsDelayFlagged),
+                        RequiresProcurement = r.RequiresProcurement
                     }).ToList()
             };
 
@@ -564,13 +588,16 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("Dashboard", "Home");
             }
 
-            var myProjectIds = db.ProjectResourceAllocations
+            var myProjects = db.ProjectResourceAllocations
+                .Include(a => a.Project)
                 .Where(a => a.StaffId == staff.Id && a.IsActive
                     && a.StartDate <= DateTime.Today
                     && (a.EndDate == null || a.EndDate >= DateTime.Today))
-                .Select(a => a.ProjectId)
-                .Distinct()
                 .ToList();
+
+            var myProjectIds = myProjects.Select(a => a.ProjectId).Distinct().ToList();
+            var projectNamesList = myProjects.Where(p => p.Project != null).Select(p => p.Project.ProjectName).Distinct().ToList();
+            string filterLabel = projectNamesList.Any() ? string.Join(", ", projectNamesList) : "no active projects";
 
             var equipmentQuery = db.Equipment
                 .Where(e => e.IsActive
@@ -578,11 +605,13 @@ namespace MuhleOP.Controllers
                     && e.Status != "In Repair"
                     && e.Status != "Retired"
                     && e.Status != "Quarantined"
-                    && (e.Status == "Available"
-                        || (e.Status == "In Use" && e.AssignedProjectId.HasValue && myProjectIds.Contains(e.AssignedProjectId.Value))));
+                    && e.Status == "In Use"
+                    && e.AssignedProjectId.HasValue
+                    && myProjectIds.Contains(e.AssignedProjectId.Value));
 
             var viewModel = new ReportDamageViewModel
             {
+                ProjectFilterLabel = filterLabel,
                 AvailableEquipment = equipmentQuery
                     .OrderBy(e => e.EquipmentName)
                     .Select(e => new SelectListItem
@@ -647,14 +676,11 @@ namespace MuhleOP.Controllers
                         .Distinct()
                         .ToList();
 
-                    bool allowed =
-                        equipment.Status == "Available" ||
-                        (equipment.Status == "In Use" && equipment.AssignedProjectId.HasValue &&
-                         myProjectIds.Contains(equipment.AssignedProjectId.Value));
+                    bool allowed = equipment.Status == "In Use" && equipment.AssignedProjectId.HasValue && myProjectIds.Contains(equipment.AssignedProjectId.Value);
 
                     if (!allowed || equipment.Status == "Damaged" || equipment.Status == "In Repair" || equipment.Status == "Quarantined")
                     {
-                        ModelState.AddModelError("EquipmentId", "You may only report damage on equipment that is available or assigned to one of your active projects.");
+                        ModelState.AddModelError("EquipmentId", "You may only report damage on equipment assigned to one of your active projects.");
                         return View(RepopulateReportDamageDropdowns(viewModel, staff.Id));
                     }
 
@@ -806,7 +832,8 @@ namespace MuhleOP.Controllers
                     Priority = r.Priority,
                     PriorityBadgeColor = GetPriorityBadgeColor(r.Priority),
                     RequiresApproval = r.RequiresApproval,
-                    IsQuarantined = r.Equipment != null && r.Equipment.Status == "Quarantined"
+                    IsQuarantined = r.Equipment != null && r.Equipment.Status == "Quarantined",
+                    RequiresProcurement = r.RequiresProcurement
                 }).ToList();
 
             var all = db.EquipmentRepairs.Include(r => r.ProgressLogs).Include(r => r.Equipment).ToList();
@@ -917,6 +944,8 @@ namespace MuhleOP.Controllers
                 TechnicianId = repair.TechnicianId,
                 CheckoutChecklist = checklistVm,
                 IsQuarantined = repair.Equipment != null && repair.Equipment.Status == "Quarantined",
+                RequiresProcurement = repair.RequiresProcurement,
+                PartsNotes = repair.PartsNotes,
                 ProgressLogs = (repair.ProgressLogs ?? Enumerable.Empty<RepairProgressLog>())
                     .OrderByDescending(l => l.ChangedAt)
                     .Select(l => new RepairProgressLogItemViewModel
@@ -968,6 +997,7 @@ namespace MuhleOP.Controllers
         {
             var repair = db.EquipmentRepairs
                 .Include(r => r.Equipment)
+                .Include(r => r.PartUsages)
                 .FirstOrDefault(r => r.Id == id);
 
             if (repair == null)
@@ -1013,6 +1043,25 @@ namespace MuhleOP.Controllers
                 }
             }
 
+            var availablePartsList = db.EquipmentParts
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.PartName)
+                .Select(p => new SelectListItem
+                {
+                    Value = p.Id.ToString(),
+                    Text = p.PartName + (!string.IsNullOrEmpty(p.PartCode) ? " (" + p.PartCode + ")" : "") + " — Stock: " + p.QuantityOnHand + " " + (p.Unit ?? "each")
+                })
+                .ToList();
+
+            var existingUsages = (repair.PartUsages ?? Enumerable.Empty<RepairPartUsage>())
+                .Select(u => new RepairPartInputModel
+                {
+                    EquipmentPartId = u.EquipmentPartId,
+                    QuantityUsed = u.QuantityUsed,
+                    IsPendingOrder = false
+                })
+                .ToList();
+
             var viewModel = new ScheduleRepairViewModel
             {
                 RepairId = repair.Id,
@@ -1021,6 +1070,8 @@ namespace MuhleOP.Controllers
                 WorkshopSlotStart = DateTime.Today.AddDays(1),
                 WorkshopSlotEnd = DateTime.Today.AddDays(3),
                 Priority = "Medium",
+                AvailableParts = availablePartsList,
+                PartsToUse = existingUsages,
                 AvailableTechnicians = techSelectList,
                 PriorityOptions = new List<SelectListItem>
                 {
@@ -1069,6 +1120,8 @@ namespace MuhleOP.Controllers
 
                     var repair = db.EquipmentRepairs
                         .Include(r => r.Equipment)
+                        .Include(r => r.Equipment.AssignedProject)
+                        .Include(r => r.PartUsages)
                         .FirstOrDefault(r => r.Id == viewModel.RepairId);
 
                     if (repair == null || repair.Status != "Reported")
@@ -1087,13 +1140,14 @@ namespace MuhleOP.Controllers
                         }
                     }
 
+                    EquipmentTechnician selectedTechEntity = null;
                     string techName = viewModel.TechnicianName;
                     if (viewModel.TechnicianId.HasValue)
                     {
-                        var techEntity = db.EquipmentTechnicians.Find(viewModel.TechnicianId.Value);
-                        if (techEntity != null)
+                        selectedTechEntity = db.EquipmentTechnicians.Find(viewModel.TechnicianId.Value);
+                        if (selectedTechEntity != null)
                         {
-                            techName = techEntity.FullName;
+                            techName = selectedTechEntity.FullName;
                         }
                     }
 
@@ -1106,6 +1160,73 @@ namespace MuhleOP.Controllers
                     repair.EstimatedPartsCost = viewModel.EstimatedPartsCost ?? 0m;
                     repair.EstimatedLabourCost = viewModel.EstimatedLabourCost ?? 0m;
                     repair.EstimatedTotalCost = (viewModel.EstimatedPartsCost ?? 0m) + (viewModel.EstimatedLabourCost ?? 0m);
+                    repair.PartsNotes = Def(viewModel.PartsNotes);
+
+                    // Process on-the-fly new part creation if supplied
+                    if (!string.IsNullOrWhiteSpace(viewModel.NewPartName) && viewModel.NewPartQuantityNeeded.HasValue && viewModel.NewPartQuantityNeeded.Value > 0)
+                    {
+                        var newPartCode = string.IsNullOrWhiteSpace(viewModel.NewPartCode) ? GeneratePartCode() : viewModel.NewPartCode.Trim();
+                        var newPart = new EquipmentPart
+                        {
+                            PartName = viewModel.NewPartName.Trim(),
+                            PartCode = newPartCode,
+                            Unit = string.IsNullOrWhiteSpace(viewModel.NewPartUnit) ? "each" : viewModel.NewPartUnit.Trim(),
+                            QuantityOnHand = 0,
+                            MinimumStockLevel = 0,
+                            UnitCost = 0m,
+                            IsActive = true
+                        };
+                        db.EquipmentParts.Add(newPart);
+                        await db.SaveChangesAsync();
+
+                        if (viewModel.PartsToUse == null)
+                            viewModel.PartsToUse = new List<RepairPartInputModel>();
+
+                        viewModel.PartsToUse.Add(new RepairPartInputModel
+                        {
+                            EquipmentPartId = newPart.Id,
+                            QuantityUsed = viewModel.NewPartQuantityNeeded.Value,
+                            IsPendingOrder = true
+                        });
+                    }
+
+                    // Process parts list
+                    bool anyPending = false;
+                    if (viewModel.PartsToUse != null)
+                    {
+                        foreach (var row in viewModel.PartsToUse.Where(r => r.QuantityUsed > 0 && r.EquipmentPartId.HasValue))
+                        {
+                            var part = db.EquipmentParts.Find(row.EquipmentPartId.Value);
+                            if (part != null)
+                            {
+                                bool pending = part.QuantityOnHand < row.QuantityUsed;
+                                if (pending)
+                                {
+                                    anyPending = true;
+                                }
+
+                                var usage = new RepairPartUsage
+                                {
+                                    EquipmentRepairId = repair.Id,
+                                    EquipmentPartId = part.Id,
+                                    QuantityUsed = row.QuantityUsed,
+                                    UnitCostAtUse = part.Unit ?? 0m,
+                                    UsedDate = DateTime.Now,
+                                    RecordedBy = User.Identity.Name
+                                };
+                                db.RepairPartUsages.Add(usage);
+                            }
+                        }
+                    }
+
+                    if (anyPending || viewModel.AnyPendingParts)
+                    {
+                        repair.RequiresProcurement = true;
+                        if (string.IsNullOrEmpty(repair.ProcurementRequestReference))
+                        {
+                            repair.ProcurementRequestReference = $"PR-{repair.Id:D5}-{DateTime.Now:yyyyMMdd}";
+                        }
+                    }
 
                     // Cost estimate threshold check
                     decimal threshold = 25000m;
@@ -1150,12 +1271,27 @@ namespace MuhleOP.Controllers
 
                     await db.SaveChangesAsync();
 
+                    if (repair.RequiresProcurement)
+                    {
+                        await NotifyFinanceOfficers(
+                            $"Procurement required — RT-{repair.Id}",
+                            $"Repair #{repair.Id} for '{repair.Equipment?.EquipmentName}' requires part procurement. Reference: {repair.ProcurementRequestReference}.",
+                            $"/Equipment/RepairDetails/{repair.Id}",
+                            skipUserId: User.Identity.GetUserId()
+                        );
+                    }
+
                     await NotifyAdmins(
                         "Repair Scheduled",
                         $"Repair #{repair.Id} for '{repair.Equipment?.EquipmentName}' has been scheduled ({viewModel.WorkshopSlotStart:dd MMM} – {viewModel.WorkshopSlotEnd:dd MMM}).",
                         $"/Equipment/RepairDetails/{repair.Id}",
                         skipUserId: User.Identity.GetUserId()
                     );
+
+                    if (selectedTechEntity != null && !string.IsNullOrWhiteSpace(selectedTechEntity.Email))
+                    {
+                        SendTechnicianAssignedEmail(repair, selectedTechEntity, repair.Equipment?.AssignedProject);
+                    }
 
                     TempData["SuccessMessage"] = "Repair scheduled successfully.";
                     return RedirectToAction("RepairDetails", new { id = repair.Id });
@@ -1892,6 +2028,170 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
+        // New JSON Endpoint & Serial / Part Helpers
+        // ------------------------------------------------------------------
+
+        [Authorize(Roles = "Admin")]
+        public JsonResult RegenerateSerialNumber(string category)
+        {
+            var serial = GenerateSerialNumber(category);
+            return Json(new { success = true, serialNumber = serial }, JsonRequestBehavior.AllowGet);
+        }
+
+        private string GenerateSerialNumber(string category)
+        {
+            string catShort = "GEN";
+            if (!string.IsNullOrWhiteSpace(category))
+            {
+                var clean = new string(category.Where(char.IsLetter).ToArray()).ToUpperInvariant();
+                if (clean.Length >= 3)
+                    catShort = clean.Substring(0, 3);
+                else if (clean.Length > 0)
+                    catShort = clean.PadRight(3, 'X');
+            }
+
+            string dateStr = DateTime.Today.ToString("yyyyMMdd");
+            const int maxAttempts = 20;
+            var rnd = new Random();
+
+            for (int attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                int rNum = rnd.Next(1000, 10000);
+                string candidate = $"SN-{catShort}-{dateStr}-{rNum}";
+                if (!db.Equipment.Any(e => e.SerialNumber == candidate))
+                {
+                    return candidate;
+                }
+                System.Threading.Thread.Sleep(5);
+            }
+
+            return $"SN-{catShort}-{dateStr}-{Guid.NewGuid().ToString("N").Substring(0, 4).ToUpperInvariant()}";
+        }
+
+        private string GeneratePartCode()
+        {
+            string dateStr = DateTime.Today.ToString("yyyyMMdd");
+            int rNum = new Random().Next(1000, 10000);
+            return $"PART-{dateStr}-{rNum}";
+        }
+
+        private SmtpClient BuildSmtpClient(out string fromEmail, out string fromName)
+        {
+            fromEmail = System.Configuration.ConfigurationManager.AppSettings["SmtpFromEmail"] ?? "no-reply@muhleops.com";
+            fromName = System.Configuration.ConfigurationManager.AppSettings["SmtpFromName"] ?? "MuhleOps System";
+            var host = System.Configuration.ConfigurationManager.AppSettings["SmtpHost"];
+
+            if (string.IsNullOrWhiteSpace(host))
+                return null;
+
+            int port = 587;
+            if (int.TryParse(System.Configuration.ConfigurationManager.AppSettings["SmtpPort"], out var p))
+                port = p;
+
+            bool enableSsl = true;
+            if (bool.TryParse(System.Configuration.ConfigurationManager.AppSettings["SmtpUseSsl"], out var ssl))
+                enableSsl = ssl;
+
+            var client = new SmtpClient(host, port)
+            {
+                EnableSsl = enableSsl,
+                DeliveryMethod = SmtpDeliveryMethod.Network
+            };
+
+            var user = System.Configuration.ConfigurationManager.AppSettings["SmtpUsername"];
+            var pass = System.Configuration.ConfigurationManager.AppSettings["SmtpPassword"];
+            if (!string.IsNullOrEmpty(user) && !string.IsNullOrEmpty(pass))
+            {
+                client.Credentials = new System.Net.NetworkCredential(user, pass);
+            }
+
+            return client;
+        }
+
+        private void SendTechnicianAssignedEmail(EquipmentRepair repair, EquipmentTechnician tech, Project project)
+        {
+            try
+            {
+                if (tech == null || string.IsNullOrWhiteSpace(tech.Email))
+                    return;
+
+                var client = BuildSmtpClient(out var fromEmail, out var fromName);
+                if (client == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("SMTP Host not configured; technician email skipped.");
+                    return;
+                }
+
+                string subject = $"Repair Assigned — RT-{repair.Id} | {repair.Equipment?.EquipmentName}";
+                var sb = new StringBuilder();
+                sb.AppendLine("<!DOCTYPE html>");
+                sb.AppendLine("<html><head><style>");
+                sb.AppendLine("body { font-family: Arial, sans-serif; color: #333; line-height: 1.5; }");
+                sb.AppendLine(".container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px; }");
+                sb.AppendLine(".header { background-color: #F5A623; color: #fff; padding: 15px; text-align: center; border-radius: 4px 4px 0 0; font-size: 18px; font-weight: bold; }");
+                sb.AppendLine(".content { padding: 20px; background-color: #fafafa; }");
+                sb.AppendLine(".footer { margin-top: 20px; font-size: 12px; color: #777; text-align: center; border-top: 1px solid #eee; padding-top: 10px; }");
+                sb.AppendLine("</style></head><body>");
+                sb.AppendLine("<div class=\"container\">");
+                sb.AppendLine($"<div class=\"header\">Repair Assignment Notification</div>");
+                sb.AppendLine("<div class=\"content\">");
+                sb.AppendLine($"<p>Dear <strong>{tech.FullName}</strong>,</p>");
+                sb.AppendLine($"<p>You have been assigned to repair ticket <strong>#RT-{repair.Id}</strong>.</p>");
+                sb.AppendLine("<ul>");
+                sb.AppendLine($"<li><strong>Equipment:</strong> {repair.Equipment?.EquipmentName} ({repair.Equipment?.EquipmentCode})</li>");
+                if (project != null)
+                {
+                    sb.AppendLine($"<li><strong>Project:</strong> {project.ProjectName}</li>");
+                }
+                sb.AppendLine($"<li><strong>Priority:</strong> {repair.Priority}</li>");
+                sb.AppendLine($"<li><strong>Category:</strong> {repair.RepairCategory}</li>");
+                sb.AppendLine($"<li><strong>Estimated Cost:</strong> R{(repair.EstimatedTotalCost ?? 0m):N2}</li>");
+                sb.AppendLine($"<li><strong>Diagnosis Notes:</strong> {Def(repair.DiagnosisNotes)}</li>");
+                sb.AppendLine("</ul>");
+                sb.AppendLine("<p>Please report to the workshop at the scheduled slot. This is an automated notification from MuhleOps.</p>");
+                sb.AppendLine("</div>");
+                sb.AppendLine("<div class=\"footer\">MuhleOps Project Management System &copy; " + DateTime.Now.Year + "</div>");
+                sb.AppendLine("</div></body></html>");
+
+                var mailMessage = new MailMessage
+                {
+                    From = new MailAddress(fromEmail, fromName),
+                    Subject = subject,
+                    Body = sb.ToString(),
+                    IsBodyHtml = true
+                };
+                mailMessage.To.Add(tech.Email);
+
+                client.Send(mailMessage);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"SendTechnicianAssignedEmail failed: {ex.Message}");
+            }
+        }
+
+        private async Task NotifyFinanceOfficers(string title, string message, string link, string skipUserId = null)
+        {
+            try
+            {
+                var foUsers = db.Staff
+                    .Where(s => s.Role == "Finance Officer" && s.IsActive && s.UserId != null && s.UserId != skipUserId)
+                    .Select(s => s.UserId)
+                    .Distinct()
+                    .ToList();
+
+                foreach (var foId in foUsers)
+                {
+                    await CreateNotification(foId, title, message, "Maintenance", link);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error notifying finance officers: {ex.Message}");
+            }
+        }
+
+        // ------------------------------------------------------------------
         // Transition Validator & Helpers
         // ------------------------------------------------------------------
 
@@ -2302,6 +2602,16 @@ namespace MuhleOP.Controllers
                 techSelectList.Add(new SelectListItem { Value = tech.Id.ToString(), Text = label, Selected = viewModel.TechnicianId == tech.Id });
             }
             viewModel.AvailableTechnicians = techSelectList;
+            viewModel.AvailableParts = db.EquipmentParts
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.PartName)
+                .Select(p => new SelectListItem
+                {
+                    Value = p.Id.ToString(),
+                    Text = p.PartName + (!string.IsNullOrEmpty(p.PartCode) ? " (" + p.PartCode + ")" : "") + " — Stock: " + p.QuantityOnHand + " " + (p.Unit ?? "each")
+                })
+                .ToList();
+
             viewModel.PriorityOptions = new List<SelectListItem>
             {
                 new SelectListItem { Value = "Low", Text = "Low", Selected = viewModel.Priority == "Low" },
@@ -2323,6 +2633,26 @@ namespace MuhleOP.Controllers
         {
             if (viewModel == null)
                 viewModel = new CreateEquipmentViewModel();
+
+            viewModel.EquipmentNameSuggestions = new List<string>
+            {
+                "Excavator", "Mini Excavator", "Backhoe Loader", "Bulldozer",
+                "Wheel Loader", "Skid Steer Loader", "Forklift", "Telehandler",
+                "Tower Crane", "Mobile Crane", "Crawler Crane", "Boom Lift",
+                "Scissor Lift", "Concrete Mixer", "Concrete Pump", "Concrete Vibrator",
+                "Compactor", "Plate Compactor", "Vibratory Roller", "Dump Truck",
+                "Tipper Truck", "Flatbed Truck", "Pickup Truck", "Water Tanker",
+                "Generator", "Air Compressor", "Jackhammer", "Demolition Hammer",
+                "Angle Grinder", "Welding Machine", "Scaffolding Set", "Power Trowel",
+                "Concrete Saw", "Reinforcement Bender", "Bar Cutting Machine",
+                "Survey Level", "Total Station", "Van", "Bakkie", "Trailer"
+            };
+            viewModel.CategorySuggestions = new List<string>
+            {
+                "Heavy Equipment", "Light Equipment", "Tools", "Vehicles",
+                "Safety Gear", "Other", "Lifting Equipment", "Concrete Equipment",
+                "Earthmoving Equipment", "Power Tools", "Survey Equipment"
+            };
 
             viewModel.Categories = GetCategorySelectList(viewModel.Category);
             viewModel.Conditions = GetConditionSelectList(viewModel.Condition);
@@ -2348,19 +2678,23 @@ namespace MuhleOP.Controllers
             if (viewModel == null)
                 viewModel = new ReportDamageViewModel();
 
-            var myProjectIds = db.ProjectResourceAllocations
+            var myProjects = db.ProjectResourceAllocations
+                .Include(a => a.Project)
                 .Where(a => a.StaffId == staffId && a.IsActive
                     && a.StartDate <= DateTime.Today
                     && (a.EndDate == null || a.EndDate >= DateTime.Today))
-                .Select(a => a.ProjectId)
-                .Distinct()
                 .ToList();
+
+            var myProjectIds = myProjects.Select(a => a.ProjectId).Distinct().ToList();
+            var projectNamesList = myProjects.Where(p => p.Project != null).Select(p => p.Project.ProjectName).Distinct().ToList();
+            viewModel.ProjectFilterLabel = projectNamesList.Any() ? string.Join(", ", projectNamesList) : "no active projects";
 
             viewModel.AvailableEquipment = db.Equipment
                 .Where(e => e.IsActive
                     && e.Status != "Damaged" && e.Status != "In Repair" && e.Status != "Retired" && e.Status != "Quarantined"
-                    && (e.Status == "Available"
-                        || (e.Status == "In Use" && e.AssignedProjectId.HasValue && myProjectIds.Contains(e.AssignedProjectId.Value))))
+                    && e.Status == "In Use"
+                    && e.AssignedProjectId.HasValue
+                    && myProjectIds.Contains(e.AssignedProjectId.Value))
                 .OrderBy(e => e.EquipmentName)
                 .Select(e => new SelectListItem
                 {

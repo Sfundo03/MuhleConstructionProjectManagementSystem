@@ -103,6 +103,9 @@ namespace MuhleOP.ViewModels
         [DataType(DataType.MultilineText)]
         public string Notes { get; set; }
 
+        public List<string> EquipmentNameSuggestions { get; set; } = new List<string>();
+        public List<string> CategorySuggestions { get; set; } = new List<string>();
+
         public List<SelectListItem> Categories { get; set; } = new List<SelectListItem>();
         public List<SelectListItem> Conditions { get; set; } = new List<SelectListItem>();
         public List<SelectListItem> Statuses { get; set; } = new List<SelectListItem>();
@@ -261,6 +264,7 @@ namespace MuhleOP.ViewModels
         public string PriorityBadgeColor { get; set; }
         public bool RequiresApproval { get; set; }
         public bool IsQuarantined { get; set; }
+        public bool RequiresProcurement { get; set; }
     }
 
     public class EquipmentRepairDetailsViewModel
@@ -315,6 +319,8 @@ namespace MuhleOP.ViewModels
         public int? TechnicianId { get; set; }
         public CheckoutChecklistViewModel CheckoutChecklist { get; set; }
         public bool IsQuarantined { get; set; }
+        public bool RequiresProcurement { get; set; }
+        public string PartsNotes { get; set; }
 
         public List<RepairProgressLogItemViewModel> ProgressLogs { get; set; } = new List<RepairProgressLogItemViewModel>();
         public List<RepairPartUsageItemViewModel> PartUsages { get; set; } = new List<RepairPartUsageItemViewModel>();
@@ -353,6 +359,16 @@ namespace MuhleOP.ViewModels
         public int QuantityUsed { get; set; }
     }
 
+    public class RepairPartInputModel
+    {
+        public int? EquipmentPartId { get; set; }
+        public int QuantityUsed { get; set; }
+        public bool IsPendingOrder { get; set; }
+        public string NewPartName { get; set; }
+        public string NewPartCode { get; set; }
+        public string NewPartUnit { get; set; }
+    }
+
     public class ReportDamageViewModel
     {
         [Required(ErrorMessage = "Please select the equipment")]
@@ -374,6 +390,8 @@ namespace MuhleOP.ViewModels
 
         [Display(Name = "Photos (optional)")]
         public IEnumerable<HttpPostedFileBase> Photos { get; set; }
+
+        public string ProjectFilterLabel { get; set; }
 
         public List<SelectListItem> AvailableEquipment { get; set; } = new List<SelectListItem>();
         public List<SelectListItem> SeverityOptions { get; set; } = new List<SelectListItem>();
@@ -421,13 +439,25 @@ namespace MuhleOP.ViewModels
         [DataType(DataType.Date)]
         public DateTime WorkshopSlotEnd { get; set; }
 
-        [Display(Name = "Required Parts")]
+        [Display(Name = "Required Parts (Free Text)")]
         [DataType(DataType.MultilineText)]
         public string RequiredParts { get; set; }
+
+        [Display(Name = "Parts Notes")]
+        [DataType(DataType.MultilineText)]
+        public string PartsNotes { get; set; }
 
         [Display(Name = "Check-In Notes")]
         [DataType(DataType.MultilineText)]
         public string CheckInNotes { get; set; }
+
+        public List<RepairPartInputModel> PartsToUse { get; set; } = new List<RepairPartInputModel>();
+        public List<SelectListItem> AvailableParts { get; set; } = new List<SelectListItem>();
+        public bool AnyPendingParts { get; set; }
+        public string NewPartName { get; set; }
+        public string NewPartCode { get; set; }
+        public string NewPartUnit { get; set; }
+        public int? NewPartQuantityNeeded { get; set; }
 
         public List<SelectListItem> AvailableTechnicians { get; set; } = new List<SelectListItem>();
         public List<SelectListItem> PriorityOptions { get; set; } = new List<SelectListItem>();

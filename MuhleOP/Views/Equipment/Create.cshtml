@@ -1,5 +1,4 @@
-﻿
-@model MuhleOP.ViewModels.CreateEquipmentViewModel
+﻿@model MuhleOP.ViewModels.CreateEquipmentViewModel
 @{
     ViewBag.Title = "Register Equipment";
     Layout = "~/Views/Shared/_Layout.cshtml";
@@ -18,7 +17,16 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label">@Html.DisplayNameFor(m => m.EquipmentName) <span class="text-danger">*</span></label>
-                        @Html.TextBoxFor(m => m.EquipmentName, new { @class = "form-control", required = "required" })
+                        @Html.TextBoxFor(m => m.EquipmentName, new { @class = "form-control", required = "required", list = "equipmentNameSuggestionsList" })
+                        <datalist id="equipmentNameSuggestionsList">
+                            @if (Model.EquipmentNameSuggestions != null)
+                            {
+                                foreach (var name in Model.EquipmentNameSuggestions)
+                                {
+                                    <option value="@name"></option>
+                                }
+                            }
+                        </datalist>
                         @Html.ValidationMessageFor(m => m.EquipmentName, "", new { @class = "text-danger small" })
                     </div>
                     <div class="col-md-6">
@@ -27,12 +35,24 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">@Html.DisplayNameFor(m => m.SerialNumber) <span class="text-danger">*</span></label>
-                        @Html.TextBoxFor(m => m.SerialNumber, new { @class = "form-control", required = "required" })
+                        <div class="input-group">
+                            @Html.TextBoxFor(m => m.SerialNumber, new { @class = "form-control", required = "required", id = "serialNumberInput" })
+                            <button type="button" class="btn btn-outline-secondary" id="regenerateSerialBtn" title="Regenerate Serial Number"><i class="fa-solid fa-rotate"></i></button>
+                        </div>
                         @Html.ValidationMessageFor(m => m.SerialNumber, "", new { @class = "text-danger small" })
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">@Html.DisplayNameFor(m => m.Category) <span class="text-danger">*</span></label>
-                        @Html.DropDownListFor(m => m.Category, Model.Categories, "Select category...", new { @class = "form-select", required = "required" })
+                        @Html.TextBoxFor(m => m.Category, new { @class = "form-control", required = "required", list = "categorySuggestionsList", id = "categoryInput" })
+                        <datalist id="categorySuggestionsList">
+                            @if (Model.CategorySuggestions != null)
+                            {
+                                foreach (var cat in Model.CategorySuggestions)
+                                {
+                                    <option value="@cat"></option>
+                                }
+                            }
+                        </datalist>
                         @Html.ValidationMessageFor(m => m.Category, "", new { @class = "text-danger small" })
                     </div>
                     <div class="col-md-6">
@@ -113,8 +133,29 @@
                 d.setDate(d.getDate() + days);
                 preview.value = d.toISOString().slice(0, 10);
             }
-            select.addEventListener('change', updatePreview);
-            updatePreview();
+            if (select && preview) {
+                select.addEventListener('change', updatePreview);
+                updatePreview();
+            }
+
+            var regenBtn = document.getElementById('regenerateSerialBtn');
+            var catInput = document.getElementById('categoryInput');
+            var serialInput = document.getElementById('serialNumberInput');
+
+            if (regenBtn && catInput && serialInput) {
+                regenBtn.addEventListener('click', function () {
+                    var catVal = catInput.value;
+                    var url = '@Url.Action("RegenerateSerialNumber", "Equipment")?category=' + encodeURIComponent(catVal);
+                    fetch(url)
+                        .then(function (response) { return response.json(); })
+                        .then(function (data) {
+                            if (data && data.success) {
+                                serialInput.value = data.serialNumber;
+                            }
+                        })
+                        .catch(function (err) { console.error('Serial regeneration failed', err); });
+                });
+            }
         })();
     </script>
 }

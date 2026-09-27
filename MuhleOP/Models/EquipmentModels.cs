@@ -302,6 +302,11 @@ namespace MuhleOP.Models
         [StringLength(20)]
         public string Priority { get; set; } // Low, Medium, High, Emergency
 
+        // Task Scope Additions
+        [StringLength(2000)]
+        public string PartsNotes { get; set; }
+        public bool RequiresProcurement { get; set; }
+
         public virtual EquipmentCheckoutChecklist CheckoutChecklist { get; set; }
 
         public virtual ICollection<RepairProgressLog> ProgressLogs { get; set; }
@@ -312,6 +317,7 @@ namespace MuhleOP.Models
             RepairDate = DateTime.Now;
             Status = "Reported";
             CreatedDate = DateTime.Now;
+            RequiresProcurement = false;
             ProgressLogs = new List<RepairProgressLog>();
             PartUsages = new List<RepairPartUsage>();
         }
