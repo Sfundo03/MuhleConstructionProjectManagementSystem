@@ -625,18 +625,42 @@ namespace MuhleOP.Controllers
         [Authorize(Roles = "Admin, Project Manager")]
         public ActionResult AssignEquipment(int id)
         {
+            System.Diagnostics.Debug.WriteLine("=====================================================");
+            System.Diagnostics.Debug.WriteLine($"AssignEquipment GET — ProjectId = {id}");
+            System.Diagnostics.Debug.WriteLine("=====================================================");
+
             var project = db.Projects.Find(id);
             if (project == null)
             {
+                System.Diagnostics.Debug.WriteLine("!! Project not found. Redirecting.");
                 TempData["ErrorMessage"] = "Project not found.";
                 return RedirectToAction("Index");
             }
+
+            System.Diagnostics.Debug.WriteLine($"Project: '{project.ProjectName}' (Code={project.ProjectCode}, IsActive={project.IsActive}, Location='{project.ProjectLocation}')");
 
             decimal threshold = 100000m;
             if (decimal.TryParse(ConfigurationManager.AppSettings["EquipmentApprovalThreshold"], out decimal parsedThresh))
             {
                 threshold = parsedThresh;
             }
+            System.Diagnostics.Debug.WriteLine($"ApprovalThreshold = R{threshold:N2}");
+
+            // Diagnostic counts
+            var totalEquipment = db.Equipment.Count();
+            var activeEquipment = db.Equipment.Count(e => e.IsActive);
+            var availableEquipment = db.Equipment.Count(e => e.IsActive && e.Status == "Available");
+            var activeAssignmentIds = db.EquipmentAssignments
+                .Where(a => a.IsActive)
+                .Select(a => a.EquipmentId)
+                .Distinct()
+                .ToList();
+            var afterAllFilters = db.Equipment
+                .Count(e => e.IsActive && e.Status == "Available" && !activeAssignmentIds.Contains(e.Id));
+
+            System.Diagnostics.Debug.WriteLine($"Equipment totals: Total={totalEquipment}, Active={activeEquipment}, Status=Available={availableEquipment}");
+            System.Diagnostics.Debug.WriteLine($"Equipment IDs with ACTIVE assignments (excluded): [{string.Join(", ", activeAssignmentIds)}]");
+            System.Diagnostics.Debug.WriteLine($"Equipment remaining after both filters: {afterAllFilters}");
 
             var viewModel = PopulateAssignEquipmentDropdowns(new AssignEquipmentViewModel
             {
@@ -645,6 +669,13 @@ namespace MuhleOP.Controllers
                 StartDate = DateTime.Now,
                 ApprovalThreshold = threshold
             });
+
+            System.Diagnostics.Debug.WriteLine($"View model: AvailableEquipment={viewModel.AvailableEquipment?.Count ?? 0}, CurrentAssignments={viewModel.CurrentAssignments?.Count ?? 0}, WaitlistSuggestions={viewModel.WaitlistSuggestions?.Count ?? 0}, UnderRepair={viewModel.UnderRepairEquipment?.Count ?? 0}");
+
+            if (viewModel.AvailableEquipment == null || !viewModel.AvailableEquipment.Any())
+            {
+                System.Diagnostics.Debug.WriteLine("!! AvailableEquipment dropdown is EMPTY. Check the filter reasons above.");
+            }
 
             return View(viewModel);
         }
@@ -655,6 +686,42 @@ namespace MuhleOP.Controllers
         [Authorize(Roles = "Admin, Project Manager")]
         public async Task<ActionResult> AssignEquipment(AssignEquipmentViewModel model)
         {
+            System.Diagnostics.Debug.WriteLine("=====================================================");
+            System.Diagnostics.Debug.WriteLine("AssignEquipment POST");
+            System.Diagnostics.Debug.WriteLine($"  Model null? {model == null}");
+            if (model != null)
+            {
+                System.Diagnostics.Debug.WriteLine($"  ProjectId = {model.ProjectId}");
+                System.Diagnostics.Debug.WriteLine($"  EquipmentId = {model.EquipmentId}");
+                System.Diagnostics.Debug.WriteLine($"  StartDate = {model.StartDate}");
+                System.Diagnostics.Debug.WriteLine($"  EndDate = {model.EndDate}");
+                System.Diagnostics.Debug.WriteLine($"  ConditionOnAssignment = '{model.ConditionOnAssignment}'");
+                System.Diagnostics.Debug.WriteLine($"  Notes = '{model.Notes}'");
+                System.Diagnostics.Debug.WriteLine($"  OverrideCertification = {model.OverrideCertification}");
+                System.Diagnostics.Debug.WriteLine($"  CertificationOverrideReason = '{model.CertificationOverrideReason}'");
+                System.Diagnostics.Debug.WriteLine($"  SecondaryApprovalRequested = {model.SecondaryApprovalRequested}");
+            }
+            System.Diagnostics.Debug.WriteLine($"  ModelState.IsValid = {ModelState.IsValid}");
+
+            if (!ModelState.IsValid)
+            {
+                foreach (var key in ModelState.Keys)
+                {
+                    var entry = ModelState[key];
+                    foreach (var err in entry.Errors)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  ModelState error [{key}]: {err.ErrorMessage}");
+                    }
+                }
+            }
+
+            if (model == null)
+            {
+                System.Diagnostics.Debug.WriteLine("!! model == null, redirecting to Index.");
+                TempData["ErrorMessage"] = "Invalid submission.";
+                return RedirectToAction("Index");
+            }
+
             decimal threshold = 100000m;
             if (decimal.TryParse(ConfigurationManager.AppSettings["EquipmentApprovalThreshold"], out decimal parsedThresh))
             {
@@ -665,26 +732,32 @@ namespace MuhleOP.Controllers
             var project = db.Projects.Find(model.ProjectId);
             if (project == null)
             {
+                System.Diagnostics.Debug.WriteLine($"!! Project {model.ProjectId} not found.");
                 TempData["ErrorMessage"] = "Project not found.";
                 return RedirectToAction("Index");
             }
+            System.Diagnostics.Debug.WriteLine($"Project found: '{project.ProjectName}'");
 
             var equipment = db.Equipment.Find(model.EquipmentId);
             if (equipment == null)
             {
+                System.Diagnostics.Debug.WriteLine($"!! Equipment {model.EquipmentId} not found in DB.");
                 ModelState.AddModelError("EquipmentId", "Equipment not found.");
                 return View(PopulateAssignEquipmentDropdowns(model));
             }
+            System.Diagnostics.Debug.WriteLine($"Equipment found: '{equipment.EquipmentName}' (Code={equipment.EquipmentCode}, Status={equipment.Status}, IsActive={equipment.IsActive}, CurrentLocation='{equipment.CurrentLocation}', AssignedProjectId={equipment.AssignedProjectId})");
 
-            // 6. Exception flow — Damaged / In Repair blocked
+            // Exception flow — Damaged / In Repair blocked
             if (equipment.Status == "Damaged" || equipment.Status == "In Repair")
             {
+                System.Diagnostics.Debug.WriteLine($"!! Equipment status is '{equipment.Status}' — blocked by exception flow.");
                 ModelState.AddModelError("EquipmentId", $"This equipment is currently {equipment.Status} and cannot be allocated.");
                 return View(PopulateAssignEquipmentDropdowns(model));
             }
 
             model.EquipmentValue = equipment.CurrentValue ?? equipment.PurchaseCost ?? 0;
             model.ExceedsApprovalThreshold = model.EquipmentValue > model.ApprovalThreshold;
+            System.Diagnostics.Debug.WriteLine($"EquipmentValue = R{model.EquipmentValue:N2}, ExceedsApprovalThreshold = {model.ExceedsApprovalThreshold}");
 
             if (ModelState.IsValid)
             {
@@ -704,9 +777,12 @@ namespace MuhleOP.Controllers
                         })
                         .ToList();
 
+                    System.Diagnostics.Debug.WriteLine($"Date-range overlap check: {overlappingAssignments.Count} conflicting active assignment(s) found.");
+
                     if (overlappingAssignments.Any())
                     {
                         var conflict = overlappingAssignments.First();
+                        System.Diagnostics.Debug.WriteLine($"!! Overlap with ProjectId={conflict.ProjectId} ('{conflict.Project?.ProjectName}') from {conflict.AssignedDate:dd MMM yyyy} to {(conflict.ExpectedReturnDate?.ToString("dd MMM yyyy") ?? "ongoing")}.");
                         ModelState.AddModelError("EquipmentId", $"This equipment is already assigned to '{conflict.Project?.ProjectName ?? "Another Project"}' from {conflict.AssignedDate:dd MMM yyyy} to {(conflict.ExpectedReturnDate.HasValue ? conflict.ExpectedReturnDate.Value.ToString("dd MMM yyyy") : "ongoing")}, which overlaps the selected dates.");
                         return View(PopulateAssignEquipmentDropdowns(model));
                     }
@@ -716,6 +792,8 @@ namespace MuhleOP.Controllers
                         .Where(c => c.EquipmentId == model.EquipmentId)
                         .Select(c => c.RequiredCertification)
                         .ToList();
+
+                    System.Diagnostics.Debug.WriteLine($"Certification requirements for this equipment: {(reqCerts.Any() ? string.Join(", ", reqCerts) : "none")}");
 
                     if (reqCerts.Any())
                     {
@@ -732,6 +810,8 @@ namespace MuhleOP.Controllers
                         {
                             assignedStaffMembers.Add(project.SiteManager);
                         }
+
+                        System.Diagnostics.Debug.WriteLine($"Checking {assignedStaffMembers.Count} assigned staff member(s) for required certs.");
 
                         var missingCerts = new List<string>();
                         foreach (var req in reqCerts)
@@ -751,6 +831,8 @@ namespace MuhleOP.Controllers
 
                         if (missingCerts.Any())
                         {
+                            System.Diagnostics.Debug.WriteLine($"!! Missing certifications: {string.Join(", ", missingCerts)}. OverrideCertification = {model.OverrideCertification}, Reason = '{model.CertificationOverrideReason}'");
+
                             if (!model.OverrideCertification)
                             {
                                 ModelState.AddModelError("", $"Warning: None of the assigned project staff hold the required certification(s): {string.Join(", ", missingCerts)}. To proceed, tick \"Override Certification\" and provide a justification.");
@@ -771,10 +853,13 @@ namespace MuhleOP.Controllers
 
                     // 4. Approval threshold check
                     bool isAdmin = User.IsInRole("Admin");
+                    System.Diagnostics.Debug.WriteLine($"User is Admin: {isAdmin}. Threshold exceeded: {model.ExceedsApprovalThreshold}. SecondaryApprovalRequested: {model.SecondaryApprovalRequested}");
+
                     if (model.ExceedsApprovalThreshold && !isAdmin)
                     {
                         if (!model.SecondaryApprovalRequested)
                         {
+                            System.Diagnostics.Debug.WriteLine("!! Threshold exceeded and no secondary approval requested — blocked.");
                             ModelState.AddModelError("SecondaryApprovalRequested", $"This equipment value (R{model.EquipmentValue:N2}) exceeds the approval threshold (R{model.ApprovalThreshold:N2}). Secondary approval is required.");
                             return View(PopulateAssignEquipmentDropdowns(model));
                         }
@@ -788,6 +873,7 @@ namespace MuhleOP.Controllers
                     {
                         string transportHint = $"Transport required (currently at: {equipment.CurrentLocation})";
                         finalNotes = $"— {transportHint}" + (string.IsNullOrWhiteSpace(finalNotes) ? "" : " | " + finalNotes);
+                        System.Diagnostics.Debug.WriteLine($"Transport hint added: {transportHint}");
                     }
 
                     if (reqCerts.Any() && model.OverrideCertification)
@@ -801,6 +887,9 @@ namespace MuhleOP.Controllers
                         string approvalNote = $"[SECONDARY APPROVAL REQUESTED by {User.Identity.Name} on {DateTime.Now:dd MMM yyyy HH:mm}]";
                         finalNotes = approvalNote + (string.IsNullOrWhiteSpace(finalNotes) ? "" : " " + finalNotes);
                     }
+
+                    System.Diagnostics.Debug.WriteLine($"Final notes: '{finalNotes}'");
+                    System.Diagnostics.Debug.WriteLine("All checks passed. Creating EquipmentAssignment...");
 
                     var assignment = new EquipmentAssignment
                     {
@@ -820,6 +909,8 @@ namespace MuhleOP.Controllers
                     equipment.AssignedProjectId = model.ProjectId;
 
                     await db.SaveChangesAsync();
+
+                    System.Diagnostics.Debug.WriteLine($"SUCCESS: Assignment Id={assignment.Id} saved. Equipment now Status='In Use', AssignedProjectId={model.ProjectId}.");
 
                     await CreateNotification(
                         User.Identity.GetUserId(),
@@ -846,11 +937,16 @@ namespace MuhleOP.Controllers
                 }
                 catch (Exception ex)
                 {
+                    System.Diagnostics.Debug.WriteLine("!! EXCEPTION in AssignEquipment POST:");
+                    System.Diagnostics.Debug.WriteLine(ex.ToString());
                     ModelState.AddModelError("", "Error assigning equipment: " + ex.Message);
                 }
             }
 
-            return View(PopulateAssignEquipmentDropdowns(model));
+            System.Diagnostics.Debug.WriteLine("Falling through to redisplay View() — a check above blocked the save.");
+            var redisplay = PopulateAssignEquipmentDropdowns(model);
+            System.Diagnostics.Debug.WriteLine($"Redisplay dropdown count: {redisplay.AvailableEquipment?.Count ?? 0}");
+            return View(redisplay);
         }
 
         // POST: Project/UpdateStatus
@@ -1020,6 +1116,8 @@ namespace MuhleOP.Controllers
 
         private AssignEquipmentViewModel PopulateAssignEquipmentDropdowns(AssignEquipmentViewModel model)
         {
+            if (model == null) model = new AssignEquipmentViewModel();
+
             var project = db.Projects.Find(model.ProjectId);
 
             model.CurrentAssignments = db.EquipmentAssignments
