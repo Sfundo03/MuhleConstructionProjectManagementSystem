@@ -337,26 +337,30 @@ namespace MuhleOP.Models
 
     public class EquipmentCheckoutChecklist
     {
-        [Key] public int Id { get; set; }
-
-        [Required] public int EquipmentRepairId { get; set; }
-        [ForeignKey("EquipmentRepairId")]
-        public virtual EquipmentRepair EquipmentRepair { get; set; }
+        [Key]
+        [ForeignKey("EquipmentRepair")]
+        public int EquipmentRepairId { get; set; }
 
         public bool LoadTestPassed { get; set; }
         public bool SafetyCheckPassed { get; set; }
         public bool CalibrationVerified { get; set; }
         public bool VisualInspectionPassed { get; set; }
 
-        [StringLength(2000)] public string Notes { get; set; }
+        [DataType(DataType.MultilineText)]
+        public string Notes { get; set; }
 
-        [StringLength(100)] public string TechnicianSignOffName { get; set; }
+        [StringLength(100)]
+        public string TechnicianSignOffName { get; set; }
         public DateTime? TechnicianSignOffDate { get; set; }
 
-        [StringLength(100)] public string AdminSignOffName { get; set; }
+        [StringLength(100)]
+        public string AdminSignOffName { get; set; }
         public DateTime? AdminSignOffDate { get; set; }
 
         public decimal? LoadTestResultKg { get; set; }
+
+        // Navigation property
+        public virtual EquipmentRepair EquipmentRepair { get; set; }
     }
 
     public class RepairProgressLog
