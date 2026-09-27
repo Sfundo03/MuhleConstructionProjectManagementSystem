@@ -1,12 +1,11 @@
-﻿
-@model MuhleOP.ViewModels.CreateInspectionViewModel
+﻿@model MuhleOP.ViewModels.CreateInspectionViewModel
 @{
     ViewBag.Title = "Conduct Inspection";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="mb-0">Conduct Inspection</h4>
+    <h4 class="mb-0">Conduct Inspection & Checklist</h4>
     <a href="@Url.Action("Index")" class="btn btn-outline-secondary btn-sm">Back</a>
 </div>
 
@@ -15,10 +14,11 @@
     <div class="alert alert-danger alert-dismissible">@TempData["ErrorMessage"]</div>
 }
 
-@using (Html.BeginForm("ConductInspection", "Quality", FormMethod.Post, new { enctype = "multipart/form-data" }))
+@using (Html.BeginForm("ConductInspection", "Quality", FormMethod.Post, new { enctype = "multipart/form-data", id = "inspectionForm" }))
 {
     @Html.AntiForgeryToken()
-    <div class="card">
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">General Information</div>
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-6">
@@ -28,7 +28,7 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">@Html.DisplayNameFor(m => m.InspectionType)</label>
-                    @Html.DropDownListFor(m => m.InspectionType, Model.InspectionTypes, "-- Type --", new { @class = "form-select" })
+                    @Html.DropDownListFor(m => m.InspectionType, Model.InspectionTypes, "-- Type --", new { @class = "form-select", id = "InspectionTypeDropdown" })
                     @Html.ValidationMessageFor(m => m.InspectionType, "", new { @class = "text-danger" })
                 </div>
                 <div class="col-md-3">
@@ -66,9 +66,14 @@
                     <label class="form-label">@Html.DisplayNameFor(m => m.DueDate)</label>
                     @Html.TextBoxFor(m => m.DueDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
                 </div>
+                <div class="col-12">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.MeasurementNotes)</label>
+                    @Html.TextAreaFor(m => m.MeasurementNotes, new { @class = "form-control", rows = 2, placeholder = "e.g., slab thickness 152mm, tolerance ±3mm" })
+                </div>
                 <div class="col-md-6">
                     <label class="form-label">@Html.DisplayNameFor(m => m.Photos)</label>
-                    <input type="file" name="Photos" class="form-control" accept="image/*" />
+                    <input type="file" name="Photos" class="form-control" accept="image/*" multiple />
+                    <div class="form-text">You can select multiple photo files.</div>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">@Html.DisplayNameFor(m => m.Report)</label>
@@ -76,10 +81,211 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Template Checklist Section -->
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">Checklist Items</div>
+        <div class="card-body">
+            <div id="checklistContainer">
+                <p class="text-muted">Select an inspection type to load pre-defined checklist items.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Non-Conformance Dynamic Sub-Form Section -->
+    <div class="card mb-4" id="nonConformanceCard" style="display:none;">
+        <div class="card-header fw-semibold text-danger">Non-Conformance Register (Triggered by Fail/Partial)</div>
+        <div class="card-body">
+            <p class="text-muted small">One or more items were marked Fail or Partial. Please specify non-conformance details:</p>
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label">Description</label>
+                    <input type="text" name="NonConformancesInput[0].Description" class="form-control nc-desc" placeholder="Describe the non-conformance" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Severity</label>
+                    <select name="NonConformancesInput[0].Severity" class="form-select nc-sev">
+                        <option value="Minor">Minor</option>
+                        <option value="Major">Major</option>
+                        <option value="Critical" class="text-danger fw-bold">Critical (Halts Task)</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Responsible Party</label>
+                    <input type="text" name="NonConformancesInput[0].ResponsibleParty" class="form-control" value="Site Contractor" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Due Date</label>
+                    <input type="date" name="NonConformancesInput[0].DueDate" class="form-control" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Digital Signature Pad Section -->
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">Site Manager Digital Sign-off</div>
+        <div class="card-body">
+            <p class="text-muted small">Please sign inside the box below to finalise and authenticate this inspection record.</p>
+            <div class="border rounded p-2 bg-light d-inline-block">
+                <canvas id="signatureCanvas" width="400" height="150" style="background:#fff; border:1px solid #ced4da; cursor:crosshair;"></canvas>
+            </div>
+            <div>
+                <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="clearSignature">Clear Signature</button>
+            </div>
+            @Html.HiddenFor(m => m.SignatureData, new { id = "SignatureData" })
+            @Html.ValidationMessageFor(m => m.SignatureData, "", new { @class = "text-danger d-block mt-1" })
+        </div>
         <div class="card-footer text-end">
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save me-1"></i> Save Inspection
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+                <i class="fas fa-save me-1"></i> Save & Submit Inspection
             </button>
         </div>
     </div>
+}
+
+@section scripts {
+    <script>
+        var templateItemsData = @Html.Raw(Json.Encode(Model.TemplateItems));
+
+        function renderChecklist(inspectionType) {
+            var container = $('#checklistContainer');
+            container.empty();
+
+            var filtered = templateItemsData.filter(function (item) {
+                return item.InspectionType === inspectionType;
+            });
+
+            if (filtered.length === 0) {
+                container.html('<p class="text-muted">No template checklist items available for this type.</p>');
+                return;
+            }
+
+            var html = '<div class="table-responsive"><table class="table table-bordered align-middle"><thead><tr><th>Item</th><th>Category</th><th style="width:220px;">Result</th><th>Notes</th></tr></thead><tbody>';
+
+            filtered.forEach(function (item, index) {
+                html += '<tr>' +
+                    '<td>' + escapeHtml(item.ItemLabel) +
+                    '<input type="hidden" name="ItemResultsInput[' + index + '].TemplateItemId" value="' + item.Id + '" />' +
+                    '<input type="hidden" name="ItemResultsInput[' + index + '].ItemLabel" value="' + escapeHtml(item.ItemLabel) + '" />' +
+                    '</td>' +
+                    '<td><span class="badge bg-secondary">' + escapeHtml(item.Category || 'General') + '</span></td>' +
+                    '<td>' +
+                    '<div class="btn-group btn-group-sm w-100" role="group">' +
+                    '<input type="radio" class="btn-check result-radio" name="ItemResultsInput[' + index + '].Result" id="res_pass_' + index + '" value="Pass" autocomplete="off">' +
+                    '<label class="btn btn-outline-success" for="res_pass_' + index + '">Pass</label>' +
+                    '<input type="radio" class="btn-check result-radio" name="ItemResultsInput[' + index + '].Result" id="res_fail_' + index + '" value="Fail" autocomplete="off">' +
+                    '<label class="btn btn-outline-danger" for="res_fail_' + index + '">Fail</label>' +
+                    '<input type="radio" class="btn-check result-radio" name="ItemResultsInput[' + index + '].Result" id="res_part_' + index + '" value="Partial" autocomplete="off">' +
+                    '<label class="btn btn-outline-warning" for="res_part_' + index + '">Partial</label>' +
+                    '<input type="radio" class="btn-check result-radio" name="ItemResultsInput[' + index + '].Result" id="res_na_' + index + '" value="N/A" autocomplete="off">' +
+                    '<label class="btn btn-outline-secondary" for="res_na_' + index + '">N/A</label>' +
+                    '</div>' +
+                    '</td>' +
+                    '<td><input type="text" name="ItemResultsInput[' + index + '].Notes" class="form-control form-control-sm" placeholder="Optional notes..." /></td>' +
+                    '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            container.html(html);
+            bindResultListeners();
+        }
+
+        function escapeHtml(text) {
+            return $('<div>').text(text).html();
+        }
+
+        function bindResultListeners() {
+            $('.result-radio').on('change', function () {
+                var showNc = false;
+                $('.result-radio:checked').each(function () {
+                    if ($(this).val() === 'Fail' || $(this).val() === 'Partial') {
+                        showNc = true;
+                    }
+                });
+                if (showNc) {
+                    $('#nonConformanceCard').slideDown();
+                } else {
+                    $('#nonConformanceCard').slideUp();
+                }
+            });
+        }
+
+        $(document).ready(function () {
+            var initialType = $('#InspectionTypeDropdown').val();
+            if (initialType) {
+                renderChecklist(initialType);
+            }
+
+            $('#InspectionTypeDropdown').on('change', function () {
+                renderChecklist($(this).val());
+            });
+
+            var canvas = document.getElementById('signatureCanvas');
+            if (canvas) {
+                var ctx = canvas.getContext('2d');
+                var drawing = false;
+
+                function getPos(e) {
+                    var rect = canvas.getBoundingClientRect();
+                    var clientX = e.clientX || (e.touches && e.touches[0].clientX);
+                    var clientY = e.clientY || (e.touches && e.touches[0].clientY);
+                    return {
+                        x: clientX - rect.left,
+                        y: clientY - rect.top
+                    };
+                }
+
+                canvas.addEventListener('mousedown', function (e) {
+                    drawing = true;
+                    ctx.beginPath();
+                    var pos = getPos(e);
+                    ctx.moveTo(pos.x, pos.y);
+                });
+
+                canvas.addEventListener('mousemove', function (e) {
+                    if (!drawing) return;
+                    var pos = getPos(e);
+                    ctx.lineTo(pos.x, pos.y);
+                    ctx.stroke();
+                });
+
+                canvas.addEventListener('mouseup', function () { drawing = false; });
+                canvas.addEventListener('mouseleave', function () { drawing = false; });
+
+                canvas.addEventListener('touchstart', function (e) {
+                    drawing = true;
+                    ctx.beginPath();
+                    var pos = getPos(e);
+                    ctx.moveTo(pos.x, pos.y);
+                    e.preventDefault();
+                });
+
+                canvas.addEventListener('touchmove', function (e) {
+                    if (!drawing) return;
+                    var pos = getPos(e);
+                    ctx.lineTo(pos.x, pos.y);
+                    ctx.stroke();
+                    e.preventDefault();
+                });
+
+                canvas.addEventListener('touchend', function () { drawing = false; });
+
+                $('#clearSignature').on('click', function () {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    $('#SignatureData').val('');
+                });
+
+                $('#inspectionForm').on('submit', function () {
+                    var blank = document.createElement('canvas');
+                    blank.width = canvas.width;
+                    blank.height = canvas.height;
+                    if (canvas.toDataURL() !== blank.toDataURL()) {
+                        $('#SignatureData').val(canvas.toDataURL('image/png'));
+                    }
+                });
+            }
+        });
+    </script>
 }

@@ -469,7 +469,7 @@ namespace MuhleOP.ViewModels
         public string ContractFilePath { get; set; }
         public string ReviewedBy { get; set; }
         public DateTime? ReviewedDate { get; set; }
-        public string ReviewNotes { get; set; }
+        public string ReviewNotes { get; set; } // Added ReviewNotes to resolve CS0117
         public string GeneratedPdfPath { get; set; }
         public string SignedPdfPath { get; set; }
         public DateTime? SentForReviewDate { get; set; }
@@ -672,7 +672,6 @@ namespace MuhleOP.ViewModels
         [DataType(DataType.MultilineText)]
         public string ReviewNotes { get; set; }
 
-        // Properties required by ClientController.ReviewContract (were missing → CS0117)
         public bool IsSigned { get; set; }
         public DateTime? SignatureDate { get; set; }
         public string SignedDocumentPath { get; set; }
@@ -925,24 +924,49 @@ namespace MuhleOP.ViewModels
         [Display(Name = "Equipment")]
         public int EquipmentId { get; set; }
 
-        [Display(Name = "Expected Return Date")]
+        [Required(ErrorMessage = "Start date is required")]
+        [Display(Name = "Start Date")]
         [DataType(DataType.Date)]
-        public DateTime? ExpectedReturnDate { get; set; }
+        public DateTime StartDate { get; set; } = DateTime.Now;
+
+        [Display(Name = "Expected Return / End Date (Optional)")]
+        [DataType(DataType.Date)]
+        public DateTime? EndDate { get; set; }
 
         [Display(Name = "Condition on Assignment")]
+        [StringLength(50)]
         public string ConditionOnAssignment { get; set; }
 
         [Display(Name = "Notes")]
         [DataType(DataType.MultilineText)]
         public string Notes { get; set; }
 
+        [Display(Name = "Override Certification (Required certifications missing)")]
+        public bool OverrideCertification { get; set; }
+
+        [Display(Name = "Certification Override Justification")]
+        [DataType(DataType.MultilineText)]
+        public string CertificationOverrideReason { get; set; }
+
+        [Display(Name = "Request Secondary Approval (Value exceeds threshold)")]
+        public bool SecondaryApprovalRequested { get; set; }
+
         public List<SelectListItem> AvailableEquipment { get; set; }
         public List<AssignedEquipmentViewModel> CurrentAssignments { get; set; }
+        public List<WaitlistEquipmentViewModel> WaitlistSuggestions { get; set; }
+        public List<UnderRepairEquipmentViewModel> UnderRepairEquipment { get; set; }
+        public List<string> CertificationWarnings { get; set; }
+        public bool ExceedsApprovalThreshold { get; set; }
+        public decimal EquipmentValue { get; set; }
+        public decimal ApprovalThreshold { get; set; }
 
         public AssignEquipmentViewModel()
         {
             AvailableEquipment = new List<SelectListItem>();
             CurrentAssignments = new List<AssignedEquipmentViewModel>();
+            WaitlistSuggestions = new List<WaitlistEquipmentViewModel>();
+            UnderRepairEquipment = new List<UnderRepairEquipmentViewModel>();
+            CertificationWarnings = new List<string>();
         }
     }
 
@@ -952,9 +976,32 @@ namespace MuhleOP.ViewModels
         public string EquipmentName { get; set; }
         public string EquipmentCode { get; set; }
         public DateTime AssignedDate { get; set; }
+        public DateTime StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
         public DateTime? ExpectedReturnDate { get; set; }
         public bool IsActive { get; set; }
         public string ConditionOnAssignment { get; set; }
+        public string Notes { get; set; }
+        public bool HasSecondaryApprovalRequest { get; set; }
+        public bool HasTransportNote { get; set; }
+    }
+
+    public class WaitlistEquipmentViewModel
+    {
+        public int EquipmentId { get; set; }
+        public string EquipmentName { get; set; }
+        public string EquipmentCode { get; set; }
+        public string CurrentProjectName { get; set; }
+        public DateTime? ExpectedFreeDate { get; set; }
+    }
+
+    public class UnderRepairEquipmentViewModel
+    {
+        public int EquipmentId { get; set; }
+        public string EquipmentName { get; set; }
+        public string EquipmentCode { get; set; }
+        public string Status { get; set; }
+        public string Condition { get; set; }
     }
 
     // ===== DAILY TASK VIEW MODELS =====

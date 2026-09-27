@@ -5,6 +5,77 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MuhleOP.Models
 {
+    public class InspectionTemplateItem
+    {
+        [Key] public int Id { get; set; }
+
+        [Required, StringLength(50)]
+        public string InspectionType { get; set; } // Safety, Quality, Progress, Compliance
+
+        [Required, StringLength(200)]
+        public string ItemLabel { get; set; }
+
+        [StringLength(50)]
+        public string Category { get; set; } // Foundation, Framing, Electrical, Plumbing, etc.
+
+        public int Order { get; set; }
+
+        public bool IsActive { get; set; }
+    }
+
+    public class InspectionItemResult
+    {
+        [Key] public int Id { get; set; }
+
+        [Required] public int SiteInspectionId { get; set; }
+        [ForeignKey("SiteInspectionId")]
+        public virtual SiteInspection SiteInspection { get; set; }
+
+        [Required] public int TemplateItemId { get; set; }
+        [ForeignKey("TemplateItemId")]
+        public virtual InspectionTemplateItem TemplateItem { get; set; }
+
+        [Required, StringLength(20)]
+        public string Result { get; set; } // Pass, Fail, Partial, N/A
+
+        [StringLength(1000)]
+        public string Notes { get; set; }
+    }
+
+    public class NonConformance
+    {
+        [Key] public int Id { get; set; }
+
+        [Required, StringLength(20)]
+        public string ReferenceNumber { get; set; } // e.g. NC-0001
+
+        [Required] public int SiteInspectionId { get; set; }
+        [ForeignKey("SiteInspectionId")]
+        public virtual SiteInspection SiteInspection { get; set; }
+
+        [Required, StringLength(200)]
+        public string Description { get; set; }
+
+        [Required, StringLength(20)]
+        public string Severity { get; set; } // Minor, Major, Critical
+
+        [Required, StringLength(100)]
+        public string ResponsibleParty { get; set; }
+
+        [StringLength(50)]
+        public string Status { get; set; } // Open, In Progress, Closed
+
+        public DateTime? DueDate { get; set; }
+
+        public DateTime CreatedDate { get; set; }
+
+        public NonConformance()
+        {
+            CreatedDate = DateTime.Now;
+            Status = "Open";
+        }
+    }
+
     public class SiteInspection
     {
         [Key]
@@ -83,6 +154,25 @@ namespace MuhleOP.Models
         [Display(Name = "Created Date")]
         public DateTime CreatedDate { get; set; }
 
+        [Display(Name = "Measurement Notes")]
+        [StringLength(2000)]
+        public string MeasurementNotes { get; set; }
+
+        [Display(Name = "Signed Off By")]
+        [StringLength(100)]
+        public string SignedOffBy { get; set; }
+
+        [Display(Name = "Signed Off Date")]
+        public DateTime? SignedOffDate { get; set; }
+
+        [Display(Name = "Signature Data Path")]
+        [StringLength(500)]
+        public string SignatureDataPath { get; set; }
+
+        // Navigation properties
+        public virtual ICollection<InspectionItemResult> ItemResults { get; set; }
+        public virtual ICollection<NonConformance> NonConformances { get; set; }
+
         public SiteInspection()
         {
             InspectionDate = DateTime.Now;
@@ -90,6 +180,8 @@ namespace MuhleOP.Models
             IsPassed = false;
             ActionRequired = false;
             CreatedDate = DateTime.Now;
+            ItemResults = new List<InspectionItemResult>();
+            NonConformances = new List<NonConformance>();
         }
     }
 
@@ -109,6 +201,12 @@ namespace MuhleOP.Models
 
         [ForeignKey("SiteInspectionId")]
         public virtual SiteInspection SiteInspection { get; set; }
+
+        // Link back to specific non-conformance (optional)
+        public int? NonConformanceId { get; set; }
+
+        [ForeignKey("NonConformanceId")]
+        public virtual NonConformance NonConformance { get; set; }
 
         [Required]
         [Display(Name = "Variation Number")]
@@ -132,11 +230,36 @@ namespace MuhleOP.Models
         [DataType(DataType.MultilineText)]
         public string ImpactOnScope { get; set; }
 
+        [StringLength(2000)]
+        [Display(Name = "Impact on Quality")]
+        public string ImpactOnQuality { get; set; }
+
+        [StringLength(2000)]
+        [Display(Name = "Impact on Resources")]
+        public string ImpactOnResources { get; set; }
+
         [Display(Name = "Impact on Cost")]
         public decimal? ImpactOnCost { get; set; }
 
         [Display(Name = "Impact on Timeline")]
         public int? ImpactOnTimelineDays { get; set; }
+
+        [Display(Name = "Approved Cost Cap")]
+        public decimal? ApprovedCostCap { get; set; }
+
+        [Display(Name = "Finance Officer Approved")]
+        public bool? FinanceOfficerApproved { get; set; }
+
+        [StringLength(100)]
+        [Display(Name = "Finance Officer Approved By")]
+        public string FinanceOfficerApprovedBy { get; set; }
+
+        [Display(Name = "Finance Officer Approval Date")]
+        public DateTime? FinanceOfficerApprovalDate { get; set; }
+
+        [StringLength(500)]
+        [Display(Name = "Variation Order PDF Path")]
+        public string VariationOrderPdfPath { get; set; }
 
         [Display(Name = "Requested By")]
         public string RequestedBy { get; set; }
@@ -145,7 +268,7 @@ namespace MuhleOP.Models
         public DateTime RequestDate { get; set; }
 
         [Display(Name = "Status")]
-        public string Status { get; set; } // Requested, Under Review, Approved, Rejected, Implemented
+        public string Status { get; set; } // Draft, PendingValidation, Requested, Under Review, PendingFinanceApproval, ConditionalApproval, Approved, Rejected, Implemented
 
         [Display(Name = "Approved By")]
         public string ApprovedBy { get; set; }
@@ -169,18 +292,46 @@ namespace MuhleOP.Models
 
         // Navigation Properties
         public virtual ICollection<VariationApproval> Approvals { get; set; }
+        public virtual ICollection<ProjectBaselineSnapshot> BaselineSnapshots { get; set; }
 
         public ProjectVariation()
         {
             RequestDate = DateTime.Now;
             Status = "Requested";
-            VariationNumber = GenerateVariationNumber();
+            VariationNumber = "VAR-PENDING";
             Approvals = new List<VariationApproval>();
+            BaselineSnapshots = new List<ProjectBaselineSnapshot>();
         }
+    }
 
-        private string GenerateVariationNumber()
+    public class ProjectBaselineSnapshot
+    {
+        [Key] public int Id { get; set; }
+
+        [Required] public int ProjectId { get; set; }
+        [ForeignKey("ProjectId")]
+        public virtual Project Project { get; set; }
+
+        [Required] public int VariationId { get; set; }
+        [ForeignKey("VariationId")]
+        public virtual ProjectVariation Variation { get; set; }
+
+        public decimal PreviousBudgetEstimated { get; set; }
+        public decimal PreviousBudgetAllocated { get; set; }
+        public decimal PreviousBudgetRemaining { get; set; }
+        public DateTime? PreviousEstimatedEndDate { get; set; }
+
+        public decimal NewBudgetEstimated { get; set; }
+        public decimal NewBudgetAllocated { get; set; }
+        public decimal NewBudgetRemaining { get; set; }
+        public DateTime? NewEstimatedEndDate { get; set; }
+
+        [StringLength(100)] public string SnapshottedBy { get; set; }
+        public DateTime SnapshottedDate { get; set; }
+
+        public ProjectBaselineSnapshot()
         {
-            return "VAR" + DateTime.Now.ToString("yyyyMMdd") + new Random().Next(1000, 9999).ToString();
+            SnapshottedDate = DateTime.Now;
         }
     }
 

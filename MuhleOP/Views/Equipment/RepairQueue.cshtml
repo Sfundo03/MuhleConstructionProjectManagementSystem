@@ -1,5 +1,4 @@
-﻿
-@model MuhleOP.ViewModels.EquipmentRepairQueueViewModel
+﻿@model MuhleOP.ViewModels.EquipmentRepairQueueViewModel
 @{
     ViewBag.Title = "Repair Queue";
     Layout = "~/Views/Shared/_Layout.cshtml";
@@ -12,16 +11,16 @@
     {
         <div class="alert alert-success alert-dismissible fade show">
             @TempData["SuccessMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
     @if (TempData["ErrorMessage"] != null)
     {
         <div class="alert alert-danger alert-dismissible fade show">
             @TempData["ErrorMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
 
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3">
@@ -72,6 +71,9 @@
             <a class="nav-link @(Model.ActiveFilter == "Awaiting Parts" ? "active" : "")" href="@Url.Action("RepairQueue", new { status = "Awaiting Parts" })">Awaiting Parts</a>
         </li>
         <li class="nav-item">
+            <a class="nav-link @(Model.ActiveFilter == "Awaiting Approval" ? "active" : "")" href="@Url.Action("RepairQueue", new { status = "Awaiting Approval" })">Awaiting Approval</a>
+        </li>
+        <li class="nav-item">
             <a class="nav-link @(Model.ActiveFilter == "Ready for Verification" ? "active" : "")" href="@Url.Action("RepairQueue", new { status = "Ready for Verification" })">Ready for Verification</a>
         </li>
         <li class="nav-item">
@@ -105,7 +107,33 @@
                         foreach (var item in Model.Items)
                         {
                             <tr>
-                                <td>@item.TicketLabel</td>
+                                <td>
+                                    @item.TicketLabel
+                                    @if (!string.IsNullOrEmpty(item.Severity))
+                                    {
+                                        <span class="badge bg-@item.SeverityBadgeColor ms-1" style="font-size: 0.65rem;">@item.Severity</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(item.Priority))
+                                    {
+                                        <span class="badge bg-@item.PriorityBadgeColor ms-1" style="font-size: 0.65rem;">@item.Priority</span>
+                                    }
+                                    @if (item.RequiresApproval)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;">Approval</span>
+                                    }
+                                    @if (item.IsQuarantined)
+                                    {
+                                        <span class="badge bg-dark ms-1" style="font-size: 0.65rem;">Quarantined</span>
+                                    }
+                                    @if (item.IsEscalated)
+                                    {
+                                        <span class="badge bg-danger ms-1" style="font-size: 0.65rem;">ESCALATED</span>
+                                    }
+                                    @if (item.IsDelayFlagged)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;">DELAYED</span>
+                                    }
+                                </td>
                                 <td>
                                     <strong>@item.EquipmentName</strong>
                                     <div class="small text-muted">@item.EquipmentCode</div>

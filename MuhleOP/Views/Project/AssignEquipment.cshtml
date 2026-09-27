@@ -40,7 +40,7 @@
 
 <div class="row">
     <div class="col-lg-7">
-        <div class="card border-0 shadow-sm">
+        <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-transparent border-0">
                 <h6 class="mb-0"><i class="fas fa-plus-circle text-gold me-2"></i>Assign New Equipment</h6>
             </div>
@@ -59,10 +59,18 @@
                         <small class="text-muted d-block mt-1">Only equipment marked Available and not already assigned is listed.</small>
                     </div>
 
-                    <div class="mb-3">
-                        @Html.LabelFor(m => m.ExpectedReturnDate, new { @class = "form-label fw-bold" })
-                        @Html.TextBoxFor(m => m.ExpectedReturnDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
-                        @Html.ValidationMessageFor(m => m.ExpectedReturnDate, "", new { @class = "text-danger" })
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            @Html.LabelFor(m => m.StartDate, new { @class = "form-label fw-bold" })
+                            @Html.TextBoxFor(m => m.StartDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                            @Html.ValidationMessageFor(m => m.StartDate, "", new { @class = "text-danger" })
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            @Html.LabelFor(m => m.EndDate, new { @class = "form-label fw-bold" })
+                            @Html.TextBoxFor(m => m.EndDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                            @Html.ValidationMessageFor(m => m.EndDate, "", new { @class = "text-danger" })
+                            <small class="text-muted">Leave blank for ongoing assignment.</small>
+                        </div>
                     </div>
 
                     <div class="mb-3">
@@ -70,6 +78,22 @@
                         @Html.TextBoxFor(m => m.ConditionOnAssignment, new { @class = "form-control", placeholder = "e.g. Good, Excellent (leave blank to use current equipment condition)" })
                         @Html.ValidationMessageFor(m => m.ConditionOnAssignment, "", new { @class = "text-danger" })
                     </div>
+
+                    if (Model.CertificationWarnings != null && Model.CertificationWarnings.Any())
+                    {
+                        <div class="alert alert-warning">
+                            <strong>Certification Warning:</strong> Required certifications missing for assigned project staff: @string.Join(", ", Model.CertificationWarnings)
+                        </div>
+                        <div class="mb-3 form-check">
+                            @Html.CheckBoxFor(m => m.OverrideCertification, new { @class = "form-check-input" })
+                            @Html.LabelFor(m => m.OverrideCertification, new { @class = "form-check-label fw-bold text-warning" })
+                        </div>
+                        <div class="mb-3">
+                            @Html.LabelFor(m => m.CertificationOverrideReason, new { @class = "form-label fw-bold" })
+                            @Html.TextAreaFor(m => m.CertificationOverrideReason, new { @class = "form-control", rows = "2", placeholder = "Provide justification for overriding..." })
+                            @Html.ValidationMessageFor(m => m.CertificationOverrideReason, "", new { @class = "text-danger" })
+                        </div>
+                    }
 
                     <div class="mb-3">
                         @Html.LabelFor(m => m.Notes, new { @class = "form-label fw-bold" })
@@ -84,6 +108,64 @@
                 }
             </div>
         </div>
+
+        @if (Model.WaitlistSuggestions != null && Model.WaitlistSuggestions.Any())
+        {
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0 text-info"><i class="fas fa-clock me-2"></i>Alternatives Available Soon</h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">No equipment is currently available, but the following items are expected to be free within 14 days:</p>
+                    <ul class="list-group list-group-flush">
+                        @foreach (var w in Model.WaitlistSuggestions)
+                        {
+                            <li class="list-group-item d-xl-flex justify-content-between align-items-center px-0">
+                                <div>
+                                    <strong>@w.EquipmentName</strong> (@w.EquipmentCode)<br />
+                                    <small class="text-muted">Currently on: @w.CurrentProjectName</small>
+                                </div>
+                                <span class="badge bg-info">Free by: @(w.ExpectedFreeDate.HasValue ? w.ExpectedFreeDate.Value.ToString("dd MMM yyyy") : "Soon")</span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        }
+
+        @if (Model.UnderRepairEquipment != null && Model.UnderRepairEquipment.Any())
+        {
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0 text-danger"><i class="fas fa-wrench me-2"></i>Not Available — Under Repair / Damaged</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Equipment</th>
+                                    <th>Code</th>
+                                    <th>Status</th>
+                                    <th>Condition</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in Model.UnderRepairEquipment)
+                                {
+                                    <tr>
+                                        <td>@r.EquipmentName</td>
+                                        <td>@r.EquipmentCode</td>
+                                        <td><span class="badge bg-danger">@r.Status</span></td>
+                                        <td>@r.Condition</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
     </div>
 
     <div class="col-lg-5">
@@ -99,30 +181,35 @@
                             <thead>
                                 <tr>
                                     <th>Equipment</th>
-                                    <th>Code</th>
-                                    <th>Assigned</th>
-                                    <th>Expected Return</th>
+                                    <th>Dates</th>
                                     <th>Condition</th>
-                                    <th>Status</th>
+                                    <th>Flags</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var item in Model.CurrentAssignments)
                                 {
                                     <tr>
-                                        <td>@Html.DisplayFor(m => item.EquipmentName)</td>
-                                        <td>@Html.DisplayFor(m => item.EquipmentCode)</td>
-                                        <td>@item.AssignedDate.ToString("dd MMM yyyy")</td>
-                                        <td>@(item.ExpectedReturnDate.HasValue ? item.ExpectedReturnDate.Value.ToString("dd MMM yyyy") : "—")</td>
-                                        <td>@Html.DisplayFor(m => item.ConditionOnAssignment)</td>
                                         <td>
-                                            @if (item.IsActive)
+                                            <strong>@item.EquipmentName</strong><br />
+                                            <small class="text-muted">@item.EquipmentCode</small>
+                                        </td>
+                                        <td>
+                                            <small>@item.StartDate.ToString("dd MMM") — @(item.EndDate.HasValue ? item.EndDate.Value.ToString("dd MMM yyyy") : "Ongoing")</small>
+                                        </td>
+                                        <td>@item.ConditionOnAssignment</td>
+                                        <td>
+                                            @if (item.HasSecondaryApprovalRequest)
                                             {
-                                                <span class="badge bg-primary">Active</span>
+                                                <span class="badge bg-warning mb-1" title="Secondary Approval Requested">Sec. Approval</span>
                                             }
-                                            else
+                                            @if (item.HasTransportNote)
                                             {
-                                                <span class="badge bg-secondary">Inactive</span>
+                                                <span class="badge bg-secondary" title="Transport Required">Transport</span>
+                                            }
+                                            @if (!item.HasSecondaryApprovalRequest && !item.HasTransportNote)
+                                            {
+                                                <span class="text-muted">—</span>
                                             }
                                         </td>
                                     </tr>

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Data.Entity;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -11,6 +12,8 @@ using System.Web;
 using System.Web.Mvc;
 using Microsoft.AspNet.Identity;
 using Microsoft.AspNet.Identity.Owin;
+using Newtonsoft.Json;
+using MuhleOP.Helpers;
 using MuhleOP.Models;
 using MuhleOP.ViewModels;
 
@@ -63,6 +66,24 @@ namespace MuhleOP.Controllers
 
             var all = db.Payrolls.ToList();
 
+            bool isLocked = false;
+            PayrollPeriodLock periodLock = null;
+            if (year.HasValue && month.HasValue)
+            {
+                var pStart = new DateTime(year.Value, month.Value, 1);
+                periodLock = db.PayrollPeriodLocks.FirstOrDefault(l => l.PeriodStart == pStart);
+                isLocked = periodLock != null && periodLock.IsLocked;
+            }
+
+            foreach (var item in list)
+            {
+                var pStart = new DateTime(item.PayPeriodStart.Year, item.PayPeriodStart.Month, 1);
+                var lk = db.PayrollPeriodLocks.FirstOrDefault(l => l.PeriodStart == pStart);
+                item.IsPeriodLocked = lk != null && lk.IsLocked;
+                item.HasPayslip = !string.IsNullOrEmpty(item.PayslipPdfPath);
+                item.HasWarning = !string.IsNullOrEmpty(item.ValidationWarningsJson);
+            }
+
             var viewModel = new PayrollIndexViewModel
             {
                 Items = list,
@@ -79,7 +100,11 @@ namespace MuhleOP.Controllers
                 Months = GetMonthSelectList(month),
                 Statuses = GetStatusSelectList(status),
                 TotalGross = list.Sum(i => i.GrossPay),
-                TotalNet = list.Sum(i => i.NetPay)
+                TotalNet = list.Sum(i => i.NetPay),
+                IsPeriodLocked = isLocked,
+                PeriodLockReason = periodLock?.LockReason,
+                PeriodLockedBy = periodLock?.LockedBy,
+                PeriodLockedDate = periodLock?.LockedDate
             };
 
             return View(viewModel);
@@ -93,12 +118,36 @@ namespace MuhleOP.Controllers
         public ActionResult Generate()
         {
             var now = DateTime.Today;
+            int defaultYear = now.Year;
+            int defaultMonth = now.Month == 1 ? 12 : now.Month - 1;
+            if (now.Month == 1) defaultYear--;
+
+            var periodStart = new DateTime(defaultYear, defaultMonth, 1);
+            var periodEnd = periodStart.AddMonths(1).AddDays(-1);
+
+            if (IsPeriodLocked(defaultYear, defaultMonth))
+            {
+                TempData["ErrorMessage"] = $"Payroll period {periodStart:MMMM yyyy} is locked.";
+            }
+
+            var activeStaff = db.Staff.Where(s => s.IsActive).ToList();
+            int activeCount = activeStaff.Count(s => s.PayRatePerHour > 0);
+            int zeroRateCount = activeStaff.Count(s => s.PayRatePerHour <= 0);
+
+            var attRecords = db.AttendanceRecords
+                .Where(r => r.CheckInTime >= periodStart && r.CheckInTime <= periodEnd && r.CheckOutTime == null)
+                .ToList();
+
             var model = new GeneratePayrollViewModel
             {
-                Year = now.Year,
-                Month = now.Month == 1 ? 12 : now.Month - 1,
-                Years = GetYearSelectList(now.Year),
-                Months = GetMonthSelectList(now.Month == 1 ? 12 : now.Month - 1)
+                Year = defaultYear,
+                Month = defaultMonth,
+                Years = GetYearSelectList(defaultYear),
+                Months = GetMonthSelectList(defaultMonth),
+                PreviewActiveStaffCount = activeCount,
+                PreviewZeroRateStaffCount = zeroRateCount,
+                PreviewMissingClockOutCount = attRecords.Count,
+                IsPeriodLocked = IsPeriodLocked(defaultYear, defaultMonth)
             };
             return View(model);
         }
@@ -114,10 +163,23 @@ namespace MuhleOP.Controllers
             if (!ModelState.IsValid)
                 return View(model);
 
+            if (IsPeriodLocked(model.Year, model.Month))
+            {
+                TempData["ErrorMessage"] = "Cannot generate payroll: this period is locked.";
+                return View(model);
+            }
+
             try
             {
                 var periodStart = new DateTime(model.Year, model.Month, 1);
                 var periodEnd = periodStart.AddMonths(1).AddDays(-1);
+
+                var existingCount = db.Payrolls.Count(p => p.PayPeriodStart == periodStart && p.PayPeriodEnd == periodEnd);
+                if (existingCount > 0)
+                {
+                    TempData["ErrorMessage"] = $"Payroll records already exist for {periodStart:MMMM yyyy}. Please delete existing draft records first.";
+                    return View(model);
+                }
 
                 var activeStaff = db.Staff
                     .Where(s => s.IsActive)
@@ -129,18 +191,6 @@ namespace MuhleOP.Controllers
 
                 foreach (var staff in activeStaff)
                 {
-                    var exists = db.Payrolls.Any(p =>
-                        p.StaffId == staff.Id &&
-                        p.PayPeriodStart == periodStart &&
-                        p.PayPeriodEnd == periodEnd);
-
-                    if (exists)
-                    {
-                        skipped++;
-                        messages.Add($"Skipped {staff.FullName} — payroll already exists for {periodStart:MMM yyyy}.");
-                        continue;
-                    }
-
                     if (staff.PayRatePerHour <= 0)
                     {
                         skipped++;
@@ -184,7 +234,7 @@ namespace MuhleOP.Controllers
                 }
 
                 TempData["ErrorMessage"] = "No new payroll records were created. " +
-                    (skipped > 0 ? $"{skipped} staff skipped (already exist or missing pay rate)." : "No active staff found.");
+                    (skipped > 0 ? $"{skipped} staff skipped (missing pay rate)." : "No active staff found.");
                 return View(model);
             }
             catch (Exception ex)
@@ -243,6 +293,17 @@ namespace MuhleOP.Controllers
                     return RedirectToAction("Details", new { id });
                 }
 
+                var validation = ValidatePayroll(payroll);
+                if (validation.HasBlocker)
+                {
+                    var blockerMsg = string.Join("; ", validation.Anomalies.Where(a => a.Severity == "Blocker").Select(a => a.Message));
+                    System.Diagnostics.Debug.WriteLine($"Payroll calculation blocked for ID {id}: {blockerMsg}");
+                    TempData["ErrorMessage"] = $"Calculation blocked due to blockers: {blockerMsg}";
+                    return RedirectToAction("Details", new { id });
+                }
+
+                payroll.ValidationWarningsJson = validation.Anomalies.Any() ? JsonConvert.SerializeObject(validation.Anomalies) : null;
+
                 if (payroll.Staff == null || payroll.Staff.PayRatePerHour <= 0)
                 {
                     TempData["ErrorMessage"] = "Staff pay rate is missing or zero. Cannot calculate.";
@@ -251,7 +312,6 @@ namespace MuhleOP.Controllers
 
                 payroll.HourlyRate = payroll.Staff.PayRatePerHour;
                 payroll.OvertimeRate = payroll.Staff.PayRatePerHour * 1.5m;
-                payroll.Bonus = 0;
 
                 AggregateHours(payroll, payroll.StaffId, payroll.PayPeriodStart, payroll.PayPeriodEnd);
 
@@ -294,6 +354,12 @@ namespace MuhleOP.Controllers
         [Authorize(Roles = "Finance Officer")]
         public async Task<ActionResult> BulkCalculate(int year, int month)
         {
+            if (IsPeriodLocked(year, month))
+            {
+                TempData["ErrorMessage"] = "Cannot bulk calculate: this period is locked.";
+                return RedirectToAction("Index", new { year, month });
+            }
+
             try
             {
                 var periodStart = new DateTime(year, month, 1);
@@ -307,14 +373,24 @@ namespace MuhleOP.Controllers
                     .ToList();
 
                 int count = 0;
+                int blockedCount = 0;
                 foreach (var payroll in drafts)
                 {
+                    var validation = ValidatePayroll(payroll);
+                    if (validation.HasBlocker)
+                    {
+                        blockedCount++;
+                        System.Diagnostics.Debug.WriteLine($"BulkCalculate skipped payroll ID {payroll.Id} due to blockers.");
+                        continue;
+                    }
+
+                    payroll.ValidationWarningsJson = validation.Anomalies.Any() ? JsonConvert.SerializeObject(validation.Anomalies) : null;
+
                     if (payroll.Staff == null || payroll.Staff.PayRatePerHour <= 0)
                         continue;
 
                     payroll.HourlyRate = payroll.Staff.PayRatePerHour;
                     payroll.OvertimeRate = payroll.Staff.PayRatePerHour * 1.5m;
-                    payroll.Bonus = 0;
 
                     AggregateHours(payroll, payroll.StaffId, periodStart, periodEnd);
 
@@ -337,7 +413,7 @@ namespace MuhleOP.Controllers
 
                 await db.SaveChangesAsync();
 
-                TempData["SuccessMessage"] = $"Calculated {count} payroll record(s) for {periodStart:MMMM yyyy}.";
+                TempData["SuccessMessage"] = $"Calculated {count} payroll record(s) for {periodStart:MMMM yyyy}." + (blockedCount > 0 ? $" {blockedCount} skipped due to validation blockers." : "");
                 return RedirectToAction("Index", new { year, month });
             }
             catch (Exception ex)
@@ -497,15 +573,50 @@ namespace MuhleOP.Controllers
                     return RedirectToAction("Index");
                 }
 
+                if (payroll.Status == "Paid")
+                {
+                    TempData["ErrorMessage"] = "This payroll record has already been marked as Paid.";
+                    return RedirectToAction("Details", new { id });
+                }
+
                 if (payroll.Status != "Processed")
                 {
                     TempData["ErrorMessage"] = "Only Processed payrolls can be marked as Paid.";
                     return RedirectToAction("Details", new { id });
                 }
 
+                if (IsPeriodLocked(payroll.PayPeriodStart.Year, payroll.PayPeriodStart.Month) && payroll.Status == "Paid")
+                {
+                    TempData["ErrorMessage"] = "This period is locked and the payroll is already paid.";
+                    return RedirectToAction("Details", new { id });
+                }
+
                 payroll.Status = "Paid";
                 if (!payroll.PaymentDate.HasValue)
                     payroll.PaymentDate = DateTime.Today;
+
+                // <<DECISION 1>> — Bank file export (EFT) deferred to a future increment — requires a real bank format spec.
+                try
+                {
+                    if (payroll.Staff != null)
+                    {
+                        byte[] pdfBytes = PayslipPdfGenerator.GeneratePayslip(payroll, payroll.Staff);
+                        string uploadsDir = Server.MapPath("~/Uploads/Payslips");
+                        if (!Directory.Exists(uploadsDir))
+                        {
+                            Directory.CreateDirectory(uploadsDir);
+                        }
+                        string fileName = $"Payslip_{payroll.Id}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
+                        string relativePath = $"/Uploads/Payslips/{fileName}";
+                        string fullPath = Path.Combine(uploadsDir, fileName);
+                        System.IO.File.WriteAllBytes(fullPath, pdfBytes);
+                        payroll.PayslipPdfPath = relativePath;
+                    }
+                }
+                catch (Exception pdfEx)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error generating payslip PDF: {pdfEx.Message}");
+                }
 
                 await db.SaveChangesAsync();
 
@@ -540,6 +651,303 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
+        // UC22 New Actions: UpdateDeductions, DownloadPayslip, MyPayslips, LockPeriod, UnlockPeriod
+        // ------------------------------------------------------------------
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Finance Officer")]
+        public async Task<ActionResult> UpdateDeductions(int id, decimal? medicalAid, decimal? pension, decimal? otherDed, decimal? otherAdd, decimal? advance, string deductionNotes, string additionNotes)
+        {
+            try
+            {
+                var payroll = db.Payrolls
+                    .Include(p => p.Staff)
+                    .FirstOrDefault(p => p.Id == id);
+
+                if (payroll == null)
+                {
+                    TempData["ErrorMessage"] = "Payroll record not found.";
+                    return RedirectToAction("Index");
+                }
+
+                if (payroll.Status != "Draft" && payroll.Status != "Calculated")
+                {
+                    TempData["ErrorMessage"] = "Deductions and additions can only be updated while Draft or Calculated.";
+                    return RedirectToAction("Details", new { id });
+                }
+
+                payroll.MedicalAidContribution = medicalAid ?? 0m;
+                payroll.PensionContribution = pension ?? 0m;
+                payroll.OtherDeductions = otherDed ?? 0m;
+                payroll.OtherAdditions = otherAdd ?? 0m;
+                payroll.AdvanceRecovery = advance ?? 0m;
+                payroll.DeductionNotes = deductionNotes;
+                payroll.AdditionNotes = additionNotes;
+
+                payroll.CalculateTotals();
+                await db.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = "Deductions and additions updated successfully.";
+                return RedirectToAction("Details", new { id });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error updating deductions: {ex.Message}");
+                TempData["ErrorMessage"] = "Error updating deductions: " + ex.Message;
+                return RedirectToAction("Details", new { id });
+            }
+        }
+
+        [Authorize(Roles = "Finance Officer, Admin")]
+        public ActionResult DownloadPayslip(int id)
+        {
+            var payroll = db.Payrolls
+                .Include(p => p.Staff)
+                .FirstOrDefault(p => p.Id == id);
+
+            if (payroll == null || string.IsNullOrEmpty(payroll.PayslipPdfPath))
+            {
+                TempData["ErrorMessage"] = "Payslip PDF not found or not generated yet.";
+                return RedirectToAction("Details", new { id });
+            }
+
+            string fullPath = Server.MapPath(payroll.PayslipPdfPath);
+            if (!System.IO.File.Exists(fullPath))
+            {
+                TempData["ErrorMessage"] = "Payslip file missing from server storage.";
+                return RedirectToAction("Details", new { id });
+            }
+
+            byte[] fileBytes = System.IO.File.ReadAllBytes(fullPath);
+            string downloadName = $"Payslip_{payroll.Staff?.FullName?.Replace(" ", "_")}_{payroll.PayPeriodStart:yyyyMM}.pdf";
+            return File(fileBytes, "application/pdf", downloadName);
+        }
+
+        [Authorize(Roles = "Crew Member, Site Manager, Project Manager, Finance Officer, Admin")]
+        public ActionResult MyPayslips()
+        {
+            var userId = User.Identity.GetUserId();
+            var staff = db.Staff.FirstOrDefault(s => s.UserId == userId);
+            if (staff == null)
+            {
+                TempData["ErrorMessage"] = "Staff profile not found for current user.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            var myPayrolls = db.Payrolls
+                .Include(p => p.Staff)
+                .Where(p => p.StaffId == staff.Id && p.Status == "Paid")
+                .OrderByDescending(p => p.PayPeriodStart)
+                .ToList()
+                .Select(p => MapToListItem(p))
+                .ToList();
+
+            foreach (var item in myPayrolls)
+            {
+                item.HasPayslip = !string.IsNullOrEmpty(db.Payrolls.Where(x => x.Id == item.Id).Select(x => x.PayslipPdfPath).FirstOrDefault());
+            }
+
+            return View(myPayrolls);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Finance Officer")]
+        public async Task<ActionResult> LockPeriod(int year, int month, string reason)
+        {
+            try
+            {
+                var pStart = new DateTime(year, month, 1);
+                var pEnd = pStart.AddMonths(1).AddDays(-1);
+
+                var periodLock = db.PayrollPeriodLocks.FirstOrDefault(l => l.PeriodStart == pStart);
+                if (periodLock == null)
+                {
+                    periodLock = new PayrollPeriodLock
+                    {
+                        PeriodStart = pStart,
+                        PeriodEnd = pEnd
+                    };
+                    db.PayrollPeriodLocks.Add(periodLock);
+                }
+
+                periodLock.IsLocked = true;
+                periodLock.LockedBy = User.Identity.Name;
+                periodLock.LockedDate = DateTime.Now;
+                periodLock.LockReason = reason;
+
+                await db.SaveChangesAsync();
+                TempData["SuccessMessage"] = $"Payroll period {pStart:MMMM yyyy} has been locked.";
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error locking period: {ex.Message}");
+                TempData["ErrorMessage"] = "Error locking period: " + ex.Message;
+            }
+            return RedirectToAction("Index", new { year, month });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Finance Officer")]
+        public async Task<ActionResult> UnlockPeriod(int year, int month, string reason)
+        {
+            try
+            {
+                var pStart = new DateTime(year, month, 1);
+                var periodLock = db.PayrollPeriodLocks.FirstOrDefault(l => l.PeriodStart == pStart);
+                if (periodLock != null)
+                {
+                    periodLock.IsLocked = false;
+                    periodLock.LockedBy = User.Identity.Name;
+                    periodLock.LockedDate = DateTime.Now;
+                    periodLock.LockReason = reason;
+                    await db.SaveChangesAsync();
+                    TempData["SuccessMessage"] = $"Payroll period {pStart:MMMM yyyy} has been unlocked.";
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error unlocking period: {ex.Message}");
+                TempData["ErrorMessage"] = "Error unlocking period: " + ex.Message;
+            }
+            return RedirectToAction("Index", new { year, month });
+        }
+
+        private bool IsPeriodLocked(int year, int month)
+        {
+            var pStart = new DateTime(year, month, 1);
+            var lk = db.PayrollPeriodLocks.FirstOrDefault(l => l.PeriodStart == pStart);
+            return lk != null && lk.IsLocked;
+        }
+
+        private PayrollValidationResult ValidatePayroll(Payroll payroll)
+        {
+            var useAttendance = true;
+            var flag = ConfigurationManager.AppSettings["UseAttendanceForPayroll"];
+            if (!string.IsNullOrWhiteSpace(flag) &&
+                (flag.Equals("false", StringComparison.OrdinalIgnoreCase) || flag == "0"))
+            {
+                useAttendance = false;
+            }
+
+            List<AttendanceRecord> attendance = new List<AttendanceRecord>();
+            List<TimesheetEntry> timesheets = new List<TimesheetEntry>();
+
+            if (useAttendance)
+            {
+                attendance = db.AttendanceRecords
+                    .Where(r => r.StaffId == payroll.StaffId &&
+                                r.CheckInTime >= payroll.PayPeriodStart &&
+                                r.CheckInTime <= payroll.PayPeriodEnd)
+                    .ToList();
+            }
+            else
+            {
+                timesheets = db.TimesheetEntries
+                    .Include(e => e.Timesheet)
+                    .Where(e => e.Timesheet.StaffId == payroll.StaffId &&
+                                e.Date >= payroll.PayPeriodStart &&
+                                e.Date <= payroll.PayPeriodEnd)
+                    .ToList();
+            }
+
+            return new PayrollValidationResult
+            {
+                Anomalies = DetectAnomalies(payroll, attendance, timesheets)
+            };
+        }
+
+        private List<PayrollAnomaly> DetectAnomalies(Payroll payroll, List<AttendanceRecord> attendance, List<TimesheetEntry> timesheets)
+        {
+            var list = new List<PayrollAnomaly>();
+
+            if (attendance != null)
+            {
+                var missing = attendance.Where(r => r.CheckOutTime == null).ToList();
+                foreach (var m in missing)
+                {
+                    list.Add(new PayrollAnomaly
+                    {
+                        Code = "MISSING_CHECKOUT",
+                        Severity = "Warning",
+                        Message = $"Attendance record on {m.CheckInTime:dd MMM yyyy} has no check-out time.",
+                        RelatedRecord = $"Attendance ID {m.Id}"
+                    });
+                }
+
+                var excessive = attendance.Where(r => r.TotalHours.HasValue && r.TotalHours.Value > 14m).ToList();
+                foreach (var e in excessive)
+                {
+                    list.Add(new PayrollAnomaly
+                    {
+                        Code = "EXCESSIVE_HOURS",
+                        Severity = "Warning",
+                        Message = $"Session on {e.CheckInTime:dd MMM yyyy} has excessive hours ({e.TotalHours:N2} hrs).",
+                        RelatedRecord = $"Attendance ID {e.Id}"
+                    });
+                }
+
+                var closed = attendance.Where(r => r.CheckOutTime != null && r.TotalHours.HasValue).ToList();
+                var groups = closed.GroupBy(r => r.CheckInTime.Date);
+                foreach (var g in groups)
+                {
+                    if (g.Count() > 1 && g.Sum(x => x.TotalHours.Value) > 16m)
+                    {
+                        list.Add(new PayrollAnomaly
+                        {
+                            Code = "DUPLICATE_ENTRIES",
+                            Severity = "Warning",
+                            Message = $"Multiple attendance sessions on {g.Key:dd MMM yyyy} total {g.Sum(x => x.TotalHours.Value):N2} hours.",
+                            RelatedRecord = g.Key.ToString("dd MMM yyyy")
+                        });
+                    }
+                }
+            }
+
+            if (timesheets != null)
+            {
+                var unapprovedOt = timesheets.Where(t => t.OvertimeHours > 0 && t.Timesheet != null && t.Timesheet.Status != "Approved").ToList();
+                foreach (var u in unapprovedOt)
+                {
+                    list.Add(new PayrollAnomaly
+                    {
+                        Code = "UNAPPROVED_OVERTIME",
+                        Severity = "Blocker",
+                        Message = $"Timesheet entry on {u.Date:dd MMM yyyy} has overtime but parent timesheet status is '{u.Timesheet.Status}'.",
+                        RelatedRecord = $"Timesheet ID {u.TimesheetId}"
+                    });
+                }
+            }
+
+            if (payroll.Staff == null || payroll.Staff.PayRatePerHour <= 0)
+            {
+                list.Add(new PayrollAnomaly
+                {
+                    Code = "ZERO_PAY_RATE",
+                    Severity = "Blocker",
+                    Message = "Staff pay rate per hour is zero or not set.",
+                    RelatedRecord = payroll.Staff?.FullName ?? "Staff"
+                });
+            }
+
+            var bankAcc = payroll.BankAccount ?? payroll.Staff?.BankAccount;
+            if (string.IsNullOrWhiteSpace(bankAcc))
+            {
+                list.Add(new PayrollAnomaly
+                {
+                    Code = "MISSING_BANK_ACCOUNT",
+                    Severity = "Warning",
+                    Message = "Staff member does not have a bank account configured.",
+                    RelatedRecord = payroll.Staff?.FullName ?? "Staff"
+                });
+            }
+
+            return list;
+        }
+
+        // ------------------------------------------------------------------
         // Manage Pay Rates – Finance Officer only
         // ------------------------------------------------------------------
 
@@ -564,7 +972,6 @@ namespace MuhleOP.Controllers
 
             var staffList = query.ToList();
 
-            // Latest audit per staff for Last Modified
             var staffIds = staffList.Select(s => s.Id).ToList();
             var latestAudits = db.PayRateAudits
                 .Where(a => staffIds.Contains(a.StaffId))
@@ -585,7 +992,6 @@ namespace MuhleOP.Controllers
                 IsCurrentUser = currentStaff != null && currentStaff.Id == s.Id
             }).ToList();
 
-            // Sort
             sortBy = (sortBy ?? "name").ToLowerInvariant();
             sortDir = (sortDir ?? "asc").ToLowerInvariant();
             bool asc = sortDir != "desc";
@@ -650,12 +1056,6 @@ namespace MuhleOP.Controllers
             return View(vm);
         }
 
-        /// <summary>
-        /// AJAX: update a single staff member's hourly rate.
-        /// POST body: staffId, newRate (+ antiforgery token).
-        /// newRate is accepted as string and parsed with InvariantCulture to avoid
-        /// en-ZA / af-ZA decimal-separator problems (comma vs period).
-        /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Finance Officer")]
@@ -732,7 +1132,6 @@ namespace MuhleOP.Controllers
 
                 await db.SaveChangesAsync();
 
-                // Notify finance team (skip self)
                 await NotifyFinanceTeam(
                     "Pay Rate Updated",
                     $"Pay rate for {staff.FullName} changed from R {oldRate:N2} to R {rate:N2} by {User.Identity.Name}.",
@@ -754,11 +1153,6 @@ namespace MuhleOP.Controllers
             }
         }
 
-        /// <summary>
-        /// AJAX: update a single staff member's bank account.
-        /// POST body: staffId, bankAccount (+ antiforgery token).
-        /// Does NOT write to PayRateAudit.
-        /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Finance Officer")]
@@ -778,7 +1172,6 @@ namespace MuhleOP.Controllers
                     return Json(new { success = false, message = "Bank account must be 100 characters or fewer." });
                 }
 
-                // Allow digits and common alphanumeric bank-reference characters only
                 if (!Regex.IsMatch(bankAccount, @"^[A-Za-z0-9\-]+$"))
                 {
                     return Json(new
@@ -824,7 +1217,6 @@ namespace MuhleOP.Controllers
                 staff.BankAccount = bankAccount;
                 await db.SaveChangesAsync();
 
-                // Notify finance team (skip self) – no PayRateAudit entry
                 await NotifyFinanceTeam(
                     "Bank Account Updated",
                     $"Bank account for {staff.FullName} was updated by {User.Identity.Name}.",
@@ -846,9 +1238,6 @@ namespace MuhleOP.Controllers
             }
         }
 
-        /// <summary>
-        /// AJAX: last 20 rate-change audit entries (for refresh without full page reload).
-        /// </summary>
         [HttpGet]
         [Authorize(Roles = "Finance Officer")]
         public ActionResult RateAuditHistory()
@@ -875,15 +1264,8 @@ namespace MuhleOP.Controllers
         // Helpers
         // ------------------------------------------------------------------
 
-        /// <summary>
-        /// Aggregates hours for a payroll period.
-        /// When UseAttendanceForPayroll is true (default), sums closed AttendanceRecords.
-        /// Otherwise falls back to approved TimesheetEntries.
-        /// Regular vs overtime is split using PayrollRegularHoursPerPeriod (default 176).
-        /// </summary>
         private void AggregateHours(Payroll payroll, int staffId, DateTime periodStart, DateTime periodEnd)
         {
-            // Feature flag: UseAttendanceForPayroll (default true). Set to "false" in web.config to fall back to TimesheetEntries.
             var useAttendance = true;
             var flag = ConfigurationManager.AppSettings["UseAttendanceForPayroll"];
             if (!string.IsNullOrWhiteSpace(flag) &&
@@ -897,7 +1279,6 @@ namespace MuhleOP.Controllers
 
             if (useAttendance)
             {
-                // Closed attendance sessions only (CheckOutTime not null)
                 var records = db.AttendanceRecords
                     .Where(r => r.StaffId == staffId
                                 && r.CheckOutTime != null
@@ -908,7 +1289,6 @@ namespace MuhleOP.Controllers
 
                 decimal totalHours = records.Sum(r => r.TotalHours.Value);
 
-                // Regular hours threshold for the period (default 176 = 22 × 8)
                 decimal regularCap = 176m;
                 var capSetting = ConfigurationManager.AppSettings["PayrollRegularHoursPerPeriod"];
                 if (!string.IsNullOrWhiteSpace(capSetting))
@@ -931,7 +1311,6 @@ namespace MuhleOP.Controllers
             }
             else
             {
-                // Legacy path: TimesheetEntries
                 var entries = db.TimesheetEntries
                     .Include(e => e.Timesheet)
                     .Where(e => e.Timesheet.StaffId == staffId &&
@@ -962,10 +1341,6 @@ namespace MuhleOP.Controllers
             payroll.OvertimeHours = Math.Round(overtime, 2);
         }
 
-        /// <summary>
-        /// Masks a bank account for display: keeps first 4 and last 4 digits, middle becomes ••••.
-        /// Short values are returned as-is or fully masked.
-        /// </summary>
         private static string MaskBankAccount(string account)
         {
             if (string.IsNullOrWhiteSpace(account))
@@ -1000,12 +1375,38 @@ namespace MuhleOP.Controllers
                 Status = p.Status,
                 StatusBadgeColor = GetStatusBadgeColor(p.Status),
                 PaymentDate = p.PaymentDate,
-                PaymentMethod = p.PaymentMethod
+                PaymentMethod = p.PaymentMethod,
+                PayslipPdfPath = p.PayslipPdfPath,
+                ValidationWarningsJson = p.ValidationWarningsJson
             };
         }
 
         private PayrollDetailsViewModel MapToDetails(Payroll p)
         {
+            var anomaliesList = new List<PayrollAnomalyViewModel>();
+            if (!string.IsNullOrEmpty(p.ValidationWarningsJson))
+            {
+                try
+                {
+                    var rawAnomalies = JsonConvert.DeserializeObject<List<PayrollAnomaly>>(p.ValidationWarningsJson);
+                    if (rawAnomalies != null)
+                    {
+                        anomaliesList = rawAnomalies.Select(a => new PayrollAnomalyViewModel
+                        {
+                            Code = a.Code,
+                            Severity = a.Severity,
+                            Message = a.Message,
+                            RelatedRecord = a.RelatedRecord
+                        }).ToList();
+                    }
+                }
+                catch { }
+            }
+
+            var pStart = new DateTime(p.PayPeriodStart.Year, p.PayPeriodStart.Month, 1);
+            var lk = db.PayrollPeriodLocks.FirstOrDefault(l => l.PeriodStart == pStart);
+            bool isLocked = lk != null && lk.IsLocked;
+
             return new PayrollDetailsViewModel
             {
                 Id = p.Id,
@@ -1043,7 +1444,19 @@ namespace MuhleOP.Controllers
                 CanCalculate = p.Status == "Draft" || p.Status == "Calculated",
                 CanApprove = p.Status == "Calculated",
                 CanProcess = p.Status == "Approved" || p.Status == "Processed",
-                CanMarkPaid = p.Status == "Processed"
+                CanMarkPaid = p.Status == "Processed",
+                Anomalies = anomaliesList,
+                HasBlocker = anomaliesList.Any(a => a.Severity == "Blocker"),
+                HasWarning = anomaliesList.Any(a => a.Severity == "Warning"),
+                MedicalAidContribution = p.MedicalAidContribution ?? 0m,
+                PensionContribution = p.PensionContribution ?? 0m,
+                OtherDeductions = p.OtherDeductions ?? 0m,
+                OtherAdditions = p.OtherAdditions ?? 0m,
+                AdvanceRecovery = p.AdvanceRecovery ?? 0m,
+                DeductionNotes = p.DeductionNotes,
+                AdditionNotes = p.AdditionNotes,
+                PayslipPdfPath = p.PayslipPdfPath,
+                IsPeriodLocked = isLocked
             };
         }
 

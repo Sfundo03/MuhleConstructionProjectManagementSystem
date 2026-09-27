@@ -1,34 +1,81 @@
-﻿
-@model MuhleOP.ViewModels.UpdateRepairProgressViewModel
+﻿@model MuhleOP.ViewModels.UpdateRepairProgressViewModel
 @{
     ViewBag.Title = "Update Repair Progress";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<div class="container py-4" style="max-width: 640px;">
+<div class="container py-4" style="max-width: 680px;">
     <h2 class="mb-4">Update Progress — @Model.EquipmentName</h2>
 
-    @using (Html.BeginForm("UpdateRepairProgress", "Equipment", FormMethod.Post))
+    @using (Html.BeginForm("UpdateRepairProgress", "Equipment", FormMethod.Post, new { enctype = "multipart/form-data" }))
     {
         @Html.AntiForgeryToken()
         @Html.HiddenFor(m => m.RepairId)
         @Html.HiddenFor(m => m.EquipmentName)
+        @Html.HiddenFor(m => m.OriginalStatus)
+        @Html.HiddenFor(m => m.RowVersion)
         @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
 
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body">
                 <div class="mb-3">
                     <label class="form-label">Status <span class="text-danger">*</span></label>
-                    @Html.DropDownListFor(m => m.Status, Model.StatusOptions, new { @class = "form-select", required = "required" })
+                    @Html.DropDownListFor(m => m.Status, Model.StatusOptions, new { @class = "form-select", id = "statusDropdown", required = "required" })
+                    @Html.ValidationMessageFor(m => m.Status, "", new { @class = "text-danger small" })
                 </div>
+
+                <div class="mb-3" id="cancellationReasonDiv" style="display:none;">
+                    <label class="form-label">Cancellation Reason <span class="text-danger">*</span></label>
+                    @Html.TextAreaFor(m => m.CancellationReason, new { @class = "form-control", rows = 3, placeholder = "Provide reason for cancellation / write-off..." })
+                    @Html.ValidationMessageFor(m => m.CancellationReason, "", new { @class = "text-danger small" })
+                </div>
+
                 <div class="mb-3">
                     <label class="form-label">Technician Name</label>
                     @Html.TextBoxFor(m => m.TechnicianName, new { @class = "form-control" })
                 </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Actual Hours</label>
+                        @Html.TextBoxFor(m => m.ActualHours, new { @class = "form-control", type = "number", step = "0.5" })
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Revised Completion Date</label>
+                        @Html.TextBoxFor(m => m.RevisedCompletionDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                    </div>
+                </div>
+
                 <div class="mb-3">
-                    <label class="form-label">Parts Replaced</label>
+                    <label class="form-label">Parts Replaced (Free Text)</label>
                     @Html.TextAreaFor(m => m.PartsReplaced, new { @class = "form-control", rows = 2 })
                 </div>
+
+                <!-- Parts Inventory Sub-Form -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Inventory Parts Used</label>
+                    <div id="partsContainer">
+                        @if (Model.PartsUsed != null && Model.PartsUsed.Any())
+                        {
+                            for (int i = 0; i < Model.PartsUsed.Count; i++)
+                            {
+                                <div class="row g-2 mb-2 part-row">
+                                    <div class="col-7">
+                                        @Html.DropDownList(string.Format("PartsUsed[{0}].EquipmentPartId", i), new SelectList(Model.AvailableParts, "Value", "Text", Model.PartsUsed[i].EquipmentPartId), "Select part...", new { @class = "form-select form-select-sm" })
+                                    </div>
+                                    <div class="col-3">
+                                        @Html.TextBox(string.Format("PartsUsed[{0}].QuantityUsed", i), Model.PartsUsed[i].QuantityUsed, new { @class = "form-control form-control-sm", type = "number", min = "1", placeholder = "Qty" })
+                                    </div>
+                                    <div class="col-2">
+                                        <button type="button" class="btn btn-outline-danger btn-sm w-100 remove-part-row">Remove</button>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                    <button type="button" id="addPartRowBtn" class="btn btn-outline-secondary btn-sm mt-1">+ Add Part</button>
+                </div>
+
                 <div class="row g-3 mb-3">
                     <div class="col-md-4">
                         <label class="form-label">Parts Cost</label>
@@ -43,8 +90,14 @@
                         @Html.TextBoxFor(m => m.TotalCost, new { @class = "form-control", type = "number", step = "0.01", id = "totalCost", @readonly = "readonly" })
                     </div>
                 </div>
+
                 <div class="mb-3">
-                    <label class="form-label">Repair Notes</label>
+                    <label class="form-label">Photo Evidence (optional)</label>
+                    <input type="file" name="PhotoEvidence" class="form-control" accept="image/*" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Repair Notes / Progress Details</label>
                     @Html.TextAreaFor(m => m.RepairNotes, new { @class = "form-control", rows = 4 })
                 </div>
             </div>
@@ -58,6 +111,7 @@
 @section Scripts {
     <script>
         (function () {
+            // Cost calculation
             var p = document.getElementById('partsCost');
             var l = document.getElementById('labourCost');
             var t = document.getElementById('totalCost');
@@ -66,9 +120,54 @@
                 var b = parseFloat(l.value) || 0;
                 t.value = (a + b).toFixed(2);
             }
-            p.addEventListener('input', sum);
-            l.addEventListener('input', sum);
-            sum();
+            if (p && l && t) {
+                p.addEventListener('input', sum);
+                l.addEventListener('input', sum);
+                sum();
+            }
+
+            // Cancellation reason toggle
+            var statusDropdown = document.getElementById('statusDropdown');
+            var cancelDiv = document.getElementById('cancellationReasonDiv');
+            function checkStatus() {
+                if (statusDropdown && cancelDiv) {
+                    if (statusDropdown.value === 'Cancelled') {
+                        cancelDiv.style.display = 'block';
+                    } else {
+                        cancelDiv.style.display = 'none';
+                    }
+                }
+            }
+            if (statusDropdown) {
+                statusDropdown.addEventListener('change', checkStatus);
+                checkStatus();
+            }
+
+            // Dynamic Parts Row Management (jQuery)
+            var availablePartsOptions = @Html.Raw(Json.Encode(Model.AvailableParts));
+            $('#addPartRowBtn').on('click', function () {
+                var index = $('#partsContainer .part-row').length;
+                var dropdownOptions = '<option value="">Select part...</option>';
+                for (var i = 0; i < availablePartsOptions.length; i++) {
+                    dropdownOptions += '<option value="' + availablePartsOptions[i].Value + '">' + availablePartsOptions[i].Text + '</option>';
+                }
+
+                var rowHtml = '<div class="row g-2 mb-2 part-row">' +
+                    '<div class="col-7"><select name="PartsUsed[' + index + '].EquipmentPartId" class="form-select form-select-sm">' + dropdownOptions + '</select></div>' +
+                    '<div class="col-3"><input type="number" name="PartsUsed[' + index + '].QuantityUsed" class="form-control form-control-sm" min="1" value="1" placeholder="Qty" /></div>' +
+                    '<div class="col-2"><button type="button" class="btn btn-outline-danger btn-sm w-100 remove-part-row">Remove</button></div>' +
+                    '</div>';
+                $('#partsContainer').append(rowHtml);
+            });
+
+            $(document).on('click', '.remove-part-row', function () {
+                $(this).closest('.part-row').remove();
+                // Re-index names
+                $('#partsContainer .part-row').each(function (idx, el) {
+                    $(el).find('select').attr('name', 'PartsUsed[' + idx + '].EquipmentPartId');
+                    $(el).find('input').attr('name', 'PartsUsed[' + idx + '].QuantityUsed');
+                });
+            });
         })();
     </script>
 }

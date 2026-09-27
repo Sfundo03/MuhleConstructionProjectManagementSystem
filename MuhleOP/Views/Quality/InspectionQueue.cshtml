@@ -1,5 +1,4 @@
-﻿
-@model MuhleOP.ViewModels.InspectionQueueViewModel
+﻿@model MuhleOP.ViewModels.InspectionQueueViewModel
 @{
     ViewBag.Title = "Inspection Queue";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -75,6 +74,10 @@
                                 @if (item.ActionRequired)
                                 {
                                     <span class="badge bg-danger ms-1">Action</span>
+                                }
+                                @if (item.HasCriticalNonConformance)
+                                {
+                                    <span class="badge bg-danger ms-1" title="Critical Non-Conformance Detected — Task Halted">Critical NC</span>
                                 }
                             </td>
                             <td class="text-end">

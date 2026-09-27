@@ -199,6 +199,7 @@
     <Compile Include="Helpers\ContractTemplateGenerator.cs" />
     <Compile Include="Helpers\EmailHelper.cs" />
     <Compile Include="Helpers\HandoverPdfGenerator.cs" />
+    <Compile Include="Helpers\PayslipPdfGenerator.cs" />
     <Compile Include="Migrations\202609221610013_AddPayRateAudit.cs" />
     <Compile Include="Migrations\202609221610013_AddPayRateAudit.Designer.cs">
       <DependentUpon>202609221610013_AddPayRateAudit.cs</DependentUpon>
@@ -372,6 +373,7 @@
     <Content Include="Views\Attendance\MyQr.cshtml" />
     <Content Include="Views\Attendance\MyHours.cshtml" />
     <Content Include="Views\Payroll\ManageRates.cshtml" />
+    <Content Include="Views\Equipment\ExternalWorkshopNotice.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />

@@ -9,6 +9,7 @@ using MuhleOP.Models;
 using MuhleOP.ViewModels;
 using MuhleOP.Helpers;
 using System.Collections.Generic;
+using System.Configuration;
 
 namespace MuhleOP.Controllers
 {
@@ -109,9 +110,6 @@ namespace MuhleOP.Controllers
             ViewBag.Deliverables = project.Deliverables.ToList();
             ViewBag.Variations = project.Variations.ToList();
 
-            // Load the most recent handover for this project (if any) so the view
-            // can surface the "Invite Client to Sign Off" action without leaving
-            // the Project Details page.
             var handover = db.ProjectHandovers
                 .Include("Project")
                 .Include("Project.Client")
@@ -134,9 +132,6 @@ namespace MuhleOP.Controllers
                 EstimatedEndDate = DateTime.Now.AddMonths(6)
             };
 
-            // Only clients with at least one signed, non-terminated contract can
-            // have a project initiated against them - a client with no signed
-            // contract has nothing for the system to auto-fill scope/budget from.
             var clientIdsWithSignedContract = db.Contracts
                 .Where(c => c.IsSigned && c.Status != "Terminated")
                 .Select(c => c.ClientId)
@@ -150,9 +145,6 @@ namespace MuhleOP.Controllers
                     Text = c.CompanyName
                 }).ToList();
 
-            // Contracts dropdown starts empty; ClientId selection re-populates it
-            // via GetClientContracts() so only the chosen client's signed
-            // contracts are ever selectable.
             viewModel.Contracts = new List<SelectListItem>();
 
             viewModel.ProjectManagers = db.Staff
@@ -175,8 +167,6 @@ namespace MuhleOP.Controllers
         }
 
         // GET: Project/GetClientContracts?clientId=5
-        // AJAX: repopulates the Contract dropdown with only the signed,
-        // non-terminated contracts belonging to the selected client.
         [Authorize(Roles = "Admin, Project Manager")]
         public JsonResult GetClientContracts(int clientId)
         {
@@ -193,10 +183,6 @@ namespace MuhleOP.Controllers
         }
 
         // GET: Project/GetContractDetails?contractId=12
-        // AJAX: reads the signed contract and returns the data used to
-        // auto-fill the Objectives / Scope Definition / Deliverables fields
-        // and the contract value used for budget validation. The Project
-        // Manager can still edit every auto-filled field before submitting.
         [Authorize(Roles = "Admin, Project Manager")]
         public JsonResult GetContractDetails(int contractId)
         {
@@ -206,9 +192,6 @@ namespace MuhleOP.Controllers
                 return Json(new { success = false, message = "Contract not found or not signed." }, JsonRequestBehavior.AllowGet);
             }
 
-            // The Contract entity does not store a separate "Objectives" field,
-            // so a sensible objectives statement is derived from the contract's
-            // scope/milestones/timeline - the Project Manager can edit it freely.
             var objectives = $"Deliver the project scope agreed in contract {contract.ContractNumber} " +
                               $"for {(contract.Client != null ? contract.Client.CompanyName : "the client")}, " +
                               $"achieving the agreed milestones{(string.IsNullOrWhiteSpace(contract.Milestones) ? "" : ": " + contract.Milestones)} " +
@@ -267,8 +250,6 @@ namespace MuhleOP.Controllers
                             return View(PopulateInitiateDropdowns(model));
                         }
 
-                        // Business rule: the project budget can never exceed what the
-                        // client contractually agreed to pay.
                         if (model.EstimatedCost > selectedContract.ContractValue)
                         {
                             ModelState.AddModelError("EstimatedCost",
@@ -417,9 +398,6 @@ namespace MuhleOP.Controllers
                         $"/Project/Details/{project.Id}"
                     );
 
-                    // Notify every other stakeholder: Finance (needs to track budget
-                    // against the contract), all Admins, and the Client - both as an
-                    // in-app notification and by email.
                     await NotifyProjectStakeholders(project, model.ProjectName);
 
                     TempData["SuccessMessage"] = $"Project '{model.ProjectName}' was successfully created. Finance, Admin and the client have been notified.";
@@ -489,8 +467,6 @@ namespace MuhleOP.Controllers
                         return View(PopulateAssignStaffDropdowns(model));
                     }
 
-                    // Role conflict check: a project can only have one active
-                    // Project Manager and one active Site Manager at a time.
                     var isUniqueRole = model.Role == "Project Manager" || model.Role == "Site Manager";
                     var roleConflict = isUniqueRole
                         ? db.ProjectResourceAllocations
@@ -499,9 +475,6 @@ namespace MuhleOP.Controllers
                             .FirstOrDefault()
                         : null;
 
-                    // Time-overlap conflict check: is this staff member already
-                    // actively allocated to a *different* project whose date
-                    // range overlaps the dates requested here?
                     var overlappingAssignments = GetOverlappingAssignments(model.StaffId, model.ProjectId, model.StartDate, model.EndDate);
 
                     var conflictMessages = new List<string>();
@@ -518,8 +491,6 @@ namespace MuhleOP.Controllers
 
                     if (conflictMessages.Any() && !model.OverrideConflict)
                     {
-                        // Don't save - surface the conflicts and require the PM to
-                        // tick "Override Conflict" (with a justification) to proceed.
                         var vm = PopulateAssignStaffDropdowns(model);
                         vm.ConflictWarnings = conflictMessages;
                         ModelState.AddModelError("", "A scheduling conflict was found. Review the warning below - if you have permission to proceed anyway, tick \"Override Conflict\", provide a reason, and resubmit.");
@@ -570,9 +541,6 @@ namespace MuhleOP.Controllers
                         await db.SaveChangesAsync();
                     }
 
-                    // Staff stays assigned - and keeps showing as unavailable for
-                    // other projects during this window - until the project is
-                    // marked Completed/Closed or the PM explicitly deassigns them.
                     await NotifyStakeholder(
                         staff.UserId,
                         "Assigned to New Project",
@@ -602,10 +570,7 @@ namespace MuhleOP.Controllers
             return View(PopulateAssignStaffDropdowns(model));
         }
 
-        // POST: Project/DeassignStaff - releases a staff member from a project
-        // ahead of project completion (e.g. reassigned elsewhere, left the
-        // project early). Staff otherwise remain assigned until the project is
-        // marked Completed/Closed (see UpdateStatus below).
+        // POST: Project/DeassignStaff
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin, Project Manager")]
@@ -640,10 +605,6 @@ namespace MuhleOP.Controllers
             return RedirectToAction("AssignStaff", new { id = projectId });
         }
 
-        // Finds other ACTIVE allocations for this staff member (on a different
-        // project) whose date range overlaps [startDate, endDate]. A null
-        // EndDate is treated as "ongoing" (open-ended), so it overlaps anything
-        // from its StartDate onward.
         private List<ProjectResourceAllocation> GetOverlappingAssignments(int staffId, int excludeProjectId, DateTime startDate, DateTime? endDate)
         {
             var rangeEnd = endDate ?? DateTime.MaxValue.AddDays(-1);
@@ -660,7 +621,7 @@ namespace MuhleOP.Controllers
                 .ToList();
         }
 
-        // GET: Project/AssignEquipment/5 - Use Case 13: Assign Equipment
+        // GET: Project/AssignEquipment/5 - Use Case 12: Assign Equipment
         [Authorize(Roles = "Admin, Project Manager")]
         public ActionResult AssignEquipment(int id)
         {
@@ -671,57 +632,185 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("Index");
             }
 
+            decimal threshold = 100000m;
+            if (decimal.TryParse(ConfigurationManager.AppSettings["EquipmentApprovalThreshold"], out decimal parsedThresh))
+            {
+                threshold = parsedThresh;
+            }
+
             var viewModel = PopulateAssignEquipmentDropdowns(new AssignEquipmentViewModel
             {
                 ProjectId = project.Id,
-                ProjectName = project.ProjectName
+                ProjectName = project.ProjectName,
+                StartDate = DateTime.Now,
+                ApprovalThreshold = threshold
             });
 
             return View(viewModel);
         }
 
-        // POST: Project/AssignEquipment - Use Case 13: Assign Equipment
+        // POST: Project/AssignEquipment - Use Case 12: Assign Equipment
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin, Project Manager")]
         public async Task<ActionResult> AssignEquipment(AssignEquipmentViewModel model)
         {
+            decimal threshold = 100000m;
+            if (decimal.TryParse(ConfigurationManager.AppSettings["EquipmentApprovalThreshold"], out decimal parsedThresh))
+            {
+                threshold = parsedThresh;
+            }
+            model.ApprovalThreshold = threshold;
+
+            var project = db.Projects.Find(model.ProjectId);
+            if (project == null)
+            {
+                TempData["ErrorMessage"] = "Project not found.";
+                return RedirectToAction("Index");
+            }
+
+            var equipment = db.Equipment.Find(model.EquipmentId);
+            if (equipment == null)
+            {
+                ModelState.AddModelError("EquipmentId", "Equipment not found.");
+                return View(PopulateAssignEquipmentDropdowns(model));
+            }
+
+            // 6. Exception flow — Damaged / In Repair blocked
+            if (equipment.Status == "Damaged" || equipment.Status == "In Repair")
+            {
+                ModelState.AddModelError("EquipmentId", $"This equipment is currently {equipment.Status} and cannot be allocated.");
+                return View(PopulateAssignEquipmentDropdowns(model));
+            }
+
+            model.EquipmentValue = equipment.CurrentValue ?? equipment.PurchaseCost ?? 0;
+            model.ExceedsApprovalThreshold = model.EquipmentValue > model.ApprovalThreshold;
+
             if (ModelState.IsValid)
             {
                 try
                 {
-                    var project = db.Projects.Find(model.ProjectId);
-                    if (project == null)
-                    {
-                        TempData["ErrorMessage"] = "Project not found.";
-                        return RedirectToAction("Index");
-                    }
+                    // 1. Availability check with DATE RANGE
+                    var rangeEnd = model.EndDate ?? DateTime.MaxValue.AddDays(-1);
+                    var overlappingAssignments = db.EquipmentAssignments
+                        .Include("Project")
+                        .Where(a => a.EquipmentId == model.EquipmentId && a.IsActive)
+                        .ToList()
+                        .Where(a =>
+                        {
+                            var otherStart = a.AssignedDate;
+                            var otherEnd = a.ExpectedReturnDate ?? DateTime.MaxValue.AddDays(-1);
+                            return otherStart <= rangeEnd && model.StartDate <= otherEnd;
+                        })
+                        .ToList();
 
-                    var equipment = db.Equipment.Find(model.EquipmentId);
-                    if (equipment == null)
+                    if (overlappingAssignments.Any())
                     {
-                        ModelState.AddModelError("EquipmentId", "Equipment not found.");
+                        var conflict = overlappingAssignments.First();
+                        ModelState.AddModelError("EquipmentId", $"This equipment is already assigned to '{conflict.Project?.ProjectName ?? "Another Project"}' from {conflict.AssignedDate:dd MMM yyyy} to {(conflict.ExpectedReturnDate.HasValue ? conflict.ExpectedReturnDate.Value.ToString("dd MMM yyyy") : "ongoing")}, which overlaps the selected dates.");
                         return View(PopulateAssignEquipmentDropdowns(model));
                     }
 
-                    var existingAssignment = db.EquipmentAssignments
-                        .FirstOrDefault(a => a.EquipmentId == model.EquipmentId && a.IsActive);
+                    // 2. Skill / certification check
+                    var reqCerts = db.EquipmentCertificationRequirements
+                        .Where(c => c.EquipmentId == model.EquipmentId)
+                        .Select(c => c.RequiredCertification)
+                        .ToList();
 
-                    if (existingAssignment != null)
+                    if (reqCerts.Any())
                     {
-                        ModelState.AddModelError("EquipmentId", "This equipment is already assigned to another project.");
-                        return View(PopulateAssignEquipmentDropdowns(model));
+                        var assignedStaffMembers = db.ProjectResourceAllocations
+                            .Where(a => a.ProjectId == model.ProjectId && a.IsActive)
+                            .Select(a => a.Staff)
+                            .ToList();
+
+                        if (project.ProjectManager != null && !assignedStaffMembers.Any(s => s.Id == project.ProjectManager.Id))
+                        {
+                            assignedStaffMembers.Add(project.ProjectManager);
+                        }
+                        if (project.SiteManager != null && !assignedStaffMembers.Any(s => s.Id == project.SiteManager.Id))
+                        {
+                            assignedStaffMembers.Add(project.SiteManager);
+                        }
+
+                        var missingCerts = new List<string>();
+                        foreach (var req in reqCerts)
+                        {
+                            bool foundStaffWithCert = assignedStaffMembers.Any(s =>
+                                !string.IsNullOrWhiteSpace(s.Certifications) &&
+                                s.Certifications.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                    .Select(c => c.Trim().ToLower())
+                                    .Contains(req.Trim().ToLower())
+                            );
+
+                            if (!foundStaffWithCert)
+                            {
+                                missingCerts.Add(req);
+                            }
+                        }
+
+                        if (missingCerts.Any())
+                        {
+                            if (!model.OverrideCertification)
+                            {
+                                ModelState.AddModelError("", $"Warning: None of the assigned project staff hold the required certification(s): {string.Join(", ", missingCerts)}. To proceed, tick \"Override Certification\" and provide a justification.");
+                                var vmFail = PopulateAssignEquipmentDropdowns(model);
+                                vmFail.CertificationWarnings = missingCerts;
+                                return View(vmFail);
+                            }
+
+                            if (string.IsNullOrWhiteSpace(model.CertificationOverrideReason))
+                            {
+                                ModelState.AddModelError("CertificationOverrideReason", "Please provide a justification for overriding the missing certifications.");
+                                var vmFail = PopulateAssignEquipmentDropdowns(model);
+                                vmFail.CertificationWarnings = missingCerts;
+                                return View(vmFail);
+                            }
+                        }
+                    }
+
+                    // 4. Approval threshold check
+                    bool isAdmin = User.IsInRole("Admin");
+                    if (model.ExceedsApprovalThreshold && !isAdmin)
+                    {
+                        if (!model.SecondaryApprovalRequested)
+                        {
+                            ModelState.AddModelError("SecondaryApprovalRequested", $"This equipment value (R{model.EquipmentValue:N2}) exceeds the approval threshold (R{model.ApprovalThreshold:N2}). Secondary approval is required.");
+                            return View(PopulateAssignEquipmentDropdowns(model));
+                        }
+                    }
+
+                    // 3. Proximity / transport note & formatting notes
+                    string finalNotes = model.Notes;
+                    if (!string.IsNullOrWhiteSpace(equipment.CurrentLocation) &&
+                        !string.IsNullOrWhiteSpace(project.ProjectLocation) &&
+                        !equipment.CurrentLocation.Trim().Equals(project.ProjectLocation.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        string transportHint = $"Transport required (currently at: {equipment.CurrentLocation})";
+                        finalNotes = $"— {transportHint}" + (string.IsNullOrWhiteSpace(finalNotes) ? "" : " | " + finalNotes);
+                    }
+
+                    if (reqCerts.Any() && model.OverrideCertification)
+                    {
+                        string certOverrideNote = $"[Certification overridden by {User.Identity.Name} - Reason: {model.CertificationOverrideReason}]";
+                        finalNotes = certOverrideNote + (string.IsNullOrWhiteSpace(finalNotes) ? "" : " " + finalNotes);
+                    }
+
+                    if (model.ExceedsApprovalThreshold && model.SecondaryApprovalRequested)
+                    {
+                        string approvalNote = $"[SECONDARY APPROVAL REQUESTED by {User.Identity.Name} on {DateTime.Now:dd MMM yyyy HH:mm}]";
+                        finalNotes = approvalNote + (string.IsNullOrWhiteSpace(finalNotes) ? "" : " " + finalNotes);
                     }
 
                     var assignment = new EquipmentAssignment
                     {
                         ProjectId = model.ProjectId,
                         EquipmentId = model.EquipmentId,
-                        AssignedDate = DateTime.Now,
-                        ExpectedReturnDate = model.ExpectedReturnDate,
+                        AssignedDate = model.StartDate,
+                        ExpectedReturnDate = model.EndDate,
                         IsActive = true,
                         ConditionOnAssignment = model.ConditionOnAssignment ?? equipment.Condition,
-                        Notes = model.Notes,
+                        Notes = finalNotes,
                         AssignedBy = User.Identity.Name
                     };
 
@@ -740,7 +829,6 @@ namespace MuhleOP.Controllers
                         $"/Project/Details/{model.ProjectId}"
                     );
 
-                    // Notify the Project Manager assigned to this project (in-app + email)
                     var pm = db.Staff.Find(project.ProjectManagerId);
                     if (pm != null && !string.IsNullOrEmpty(pm.UserId))
                     {
@@ -789,10 +877,6 @@ namespace MuhleOP.Controllers
 
             await db.SaveChangesAsync();
 
-            // Staff stay assigned to a project until it's Completed/Closed or the
-            // PM explicitly deassigns them (DeassignStaff) - so once a project
-            // reaches either terminal state, release every staff member so they
-            // show up as available for new assignments elsewhere.
             if (status == "Completed" || status == "Closed")
             {
                 var activeAllocations = db.ProjectResourceAllocations
@@ -840,8 +924,6 @@ namespace MuhleOP.Controllers
                     Text = c.CompanyName
                 }).ToList();
 
-            // Re-populate contracts for whichever client was selected so a
-            // validation-error redisplay of the form still shows the right list.
             model.Contracts = db.Contracts
                 .Where(c => c.IsSigned && c.Status != "Terminated" && c.ClientId == model.ClientId)
                 .Select(c => new SelectListItem
@@ -869,8 +951,6 @@ namespace MuhleOP.Controllers
             return model;
         }
 
-        // Every internal staff role in the system besides Client and Candidate
-        // (those two are never Staff records - they're separate account types).
         private static readonly string[] AllStaffRoles =
         {
             "Site Manager", "Crew Member", "Project Manager", "Finance Officer", "Procurement Officer"
@@ -899,12 +979,6 @@ namespace MuhleOP.Controllers
                 .Select(a => a.StaffId)
                 .ToList();
 
-            // Every active staff member not already on THIS project, grouped by
-            // role so the Project Manager can see, per role, who is available -
-            // e.g. "who is available under Site Managers", "under Crew Members",
-            // etc. Anyone with an overlapping active assignment elsewhere for the
-            // dates currently on the form is flagged inline as a conflict rather
-            // than hidden, so the PM can still pick them and override if needed.
             var candidateStaff = db.Staff
                 .Where(s => s.IsActive && !assignedStaffIds.Contains(s.Id))
                 .ToList();
@@ -934,7 +1008,6 @@ namespace MuhleOP.Controllers
                 .Where(g => g.Staff.Any())
                 .ToList();
 
-            // Flat fallback list kept for backward compatibility / simple <select>.
             model.AvailableStaff = model.AvailableStaffByRole.SelectMany(g => g.Staff).ToList();
 
             model.AvailableRoles = AllStaffRoles
@@ -957,9 +1030,14 @@ namespace MuhleOP.Controllers
                     EquipmentName = a.Equipment != null ? a.Equipment.EquipmentName : "Unknown",
                     EquipmentCode = a.Equipment != null ? a.Equipment.EquipmentCode : "Unknown",
                     AssignedDate = a.AssignedDate,
+                    StartDate = a.AssignedDate,
+                    EndDate = a.ExpectedReturnDate,
                     ExpectedReturnDate = a.ExpectedReturnDate,
                     IsActive = a.IsActive,
-                    ConditionOnAssignment = a.ConditionOnAssignment
+                    ConditionOnAssignment = a.ConditionOnAssignment,
+                    Notes = a.Notes,
+                    HasSecondaryApprovalRequest = a.Notes != null && a.Notes.Contains("[SECONDARY APPROVAL REQUESTED]"),
+                    HasTransportNote = a.Notes != null && a.Notes.Contains("Transport required")
                 }).ToList();
 
             var assignedEquipmentIds = db.EquipmentAssignments
@@ -967,13 +1045,61 @@ namespace MuhleOP.Controllers
                 .Select(a => a.EquipmentId)
                 .ToList();
 
-            model.AvailableEquipment = db.Equipment
+            var rawAvailable = db.Equipment
                 .Where(e => e.IsActive && e.Status == "Available" && !assignedEquipmentIds.Contains(e.Id))
-                .Select(e => new SelectListItem
+                .ToList();
+
+            model.AvailableEquipment = rawAvailable.Select(e =>
+            {
+                string text = $"{e.EquipmentName} ({e.EquipmentCode}) - {e.Condition}";
+                if (!string.IsNullOrEmpty(e.CurrentLocation) &&
+                    project != null &&
+                    !string.IsNullOrEmpty(project.ProjectLocation) &&
+                    !e.CurrentLocation.Trim().Equals(project.ProjectLocation.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    text += $" — Transport required (currently at: {e.CurrentLocation})";
+                }
+                return new SelectListItem
                 {
                     Value = e.Id.ToString(),
-                    Text = e.EquipmentName + " (" + e.EquipmentCode + ") - " + e.Condition
-                }).ToList();
+                    Text = text
+                };
+            }).ToList();
+
+            if (!model.AvailableEquipment.Any())
+            {
+                var fourteenDaysOut = DateTime.Now.AddDays(14);
+                var activeInUseAssignments = db.EquipmentAssignments
+                    .Include("Equipment")
+                    .Include("Project")
+                    .Where(a => a.IsActive && a.Equipment.IsActive && a.Equipment.Status == "In Use")
+                    .ToList();
+
+                model.WaitlistSuggestions = activeInUseAssignments
+                    .Where(a => a.ExpectedReturnDate.HasValue && a.ExpectedReturnDate.Value <= fourteenDaysOut)
+                    .Take(5)
+                    .Select(a => new WaitlistEquipmentViewModel
+                    {
+                        EquipmentId = a.EquipmentId,
+                        EquipmentName = a.Equipment?.EquipmentName ?? "Unknown",
+                        EquipmentCode = a.Equipment?.EquipmentCode ?? "Unknown",
+                        CurrentProjectName = a.Project?.ProjectName ?? "Unknown",
+                        ExpectedFreeDate = a.ExpectedReturnDate
+                    })
+                    .ToList();
+            }
+
+            model.UnderRepairEquipment = db.Equipment
+                .Where(e => e.IsActive && (e.Status == "Damaged" || e.Status == "In Repair"))
+                .Select(e => new UnderRepairEquipmentViewModel
+                {
+                    EquipmentId = e.Id,
+                    EquipmentName = e.EquipmentName,
+                    EquipmentCode = e.EquipmentCode,
+                    Status = e.Status,
+                    Condition = e.Condition
+                })
+                .ToList();
 
             model.ProjectName = project?.ProjectName ?? "Project";
             return model;
@@ -1007,9 +1133,6 @@ namespace MuhleOP.Controllers
             }
         }
 
-        // Raises an in-app Notification AND emails the same user, given their
-        // ApplicationUser id. Used for anyone who needs to actually be alerted
-        // outside the app (PM/SM/staff assignments, Finance, Admin, Client).
         private async Task NotifyStakeholder(string userId, string title, string message, string type, string link)
         {
             if (string.IsNullOrEmpty(userId))
@@ -1035,8 +1158,6 @@ namespace MuhleOP.Controllers
             }
         }
 
-        // Sends directly to a raw email address (used for Clients that don't
-        // necessarily have a linked ApplicationUser/login).
         private async Task NotifyEmailOnly(string toEmail, string toName, string title, string message, string link)
         {
             if (string.IsNullOrWhiteSpace(toEmail))
@@ -1062,9 +1183,6 @@ namespace MuhleOP.Controllers
             return $"<h3>{title}</h3><p>{message}</p>{linkHtml}<p style=\"color:#888;font-size:12px;\">This is an automated notification from MuhleOps.</p>";
         }
 
-        // Notifies every stakeholder of a newly initiated project besides the
-        // Project Manager / Site Manager (already notified where they're
-        // assigned): all active Finance Officers, all Admins, and the Client.
         private async Task NotifyProjectStakeholders(Project project, string projectName)
         {
             var message = $"Project '{projectName}' has been initiated" +
@@ -1072,14 +1190,12 @@ namespace MuhleOP.Controllers
                            $". Estimated cost: R{(project.Budget != null ? project.Budget.EstimatedCost : 0):N2}.";
             var link = $"/Project/Details/{project.Id}";
 
-            // Finance Officers - they need to track the budget against the contract.
             var financeOfficers = db.Staff.Where(s => s.Role == "Finance Officer" && s.IsActive).ToList();
             foreach (var fo in financeOfficers)
             {
                 await NotifyStakeholder(fo.UserId, "New Project Initiated - Finance Review", message, "Finance", link);
             }
 
-            // Admins.
             var adminIds = db.Users.ToList()
                 .Where(u => UserManager.IsInRole(u.Id, "Admin"))
                 .Select(u => u.Id)
@@ -1089,7 +1205,6 @@ namespace MuhleOP.Controllers
                 await NotifyStakeholder(adminId, "New Project Initiated", message, "Project", link);
             }
 
-            // Client.
             if (project.ClientId.HasValue)
             {
                 var client = db.Clients.Find(project.ClientId.Value);

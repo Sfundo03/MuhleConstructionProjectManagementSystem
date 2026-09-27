@@ -50,7 +50,7 @@ namespace MuhleOP.Models
         public DateTime? ProjectManagerSignOffDate { get; set; }
 
         [Display(Name = "Status")]
-        public string Status { get; set; } // Initiated, In Progress, Completed, Closed
+        public string Status { get; set; } // Initiated, In Progress, Practical Completion Pending, Completed, Closed
 
         [Display(Name = "Completion Notes")]
         [DataType(DataType.MultilineText)]
@@ -91,10 +91,6 @@ namespace MuhleOP.Models
         [Display(Name = "Last Modified")]
         public DateTime? LastModifiedDate { get; set; }
 
-        // This file was not included in your upload, so this is an additive patch,
-        // not a full-file replacement. Insert this block into the ProjectHandover
-        // class immediately after the existing ClientSignOffNotes property:
-
         [Display(Name = "Client Invited To Sign Off")]
         public bool ClientInvitedToSignOff { get; set; }
 
@@ -104,8 +100,23 @@ namespace MuhleOP.Models
         [Display(Name = "Signed Handover PDF Path")]
         [StringLength(500)]
         public string SignedHandoverPdfPath { get; set; }
+
+        // UC23 Additions
+        [StringLength(50)]
+        public string ClientSignatureIpAddress { get; set; }
+
+        [StringLength(500)]
+        public string ClientSignatureUserAgent { get; set; }
+
+        [StringLength(500)]
+        public string ClientAcceptanceLetterPath { get; set; }
+
+        [StringLength(500)]
+        public string ClosureReportPath { get; set; }
+
         // Navigation Properties
         public virtual ICollection<HandoverDocument> Documents { get; set; }
+        public virtual ICollection<SnagItem> SnagItems { get; set; }
 
         public ProjectHandover()
         {
@@ -116,6 +127,54 @@ namespace MuhleOP.Models
             ClientInvitedToSignOff = false;
             CreatedDate = DateTime.Now;
             Documents = new List<HandoverDocument>();
+            SnagItems = new List<SnagItem>();
+        }
+    }
+
+    public class SnagItem
+    {
+        [Key] public int Id { get; set; }
+
+        [Required] public int ProjectHandoverId { get; set; }
+        [ForeignKey("ProjectHandoverId")]
+        public virtual ProjectHandover ProjectHandover { get; set; }
+
+        [Required, StringLength(20)]
+        public string ReferenceNumber { get; set; } // SNAG-0001
+
+        [Required, StringLength(300)]
+        public string Description { get; set; }
+
+        [StringLength(200)]
+        public string Location { get; set; } // "Unit 4, Kitchen, North wall"
+
+        [Required, StringLength(20)]
+        public string Severity { get; set; } // Minor, Major, Critical
+
+        [Required, StringLength(150)]
+        public string ResponsibleParty { get; set; }
+
+        public DateTime? DueDate { get; set; }
+
+        [Required, StringLength(20)]
+        public string Status { get; set; } // Open, In Progress, Fixed, Verified, Rejected
+
+        [StringLength(500)] public string PhotoPath { get; set; }
+        [StringLength(500)] public string VerificationPhotoPath { get; set; }
+
+        [StringLength(100)] public string ReportedBy { get; set; }
+        public DateTime ReportedDate { get; set; }
+
+        [StringLength(100)] public string VerifiedBy { get; set; }
+        public DateTime? VerifiedDate { get; set; }
+
+        [StringLength(2000)] public string ResolutionNotes { get; set; }
+
+        public SnagItem()
+        {
+            ReportedDate = DateTime.Now;
+            Status = "Open";
+            Severity = "Minor";
         }
     }
 

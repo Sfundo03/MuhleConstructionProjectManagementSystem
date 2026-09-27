@@ -47,6 +47,10 @@ namespace MuhleOP.Models
         [StringLength(100)]
         public string Department { get; set; }
 
+        [Display(Name = "Certifications")]
+        [StringLength(500)]
+        public string Certifications { get; set; }
+
         [Display(Name = "Hire Date")]
         [DataType(DataType.Date)]
         public DateTime HireDate { get; set; }
@@ -90,18 +94,11 @@ namespace MuhleOP.Models
         // QR Attendance Token
         // ------------------------------------------------------------------
 
-        /// <summary>
-        /// Cryptographically random token encoded in the crew member's QR code.
-        /// Never put the raw Staff.Id into a QR code.
-        /// </summary>
         [StringLength(64)]
         public string QrToken { get; set; }
 
         public DateTime? QrTokenCreatedDate { get; set; }
 
-        /// <summary>
-        /// When true the current token is invalid; crew must regenerate.
-        /// </summary>
         public bool QrTokenRevoked { get; set; }
 
         // ------------------------------------------------------------------
@@ -132,10 +129,6 @@ namespace MuhleOP.Models
         }
     }
 
-    /// <summary>
-    /// Audit log for every change to Staff.PayRatePerHour.
-    /// New table only — does not alter existing Staff columns.
-    /// </summary>
     public class PayRateAudit
     {
         [Key]
@@ -155,9 +148,6 @@ namespace MuhleOP.Models
         [Display(Name = "New Rate")]
         public decimal NewRate { get; set; }
 
-        /// <summary>
-        /// ApplicationUser.UserName (or Name) of the Finance Officer who made the change.
-        /// </summary>
         [Required]
         [StringLength(256)]
         public string ChangedBy { get; set; }
