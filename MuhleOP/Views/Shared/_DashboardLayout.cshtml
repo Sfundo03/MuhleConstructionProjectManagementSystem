@@ -1017,6 +1017,14 @@
                     <i class="fas fa-wrench"></i>
                     <span>Repair Queue</span>
                 </a>
+                <a href="@Url.Action("Index", "Parts")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Parts" ? "active" : "")">
+                    <i class="fas fa-boxes-stacked"></i>
+                    <span>Manage Parts</span>
+                </a>
+                <a href="@Url.Action("Index", "Technicians")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Technicians" ? "active" : "")">
+                    <i class="fas fa-users-gear"></i>
+                    <span>Manage Technicians</span>
+                </a>
 
                 <div class="menu-label">Attendance</div>
                 <a href="@Url.Action("Scan", "Attendance")" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Attendance" && ViewContext.RouteData.Values["action"]?.ToString() == "Scan" ? "active" : "")">
@@ -1467,32 +1475,32 @@
                             updateBadge(data.unreadCount);
                         } else {
                             notificationList.innerHTML = `
-                                                        <div class="notification-empty">
-                                                            <i class="fas fa-exclamation-circle"></i>
-                                                            <p>Failed to load notifications</p>
-                                                        </div>
-                                                    `;
+                                                            <div class="notification-empty">
+                                                                <i class="fas fa-exclamation-circle"></i>
+                                                                <p>Failed to load notifications</p>
+                                                            </div>
+                                                        `;
                         }
                     })
                     .catch(error => {
                         console.error('Error loading notifications:', error);
                         notificationList.innerHTML = `
-                                                    <div class="notification-empty">
-                                                        <i class="fas fa-exclamation-circle"></i>
-                                                        <p>Error loading notifications</p>
-                                                    </div>
-                                                `;
+                                                        <div class="notification-empty">
+                                                            <i class="fas fa-exclamation-circle"></i>
+                                                            <p>Error loading notifications</p>
+                                                        </div>
+                                                    `;
                     });
             }
 
             function renderNotifications(notifications, unreadCount) {
                 if (!notifications || notifications.length === 0) {
                     notificationList.innerHTML = `
-                                                <div class="notification-empty">
-                                                    <i class="fas fa-bell-slash"></i>
-                                                    <p>No notifications</p>
-                                                </div>
-                                            `;
+                                                    <div class="notification-empty">
+                                                        <i class="fas fa-bell-slash"></i>
+                                                        <p>No notifications</p>
+                                                    </div>
+                                                `;
                     updateBadge(0);
                     return;
                 }
@@ -1504,17 +1512,17 @@
                     const link = notification.link || '#';
 
                     html += `
-                                                <div class="notification-item ${unreadClass}" data-id="${notification.id}" data-link="${link}">
-                                                    <div class="icon ${iconClass}">
-                                                        <i class="fas fa-${getIcon(notification.type)}"></i>
+                                                    <div class="notification-item ${unreadClass}" data-id="${notification.id}" data-link="${link}">
+                                                        <div class="icon ${iconClass}">
+                                                            <i class="fas fa-${getIcon(notification.type)}"></i>
+                                                        </div>
+                                                        <div class="content">
+                                                            <div class="title">${escapeHtml(notification.title)}</div>
+                                                            <div class="message">${escapeHtml(notification.message)}</div>
+                                                            <div class="time">${notification.timeAgo}</div>
+                                                        </div>
                                                     </div>
-                                                    <div class="content">
-                                                        <div class="title">${escapeHtml(notification.title)}</div>
-                                                        <div class="message">${escapeHtml(notification.message)}</div>
-                                                        <div class="time">${notification.timeAgo}</div>
-                                                    </div>
-                                                </div>
-                                            `;
+                                                `;
                 });
 
                 notificationList.innerHTML = html;

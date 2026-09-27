@@ -1,0 +1,61 @@
+﻿
+@model IEnumerable<MuhleOP.Models.EquipmentPart>
+@{
+    ViewBag.Title = "Manage Inventory Parts";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Manage Inventory Parts</h2>
+        <a href="@Url.Action("Create", "Parts")" class="btn btn-primary"><i class="fas fa-plus me-1"></i> Add New Part</a>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">@TempData["SuccessMessage"]<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+    }
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Part Name</th>
+                            <th>Code</th>
+                            <th>Stock</th>
+                            <th>Min Level</th>
+                            <th>Unit Cost</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Model)
+                        {
+                            <tr>
+                                <td class="fw-semibold">@p.PartName</td>
+                                <td><code>@(p.PartCode ?? "—")</code></td>
+                                <td>
+                                    <span class="badge @(p.QuantityOnHand <= p.MinimumStockLevel ? "bg-danger" : "bg-success")">
+                                        @p.QuantityOnHand @p.Unit
+                                    </span>
+                                </td>
+                                <td>@p.MinimumStockLevel</td>
+                                <td>R@(p.UnitCost?.ToString("N2") ?? "0.00")</td>
+                                <td class="text-end">
+                                    <a href="@Url.Action("Edit", "Parts", new { id = p.Id })" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i> Edit</a>
+                                    @using (Html.BeginForm("Delete", "Parts", new { id = p.Id }, FormMethod.Post, new { style = "display:inline;" }))
+                                    {
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to remove this part?');"><i class="fas fa-trash"></i></button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

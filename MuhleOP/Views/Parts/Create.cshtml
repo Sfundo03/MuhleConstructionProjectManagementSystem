@@ -1,0 +1,54 @@
+﻿
+@model MuhleOP.ViewModels.EquipmentPartFormViewModel
+@{
+    ViewBag.Title = Model.Id == 0 ? "Add Part" : "Edit Part";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container py-4" style="max-width: 600px;">
+    <h2 class="mb-4">@(Model.Id == 0 ? "Add Inventory Part" : "Edit Part")</h2>
+
+    @using (Html.BeginForm())
+    {
+        @Html.AntiForgeryToken()
+        @Html.HiddenFor(m => m.Id)
+        @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Part Name <span class="text-danger">*</span></label>
+                    @Html.TextBoxFor(m => m.PartName, new { @class = "form-control", required = "required" })
+                    @Html.ValidationMessageFor(m => m.PartName, "", new { @class = "text-danger small" })
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Part Code</label>
+                    @Html.TextBoxFor(m => m.PartCode, new { @class = "form-control", placeholder = "Auto-generated if left blank" })
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Quantity On Hand <span class="text-danger">*</span></label>
+                        @Html.TextBoxFor(m => m.QuantityOnHand, new { @class = "form-control", type = "number", min = "0", required = "required" })
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Minimum Stock Level</label>
+                        @Html.TextBoxFor(m => m.MinimumStockLevel, new { @class = "form-control", type = "number", min = "0" })
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Unit (e.g., each, box, L)</label>
+                        @Html.TextBoxFor(m => m.Unit, new { @class = "form-control" })
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Unit Cost (R)</label>
+                        @Html.TextBoxFor(m => m.UnitCost, new { @class = "form-control", type = "number", step = "0.01" })
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Part</button>
+        <a href="@Url.Action("Index", "Parts")" class="btn btn-outline-secondary">Cancel</a>
+    }
+</div>

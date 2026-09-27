@@ -339,6 +339,8 @@ namespace MuhleOP.Models
         public int? LinkedStaffId { get; set; }
         [ForeignKey("LinkedStaffId")]
         public virtual Staff LinkedStaff { get; set; }
+        public string Specialization { get; internal set; }
+        public string Phone { get; internal set; }
     }
 
     public class EquipmentCheckoutChecklist
