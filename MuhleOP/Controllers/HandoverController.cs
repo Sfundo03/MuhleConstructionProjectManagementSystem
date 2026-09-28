@@ -117,7 +117,7 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // My Handovers — Client View (FIX 2)
+        // My Handovers — Client View
         // ------------------------------------------------------------------
 
         [Authorize(Roles = "Client")]
@@ -661,7 +661,7 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Invite Client to Sign Off
+        // Invite Client to Sign Off (Updated for Re-invites)
         // ------------------------------------------------------------------
 
         [HttpPost]
@@ -688,12 +688,17 @@ namespace MuhleOP.Controllers
                     return RedirectToAction("HandoverDetails", new { id });
                 }
 
+                bool isReinvite = string.Equals(handover.ClientSignOffStatus, "Rejected", StringComparison.OrdinalIgnoreCase);
+
+                handover.ClientSignOffStatus = "Pending";
                 handover.ClientInvitedToSignOff = true;
                 handover.ClientInvitedDate = DateTime.Now;
                 handover.Status = "In Progress";
                 handover.LastModifiedDate = DateTime.Now;
+
+                string noteMessage = isReinvite ? "Client re-invited to sign off." : "Client invited to sign off.";
                 handover.CompletionNotes = (handover.CompletionNotes ?? "") +
-                    $" [{DateTime.Now:yyyy-MM-dd HH:mm} by {User.Identity.Name}] Client invited to sign off.";
+                    $" [{DateTime.Now:yyyy-MM-dd HH:mm} by {User.Identity.Name}] {noteMessage}";
 
                 await db.SaveChangesAsync();
 
@@ -701,7 +706,7 @@ namespace MuhleOP.Controllers
                 {
                     await NotifyStakeholder(
                         handover.Project.Client.UserId,
-                        "Action Required: Project Sign-off",
+                        isReinvite ? "Action Required: Project Re-sign-off Requested" : "Action Required: Project Sign-off",
                         $"Please review and sign off the handover for project '{handover.Project.ProjectName}'.",
                         "Project",
                         $"/Handover/ClientSignOff/{handover.Id}"
@@ -713,7 +718,7 @@ namespace MuhleOP.Controllers
                     SendClientInvitedToSignOffEmail(handover.Project.Client, handover.Project);
                 }
 
-                TempData["SuccessMessage"] = "Client has been invited to sign off.";
+                TempData["SuccessMessage"] = isReinvite ? "Client has been re-invited to sign off." : "Client has been invited to sign off.";
                 return RedirectToAction("HandoverDetails", new { id });
             }
             catch (Exception ex)
@@ -896,8 +901,6 @@ namespace MuhleOP.Controllers
                     ResolutionNotes = s.ResolutionNotes
                 }).ToList();
 
-            // AUDIT: Exclude "Rejected" critical snags from blocking sign-off. 
-            // Reason: "Rejected" indicates a reviewed and dismissed/invalidated snag rather than an active unresolved defect.
             bool hasOpenCritical = snagsList.Any(s => s.Severity == "Critical" && s.Status != "Verified" && s.Status != "Rejected");
 
             var model = new ClientSignOffViewModel
@@ -945,7 +948,6 @@ namespace MuhleOP.Controllers
                 .Include(h => h.SnagItems)
                 .FirstOrDefault(h => h.Id == model.HandoverId);
 
-            // AUDIT: Exclude "Rejected" critical snags to maintain complete consistency with the GET action check.
             if (handoverCheck != null && handoverCheck.SnagItems.Any(s => s.Severity == "Critical" && s.Status != "Verified" && s.Status != "Rejected"))
             {
                 ModelState.AddModelError("", "Cannot sign off while there are unresolved critical snags.");
