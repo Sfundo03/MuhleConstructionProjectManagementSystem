@@ -41,9 +41,18 @@
                         <li><strong>Reported Date:</strong> @Model.CreatedDate.ToString("dd MMM yyyy HH:mm")</li>
                         <li><strong>Reported By:</strong> @Model.ReportedBy</li>
                         <li><strong>Project:</strong> @(Model.AssignedProjectName ?? "N/A")</li>
-                        <li><strong>Category:</strong> @(Model.RepairCategory ?? "N/A")</li>
-                        <li><strong>Severity:</strong> <span class="badge bg-@Model.SeverityBadgeColor">@(Model.Severity ?? "N/A")</span></li>
-                        <li><strong>Priority:</strong> <span class="badge bg-@Model.PriorityBadgeColor">@(Model.Priority ?? "N/A")</span></li>
+                        @if (!string.IsNullOrWhiteSpace(Model.RepairCategory))
+                        {
+                            <li><strong>Category:</strong> @Model.RepairCategory</li>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.Severity))
+                        {
+                            <li><strong>Severity:</strong> <span class="badge bg-@Model.SeverityBadgeColor">@Model.Severity</span></li>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.Priority))
+                        {
+                            <li><strong>Priority:</strong> <span class="badge bg-@Model.PriorityBadgeColor">@Model.Priority</span></li>
+                        }
                         <li><strong>Technician:</strong> @(string.IsNullOrEmpty(Model.TechnicianName) ? "Unassigned" : Model.TechnicianName)</li>
                         @if (!string.IsNullOrEmpty(Model.ProcurementRequestReference))
                         {
@@ -63,6 +72,23 @@
                         <li><strong>Labour Cost:</strong> R@(Model.LabourCost.ToString("N2"))</li>
                         <li><strong>Total Cost:</strong> R@(Model.TotalCost.ToString("N2"))</li>
                         <li><strong>Actual Hours:</strong> @(Model.ActualHours.HasValue ? Model.ActualHours.Value.ToString("0.##") + " hrs" : "N/A")</li>
+                        @if (Model.TechnicianAssignedDate.HasValue && Model.VerificationDate.HasValue)
+                        {
+                            <li class="text-muted small">
+                                Actual duration: @Model.ActualHours?.ToString("N2") h
+                                (from technician assigned on
+                                @Model.TechnicianAssignedDate.Value.ToString("dd MMM yyyy HH:mm")
+                                to verification on
+                                @Model.VerificationDate.Value.ToString("dd MMM yyyy HH:mm"))
+                            </li>
+                        }
+                        else if (Model.TechnicianAssignedDate.HasValue)
+                        {
+                            <li class="text-muted small">
+                                Assigned @Model.TechnicianAssignedDate.Value.ToString("dd MMM yyyy HH:mm")
+                                — not yet verified.
+                            </li>
+                        }
                         <li><strong>Revised Completion:</strong> @(Model.RevisedCompletionDate.HasValue ? Model.RevisedCompletionDate.Value.ToString("dd MMM yyyy") : "N/A")</li>
                         @if (Model.IsEscalated)
                         {

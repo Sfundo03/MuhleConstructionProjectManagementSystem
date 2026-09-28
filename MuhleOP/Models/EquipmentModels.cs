@@ -255,6 +255,7 @@ namespace MuhleOP.Models
         // UC17 Additive Fields & Navigations
         public decimal? ActualHours { get; set; }
         public DateTime? RevisedCompletionDate { get; set; }
+        public DateTime? TechnicianAssignedDate { get; set; }
 
         [StringLength(500)]
         public string PhotoEvidencePath { get; set; }

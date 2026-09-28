@@ -294,6 +294,7 @@ namespace MuhleOP.ViewModels
 
         public decimal? ActualHours { get; set; }
         public DateTime? RevisedCompletionDate { get; set; }
+        public DateTime? TechnicianAssignedDate { get; set; }
         public string PhotoEvidencePath { get; set; }
         public bool IsDelayFlagged { get; set; }
         public bool IsEscalated { get; set; }
@@ -407,6 +408,44 @@ namespace MuhleOP.ViewModels
         [StringLength(100)]
         public string TechnicianName { get; set; }
 
+        public bool EscalateToExternalWorkshop { get; set; }
+
+        [Display(Name = "Repair Category")]
+        public string RepairCategory { get; set; }
+        public List<SelectListItem> CategoryOptions { get; set; } = new List<SelectListItem>();
+
+        [Display(Name = "Priority")]
+        public string Priority { get; set; }
+        public List<SelectListItem> PriorityOptions { get; set; } = new List<SelectListItem>();
+
+        [Display(Name = "Diagnosis Notes")]
+        [DataType(DataType.MultilineText)]
+        public string DiagnosisNotes { get; set; }
+
+        [Display(Name = "Estimated Parts Cost (R)")]
+        public decimal? EstimatedPartsCost { get; set; }
+
+        [Display(Name = "Estimated Labour Cost (R)")]
+        public decimal? EstimatedLabourCost { get; set; }
+
+        public bool NoTechniciansAvailable { get; set; }
+
+        // Step 2 New Part Additions
+        [Display(Name = "New Part Name")]
+        [StringLength(100)]
+        public string NewPartName { get; set; }
+
+        [Display(Name = "New Part Code")]
+        [StringLength(50)]
+        public string NewPartCode { get; set; }
+
+        [Display(Name = "Unit")]
+        [StringLength(50)]
+        public string NewPartUnit { get; set; }
+
+        [Display(Name = "Quantity Needed")]
+        public int? NewPartQuantityNeeded { get; set; }
+
         [Display(Name = "Estimated Finish Date")]
         [DataType(DataType.Date)]
         public DateTime? RevisedCompletionDate { get; set; }
@@ -427,7 +466,7 @@ namespace MuhleOP.ViewModels
         public decimal TotalCost { get; set; }
 
         [Display(Name = "Repair Status / Current Step")]
-        public string Status { get; set; } // [Required] removed since it's auto-managed
+        public string Status { get; set; }
 
         [Display(Name = "Repair Notes / Progress Details")]
         [DataType(DataType.MultilineText)]

@@ -36,7 +36,7 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Part A — Inventory (Admin)[cite: 12]
+        // Part A — Inventory (Admin)
         // ------------------------------------------------------------------
 
         [Authorize(Roles = "Admin")]
@@ -465,7 +465,7 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Part B — Maintenance Due[cite: 12]
+        // Part B — Maintenance Due
         // ------------------------------------------------------------------
 
         [Authorize(Roles = "Admin, Site Manager")]
@@ -505,7 +505,7 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Part C — Availability Helpers[cite: 12]
+        // Part C — Availability Helpers
         // ------------------------------------------------------------------
 
         [Authorize(Roles = "Admin, Project Manager, Site Manager")]
@@ -555,7 +555,7 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Part D — Report Damage (Crew Member)[cite: 12]
+        // Part D — Report Damage (Crew Member)
         // ------------------------------------------------------------------
 
         [Authorize(Roles = "Crew Member")]
@@ -760,8 +760,15 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Part E — Repair Queue / Schedule[cite: 12]
+        // Part E — Repair Queue / Schedule & Compatibility Redirect
         // ------------------------------------------------------------------
+
+        [Authorize(Roles = "Admin, Site Manager")]
+        public ActionResult ScheduleRepair(int id)
+        {
+            // Compatibility redirect — the scheduling flow now lives inside UpdateRepairProgress Step 1.
+            return RedirectToAction("UpdateRepairProgress", new { id = id, step = 1 });
+        }
 
         [Authorize(Roles = "Admin, Site Manager")]
         public ActionResult RepairQueue(string status = null)
@@ -889,6 +896,7 @@ namespace MuhleOP.Controllers
                 CreatedDate = repair.CreatedDate,
                 ActualHours = repair.ActualHours,
                 RevisedCompletionDate = repair.RevisedCompletionDate,
+                TechnicianAssignedDate = repair.TechnicianAssignedDate,
                 PhotoEvidencePath = repair.PhotoEvidencePath,
                 IsDelayFlagged = repair.ProgressLogs != null && repair.ProgressLogs.Any(l => l.IsDelayFlagged),
                 IsEscalated = repair.IsEscalated,
@@ -973,11 +981,17 @@ namespace MuhleOP.Controllers
             int stepNum = 1;
             string stepTitle = "Step 1: Schedule Repair & Assign Technician";
 
-            bool step1Complete = repair.TechnicianId.HasValue;
-            bool step2Complete = (repair.ProgressLogs != null && repair.ProgressLogs.Any(l => l.PartsUsedSummary != null && l.PartsUsedSummary.Contains("Step 2")))
-                                 || (repair.PartUsages != null && repair.PartUsages.Any())
-                                 || repair.Status == "Awaiting Parts";
-            bool step3Complete = repair.Status == "Ready for Verification" || (repair.PartsCost > 0 || repair.LabourCost > 0);
+            bool step1Complete = !string.IsNullOrWhiteSpace(repair.TechnicianName)
+                || repair.TechnicianId.HasValue
+                || repair.TechnicianAssignedDate.HasValue;
+
+            bool step2Complete = repair.Status == "Awaiting Parts"
+                || (repair.PartUsages != null && repair.PartUsages.Any())
+                || (repair.ProgressLogs != null && repair.ProgressLogs.Any(l => l.PartsUsedSummary != null && l.PartsUsedSummary.Contains("Step 2")));
+
+            bool step3Complete = repair.Status == "Ready for Verification"
+                || repair.Status == "Verified"
+                || (repair.PartsCost > 0 || repair.LabourCost > 0);
 
             if (step1Complete)
             {
@@ -1011,11 +1025,15 @@ namespace MuhleOP.Controllers
             }
 
             var technicians = db.EquipmentTechnicians.Where(t => t.IsActive).ToList();
-            var techSelectList = technicians.Select(t => new SelectListItem
-            {
-                Value = t.Id.ToString(),
-                Text = t.FullName + (!string.IsNullOrEmpty(t.Specialization) ? " (" + t.Specialization + ")" : ""),
-                Selected = repair.TechnicianId == t.Id
+            var techSelectList = technicians.Select(t => {
+                int activeCount = db.EquipmentRepairs.Count(r => r.TechnicianId == t.Id && r.Status != "Verified" && r.Status != "Cancelled");
+                string suffix = activeCount >= 3 ? " — BUSY" : "";
+                return new SelectListItem
+                {
+                    Value = t.Id.ToString(),
+                    Text = $"{t.FullName} ({t.Specialization ?? t.Specialisation ?? "General"}) — {activeCount} active ticket(s){suffix}",
+                    Selected = repair.TechnicianId == t.Id
+                };
             }).ToList();
 
             var availablePartsList = db.EquipmentParts
@@ -1028,6 +1046,21 @@ namespace MuhleOP.Controllers
                 })
                 .ToList();
 
+            if (repair.Equipment?.PurchaseDate != null)
+            {
+                var months = (DateTime.Today.Year - repair.Equipment.PurchaseDate.Value.Year) * 12 + DateTime.Today.Month - repair.Equipment.PurchaseDate.Value.Month;
+                if (months <= 24)
+                {
+                    ViewBag.WarrantyActive = true;
+                    ViewBag.PurchaseDateFormatted = repair.Equipment.PurchaseDate.Value.ToString("dd MMM yyyy");
+                }
+            }
+
+            var categoryOptions = new[] { "Mechanical", "Electrical", "Structural", "Cosmetic", "Other" }
+                .Select(c => new SelectListItem { Value = c, Text = c, Selected = c == repair.RepairCategory }).ToList();
+            var priorityOptions = new[] { "Low", "Medium", "High", "Emergency" }
+                .Select(p => new SelectListItem { Value = p, Text = p, Selected = p == repair.Priority }).ToList();
+
             var viewModel = new UpdateRepairProgressViewModel
             {
                 RepairId = repair.Id,
@@ -1036,6 +1069,12 @@ namespace MuhleOP.Controllers
                 CurrentStepTitle = stepTitle,
                 TechnicianId = repair.TechnicianId,
                 TechnicianName = repair.TechnicianName,
+                RepairCategory = repair.RepairCategory,
+                Priority = repair.Priority,
+                DiagnosisNotes = repair.DiagnosisNotes,
+                EstimatedPartsCost = repair.EstimatedPartsCost,
+                EstimatedLabourCost = repair.EstimatedLabourCost,
+                NoTechniciansAvailable = !technicians.Any(),
                 PartsCost = repair.PartsCost,
                 LabourCost = repair.LabourCost,
                 TotalCost = repair.TotalCost,
@@ -1045,6 +1084,8 @@ namespace MuhleOP.Controllers
                 RevisedCompletionDate = repair.RevisedCompletionDate,
                 RowVersion = repair.RowVersion,
                 AvailableTechnicians = techSelectList,
+                CategoryOptions = categoryOptions,
+                PriorityOptions = priorityOptions,
                 AvailableParts = availablePartsList,
                 PartsUsed = (repair.PartUsages ?? Enumerable.Empty<RepairPartUsage>())
                     .Select(u => new UpdateRepairPartInputModel
@@ -1070,12 +1111,13 @@ namespace MuhleOP.Controllers
 
             FixDecimalBinding(viewModel, "PartsCost", v => viewModel.PartsCost = v);
             FixDecimalBinding(viewModel, "LabourCost", v => viewModel.LabourCost = v);
+            FixDecimalBinding(viewModel, "EstimatedPartsCost", v => viewModel.EstimatedPartsCost = v);
+            FixDecimalBinding(viewModel, "EstimatedLabourCost", v => viewModel.EstimatedLabourCost = v);
             ModelState.Remove("TotalCost");
             ModelState.Remove("Status"); // Status is auto-managed
 
             viewModel.TotalCost = viewModel.PartsCost + viewModel.LabourCost;
 
-            // DEBUG: Log ModelState errors to Visual Studio Output window
             if (!ModelState.IsValid)
             {
                 foreach (var key in ModelState.Keys)
@@ -1108,15 +1150,64 @@ namespace MuhleOP.Controllers
 
                     if (viewModel.CurrentStepNumber == 1)
                     {
-                        EquipmentTechnician selectedTech = null;
-                        if (viewModel.TechnicianId.HasValue)
+                        if (viewModel.EscalateToExternalWorkshop)
                         {
-                            selectedTech = db.EquipmentTechnicians.Find(viewModel.TechnicianId.Value);
-                            if (selectedTech != null)
+                            repair.TechnicianId = null;
+                            repair.TechnicianName = "External Workshop";
+                            autoStatus = "Awaiting Parts";
+                        }
+                        else
+                        {
+                            if (viewModel.TechnicianId.HasValue)
                             {
-                                repair.TechnicianId = selectedTech.Id;
-                                repair.TechnicianName = selectedTech.FullName;
+                                var selectedTech = db.EquipmentTechnicians.Find(viewModel.TechnicianId.Value);
+                                if (selectedTech != null)
+                                {
+                                    repair.TechnicianId = selectedTech.Id;
+                                    repair.TechnicianName = selectedTech.FullName;
+
+                                    int activeTickets = db.EquipmentRepairs.Count(r => r.TechnicianId == selectedTech.Id && r.Status != "Verified" && r.Status != "Cancelled" && r.Id != repair.Id);
+                                    if (activeTickets >= 3)
+                                    {
+                                        repair.RepairNotes = Def(repair.RepairNotes) + $" [Warning: Assigned technician {selectedTech.FullName} has {activeTickets} active tickets]";
+                                    }
+
+                                    if (!string.IsNullOrWhiteSpace(selectedTech.Email))
+                                    {
+                                        SendTechnicianAssignedEmail(repair, selectedTech, repair.Equipment?.AssignedProject);
+                                    }
+                                }
                             }
+                            autoStatus = "In Repair";
+                        }
+
+                        if (!repair.TechnicianAssignedDate.HasValue)
+                        {
+                            repair.TechnicianAssignedDate = DateTime.Now;
+                        }
+
+                        repair.RepairCategory = Def(viewModel.RepairCategory);
+                        repair.Priority = Def(viewModel.Priority);
+                        repair.DiagnosisNotes = Def(viewModel.DiagnosisNotes);
+                        repair.EstimatedPartsCost = viewModel.EstimatedPartsCost ?? 0m;
+                        repair.EstimatedLabourCost = viewModel.EstimatedLabourCost ?? 0m;
+                        repair.EstimatedTotalCost = (viewModel.EstimatedPartsCost ?? 0m) + (viewModel.EstimatedLabourCost ?? 0m);
+
+                        decimal threshold = 25000m;
+                        if (decimal.TryParse(System.Configuration.ConfigurationManager.AppSettings["RepairCostApprovalThreshold"], out var cfgThreshold))
+                        {
+                            threshold = cfgThreshold;
+                        }
+
+                        if (repair.EstimatedTotalCost > threshold)
+                        {
+                            repair.RequiresApproval = true;
+                            await NotifyAdmins("Repair Cost Approval Required", $"Repair RT-{repair.Id} estimated total cost (R{repair.EstimatedTotalCost:N2}) exceeds threshold (R{threshold:N2}).", $"/Equipment/RepairDetails/{repair.Id}");
+                        }
+
+                        if (repair.Equipment != null && repair.Equipment.Status != "Quarantined")
+                        {
+                            repair.Equipment.Status = "In Repair";
                         }
 
                         if (viewModel.RevisedCompletionDate.HasValue)
@@ -1145,13 +1236,42 @@ namespace MuhleOP.Controllers
                             }
                         }
 
-                        autoStatus = "In Repair";
                         progressNotesPrefix = "Completed Step 1: Schedule Repair & Assign Technician.";
                     }
                     else if (viewModel.CurrentStepNumber == 2)
                     {
                         bool partsUnavailable = false;
                         string partsSummary = string.Empty;
+
+                        if (!string.IsNullOrWhiteSpace(viewModel.NewPartName))
+                        {
+                            var newPart = new EquipmentPart
+                            {
+                                PartName = Def(viewModel.NewPartName),
+                                PartCode = string.IsNullOrWhiteSpace(viewModel.NewPartCode) ? GeneratePartCode() : Def(viewModel.NewPartCode),
+                                Unit = Def(viewModel.NewPartUnit),
+                                QuantityOnHand = 0,
+                                MinimumStockLevel = 0,
+                                UnitCost = 0m,
+                                IsActive = true
+                            };
+                            db.EquipmentParts.Add(newPart);
+                            await db.SaveChangesAsync();
+
+                            var usage = new RepairPartUsage
+                            {
+                                EquipmentRepairId = repair.Id,
+                                EquipmentPartId = newPart.Id,
+                                QuantityUsed = viewModel.NewPartQuantityNeeded ?? 0,
+                                UnitCostAtUse = 0m,
+                                UsedDate = DateTime.Now,
+                                RecordedBy = User.Identity.Name
+                            };
+                            db.RepairPartUsages.Add(usage);
+
+                            partsUnavailable = true;
+                            partsSummary += $"{newPart.PartName} (x{viewModel.NewPartQuantityNeeded ?? 0}) [NEW — to be ordered]; ";
+                        }
 
                         if (!viewModel.NoPartsNeeded && viewModel.PartsUsed != null && viewModel.PartsUsed.Any())
                         {
@@ -1189,7 +1309,19 @@ namespace MuhleOP.Controllers
                         {
                             autoStatus = "Awaiting Parts";
                             repair.RequiresProcurement = true;
+                        }
+                        else
+                        {
+                            autoStatus = "In Repair";
+                        }
 
+                        if (repair.RequiresProcurement && string.IsNullOrWhiteSpace(repair.ProcurementRequestReference))
+                        {
+                            repair.ProcurementRequestReference = $"PR-{repair.Id:D5}-{DateTime.Now:yyyyMMdd}";
+                        }
+
+                        if (repair.RequiresProcurement)
+                        {
                             var assignment = db.EquipmentAssignments
                                 .Include(a => a.Project)
                                 .Include(a => a.Project.ProjectManager)
@@ -1207,10 +1339,6 @@ namespace MuhleOP.Controllers
                                     $"/Equipment/RepairDetails/{repair.Id}"
                                 );
                             }
-                        }
-                        else
-                        {
-                            autoStatus = "In Repair";
                         }
 
                         progressNotesPrefix = "Completed Step 2: Parts Management & Inventory Selection.";
@@ -1243,15 +1371,6 @@ namespace MuhleOP.Controllers
 
                     await db.SaveChangesAsync();
 
-                    if (viewModel.CurrentStepNumber == 1 && repair.TechnicianId.HasValue)
-                    {
-                        var selectedTech = db.EquipmentTechnicians.Find(repair.TechnicianId.Value);
-                        if (selectedTech != null && !string.IsNullOrWhiteSpace(selectedTech.Email))
-                        {
-                            SendTechnicianAssignedEmail(repair, selectedTech, repair.Equipment?.AssignedProject);
-                        }
-                    }
-
                     TempData["SuccessMessage"] = "Repair progress updated successfully.";
                     return RedirectToAction("RepairDetails", new { id = repair.Id });
                 }
@@ -1278,7 +1397,7 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Part G — Check-Out[cite: 12]
+        // Part G — Check-Out
         // ------------------------------------------------------------------
 
         [Authorize(Roles = "Admin, Site Manager")]
@@ -1448,6 +1567,14 @@ namespace MuhleOP.Controllers
                     repair.Status = "Verified";
                     repair.VerifiedBy = Def(User.Identity.Name);
                     repair.VerificationDate = DateTime.Now;
+
+                    // Intentional override of any manual value to capture true end-to-end duration
+                    if (repair.TechnicianAssignedDate.HasValue)
+                    {
+                        var span = repair.VerificationDate.Value - repair.TechnicianAssignedDate.Value;
+                        repair.ActualHours = Math.Round((decimal)span.TotalHours, 2);
+                    }
+
                     repair.RepairNotes = Def(repair.RepairNotes) +
                         $" [{DateTime.Now:yyyy-MM-dd HH:mm} by {User.Identity.Name}] Final check-out. Condition: {Def(viewModel.FinalCondition)}. {Def(viewModel.FinalVerificationNotes)}";
 
@@ -1475,6 +1602,47 @@ namespace MuhleOP.Controllers
                     }
 
                     await db.SaveChangesAsync();
+
+                    try
+                    {
+                        var assignment = db.EquipmentAssignments
+                            .Include(a => a.Project)
+                            .Include(a => a.Project.ProjectManager)
+                            .Include(a => a.Project.SiteManager)
+                            .Where(a => a.EquipmentId == repair.EquipmentId)
+                            .OrderByDescending(a => a.AssignedDate)
+                            .FirstOrDefault();
+
+                        if (assignment?.Project != null)
+                        {
+                            if (assignment.Project.ProjectManager?.UserId != null)
+                            {
+                                await CreateNotification(
+                                    assignment.Project.ProjectManager.UserId,
+                                    "Equipment Back in Service",
+                                    $"Equipment '{repair.Equipment?.EquipmentName}' ({repair.Equipment?.EquipmentCode}) has been verified and returned to service.",
+                                    "Maintenance",
+                                    $"/Equipment/Details/{repair.EquipmentId}"
+                                );
+                            }
+                            if (assignment.Project.SiteManager?.UserId != null)
+                            {
+                                await CreateNotification(
+                                    assignment.Project.SiteManager.UserId,
+                                    "Equipment Back in Service",
+                                    $"Equipment '{repair.Equipment?.EquipmentName}' ({repair.Equipment?.EquipmentCode}) has been verified and returned to service.",
+                                    "Maintenance",
+                                    $"/Equipment/Details/{repair.EquipmentId}"
+                                );
+                            }
+                        }
+
+                        await NotifyAdmins("Equipment Checked Out", $"Equipment '{repair.Equipment?.EquipmentName}' ({repair.Equipment?.EquipmentCode}) has completed repair RT-{repair.Id} and is back in service.", $"/Equipment/Details/{repair.EquipmentId}");
+                    }
+                    catch (Exception notifEx)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Checkout notifications failed: {notifEx.Message}");
+                    }
 
                     TempData["SuccessMessage"] = "Equipment checked out and returned to service.";
                     return RedirectToAction("RepairDetails", new { id = repair.Id });
@@ -1529,6 +1697,24 @@ namespace MuhleOP.Controllers
             }
 
             return $"SN-{catShort}-{dateStr}-{Guid.NewGuid().ToString("N").Substring(0, 4).ToUpperInvariant()}";
+        }
+
+        private string GeneratePartCode()
+        {
+            string dateStr = DateTime.Now.ToString("yyyyMMdd");
+            const int maxAttempts = 20;
+            var rnd = new Random();
+            for (int attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                int rNum = rnd.Next(1000, 10000);
+                string candidate = $"PART-{dateStr}-{rNum}";
+                if (!db.EquipmentParts.Any(p => p.PartCode == candidate))
+                {
+                    return candidate;
+                }
+                System.Threading.Thread.Sleep(5);
+            }
+            return $"PART-{dateStr}-{Guid.NewGuid().ToString("N").Substring(0, 4).ToUpperInvariant()}";
         }
 
         private SmtpClient BuildSmtpClient(out string fromEmail, out string fromName)
@@ -1633,6 +1819,19 @@ namespace MuhleOP.Controllers
                     Text = p.PartName + (!string.IsNullOrEmpty(p.PartCode) ? " (" + p.PartCode + ")" : "") + " [Stock: " + p.QuantityOnHand + "]"
                 })
                 .ToList();
+
+            var technicians = db.EquipmentTechnicians.Where(t => t.IsActive).ToList();
+            viewModel.AvailableTechnicians = technicians.Select(t => new SelectListItem
+            {
+                Value = t.Id.ToString(),
+                Text = $"{t.FullName} ({t.Specialization ?? t.Specialisation ?? "General"})",
+                Selected = viewModel.TechnicianId == t.Id
+            }).ToList();
+
+            viewModel.CategoryOptions = new[] { "Mechanical", "Electrical", "Structural", "Cosmetic", "Other" }
+                .Select(c => new SelectListItem { Value = c, Text = c, Selected = c == viewModel.RepairCategory }).ToList();
+            viewModel.PriorityOptions = new[] { "Low", "Medium", "High", "Emergency" }
+                .Select(p => new SelectListItem { Value = p, Text = p, Selected = p == viewModel.Priority }).ToList();
         }
 
         private void FixDecimalBinding(object viewModel, string propertyName, Action<decimal> setter)
