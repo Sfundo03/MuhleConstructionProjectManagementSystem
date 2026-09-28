@@ -75,7 +75,7 @@
                         @if (Model.TechnicianAssignedDate.HasValue && Model.VerificationDate.HasValue)
                         {
                             <li class="text-muted small">
-                                Actual duration: @Model.ActualHours?.ToString("N2") h
+                                Actual duration: @(Model.ActualHours.HasValue ? Model.ActualHours.Value.ToString("N2") : "N/A") h
                                 (from technician assigned on
                                 @Model.TechnicianAssignedDate.Value.ToString("dd MMM yyyy HH:mm")
                                 to verification on
