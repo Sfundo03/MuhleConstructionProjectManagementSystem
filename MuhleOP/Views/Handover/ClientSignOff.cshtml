@@ -150,6 +150,24 @@
                     @Html.HiddenFor(m => m.HandoverId)
                     @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
 
+                    if (Model.HasOpenCriticalSnags)
+                    {
+                        <div class="alert alert-danger mb-3" role="alert">
+                            <strong>Sign-off Blocked:</strong> There are unresolved critical snag(s) remaining:
+                            <ul class="mb-0 mt-2 ps-3">
+                                @{
+                                    foreach (var snag in Model.Snags.Where(s => s.Severity == "Critical" && s.Status != "Verified" && s.Status != "Rejected"))
+                                    {
+                                        <li class="small">
+                                            <code>@snag.ReferenceNumber</code> — @snag.Description
+                                            (<strong>Responsible:</strong> @snag.ResponsibleParty | <strong>Status:</strong> @snag.Status)
+                                        </li>
+                                    }
+                                }
+                            </ul>
+                        </div>
+                    }
+
                     <div class="mb-3 form-check">
                         @Html.CheckBoxFor(m => m.AcceptTerms, new { @class = "form-check-input", id = "AcceptTerms", @disabled = Model.HasOpenCriticalSnags ? "disabled" : null })
                         <label class="form-check-label" for="AcceptTerms">

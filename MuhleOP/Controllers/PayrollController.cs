@@ -130,9 +130,11 @@ namespace MuhleOP.Controllers
             if (month.HasValue)
                 query = query.Where(p => p.PayPeriodStart.Month == month.Value);
 
+            // Fetch list into memory first so computed properties like FullName can be evaluated in LINQ to Objects
             var records = query
                 .OrderByDescending(p => p.PayPeriodStart)
                 .ThenBy(p => p.Staff.LastName)
+                .ToList()
                 .Select(p => new
                 {
                     EmployeeId = p.Staff != null ? p.Staff.EmployeeId : "",

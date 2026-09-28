@@ -896,7 +896,9 @@ namespace MuhleOP.Controllers
                     ResolutionNotes = s.ResolutionNotes
                 }).ToList();
 
-            bool hasOpenCritical = snagsList.Any(s => s.Severity == "Critical" && s.Status != "Verified");
+            // AUDIT: Exclude "Rejected" critical snags from blocking sign-off. 
+            // Reason: "Rejected" indicates a reviewed and dismissed/invalidated snag rather than an active unresolved defect.
+            bool hasOpenCritical = snagsList.Any(s => s.Severity == "Critical" && s.Status != "Verified" && s.Status != "Rejected");
 
             var model = new ClientSignOffViewModel
             {
@@ -943,7 +945,8 @@ namespace MuhleOP.Controllers
                 .Include(h => h.SnagItems)
                 .FirstOrDefault(h => h.Id == model.HandoverId);
 
-            if (handoverCheck != null && handoverCheck.SnagItems.Any(s => s.Severity == "Critical" && s.Status != "Verified"))
+            // AUDIT: Exclude "Rejected" critical snags to maintain complete consistency with the GET action check.
+            if (handoverCheck != null && handoverCheck.SnagItems.Any(s => s.Severity == "Critical" && s.Status != "Verified" && s.Status != "Rejected"))
             {
                 ModelState.AddModelError("", "Cannot sign off while there are unresolved critical snags.");
             }
