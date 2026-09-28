@@ -103,6 +103,9 @@ namespace MuhleOP.ViewModels
         [DataType(DataType.MultilineText)]
         public string Notes { get; set; }
 
+        public List<string> EquipmentNameSuggestions { get; set; } = new List<string>();
+        public List<string> CategorySuggestions { get; set; } = new List<string>();
+
         public List<SelectListItem> Categories { get; set; } = new List<SelectListItem>();
         public List<SelectListItem> Conditions { get; set; } = new List<SelectListItem>();
         public List<SelectListItem> Statuses { get; set; } = new List<SelectListItem>();
@@ -254,13 +257,13 @@ namespace MuhleOP.ViewModels
         public bool IsEscalated { get; set; }
         public bool IsDelayFlagged { get; set; }
 
-        // Enhanced Fields
         public string Severity { get; set; }
         public string SeverityBadgeColor { get; set; }
         public string Priority { get; set; }
         public string PriorityBadgeColor { get; set; }
         public bool RequiresApproval { get; set; }
         public bool IsQuarantined { get; set; }
+        public bool RequiresProcurement { get; set; }
     }
 
     public class EquipmentRepairDetailsViewModel
@@ -289,16 +292,15 @@ namespace MuhleOP.ViewModels
         public string ReportedBy { get; set; }
         public DateTime CreatedDate { get; set; }
 
-        // UC17 Postcondition Surfacing
         public decimal? ActualHours { get; set; }
         public DateTime? RevisedCompletionDate { get; set; }
+        public DateTime? TechnicianAssignedDate { get; set; }
         public string PhotoEvidencePath { get; set; }
         public bool IsDelayFlagged { get; set; }
         public bool IsEscalated { get; set; }
         public string ProcurementRequestReference { get; set; }
         public string CancellationReason { get; set; }
 
-        // Enhanced Lifecycle Fields
         public string Severity { get; set; }
         public string SeverityBadgeColor { get; set; }
         public string Priority { get; set; }
@@ -315,6 +317,8 @@ namespace MuhleOP.ViewModels
         public int? TechnicianId { get; set; }
         public CheckoutChecklistViewModel CheckoutChecklist { get; set; }
         public bool IsQuarantined { get; set; }
+        public bool RequiresProcurement { get; set; }
+        public string PartsNotes { get; set; }
 
         public List<RepairProgressLogItemViewModel> ProgressLogs { get; set; } = new List<RepairProgressLogItemViewModel>();
         public List<RepairPartUsageItemViewModel> PartUsages { get; set; } = new List<RepairPartUsageItemViewModel>();
@@ -349,8 +353,15 @@ namespace MuhleOP.ViewModels
 
     public class UpdateRepairPartInputModel
     {
-        public int EquipmentPartId { get; set; }
+        public int? EquipmentPartId { get; set; }
         public int QuantityUsed { get; set; }
+    }
+
+    public class RepairPartInputModel
+    {
+        public int? EquipmentPartId { get; set; }
+        public int QuantityUsed { get; set; }
+        public bool IsPendingOrder { get; set; }
     }
 
     public class ReportDamageViewModel
@@ -375,63 +386,10 @@ namespace MuhleOP.ViewModels
         [Display(Name = "Photos (optional)")]
         public IEnumerable<HttpPostedFileBase> Photos { get; set; }
 
+        public string ProjectFilterLabel { get; set; }
+
         public List<SelectListItem> AvailableEquipment { get; set; } = new List<SelectListItem>();
         public List<SelectListItem> SeverityOptions { get; set; } = new List<SelectListItem>();
-    }
-
-    public class ScheduleRepairViewModel
-    {
-        public int RepairId { get; set; }
-        public string EquipmentName { get; set; }
-        public string CurrentStatus { get; set; }
-
-        [Required(ErrorMessage = "Technician name is required")]
-        [Display(Name = "Technician Name")]
-        [StringLength(100)]
-        public string TechnicianName { get; set; }
-
-        [Display(Name = "Technician")]
-        public int? TechnicianId { get; set; }
-
-        [Required(ErrorMessage = "Repair category is required")]
-        [Display(Name = "Repair Category")]
-        public string RepairCategory { get; set; }
-
-        [Display(Name = "Diagnosis Notes")]
-        [DataType(DataType.MultilineText)]
-        public string DiagnosisNotes { get; set; }
-
-        [Required(ErrorMessage = "Priority is required")]
-        [Display(Name = "Priority")]
-        public string Priority { get; set; }
-
-        [Display(Name = "Estimated Parts Cost")]
-        public decimal? EstimatedPartsCost { get; set; }
-
-        [Display(Name = "Estimated Labour Cost")]
-        public decimal? EstimatedLabourCost { get; set; }
-
-        [Required(ErrorMessage = "Workshop start date is required")]
-        [Display(Name = "Workshop Slot Start")]
-        [DataType(DataType.Date)]
-        public DateTime WorkshopSlotStart { get; set; }
-
-        [Required(ErrorMessage = "Workshop end date is required")]
-        [Display(Name = "Workshop Slot End")]
-        [DataType(DataType.Date)]
-        public DateTime WorkshopSlotEnd { get; set; }
-
-        [Display(Name = "Required Parts")]
-        [DataType(DataType.MultilineText)]
-        public string RequiredParts { get; set; }
-
-        [Display(Name = "Check-In Notes")]
-        [DataType(DataType.MultilineText)]
-        public string CheckInNotes { get; set; }
-
-        public List<SelectListItem> AvailableTechnicians { get; set; } = new List<SelectListItem>();
-        public List<SelectListItem> PriorityOptions { get; set; } = new List<SelectListItem>();
-        public List<SelectListItem> CategoryOptions { get; set; } = new List<SelectListItem>();
     }
 
     public class UpdateRepairProgressViewModel
@@ -439,40 +397,80 @@ namespace MuhleOP.ViewModels
         public int RepairId { get; set; }
         public string EquipmentName { get; set; }
 
+        public int CurrentStepNumber { get; set; }
+        public string CurrentStepTitle { get; set; }
+
+        [Display(Name = "Technician")]
+        public int? TechnicianId { get; set; }
+        public List<SelectListItem> AvailableTechnicians { get; set; } = new List<SelectListItem>();
+
         [Display(Name = "Technician Name")]
         [StringLength(100)]
         public string TechnicianName { get; set; }
 
-        [Display(Name = "Parts Replaced")]
+        public bool EscalateToExternalWorkshop { get; set; }
+
+        [Display(Name = "Repair Category")]
+        public string RepairCategory { get; set; }
+        public List<SelectListItem> CategoryOptions { get; set; } = new List<SelectListItem>();
+
+        [Display(Name = "Priority")]
+        public string Priority { get; set; }
+        public List<SelectListItem> PriorityOptions { get; set; } = new List<SelectListItem>();
+
+        [Display(Name = "Diagnosis Notes")]
         [DataType(DataType.MultilineText)]
-        public string PartsReplaced { get; set; }
+        public string DiagnosisNotes { get; set; }
 
-        [Display(Name = "Parts Cost")]
-        public decimal PartsCost { get; set; }
+        [Display(Name = "Estimated Parts Cost (R)")]
+        public decimal? EstimatedPartsCost { get; set; }
 
-        [Display(Name = "Labour Cost")]
-        public decimal LabourCost { get; set; }
+        [Display(Name = "Estimated Labour Cost (R)")]
+        public decimal? EstimatedLabourCost { get; set; }
 
-        [Display(Name = "Total Cost")]
-        public decimal TotalCost { get; set; }
+        public bool NoTechniciansAvailable { get; set; }
 
-        [Display(Name = "Repair Notes")]
-        [DataType(DataType.MultilineText)]
-        public string RepairNotes { get; set; }
+        // Step 2 New Part Additions
+        [Display(Name = "New Part Name")]
+        [StringLength(100)]
+        public string NewPartName { get; set; }
 
-        [Required(ErrorMessage = "Status is required")]
-        [Display(Name = "Status")]
-        public string Status { get; set; }
+        [Display(Name = "New Part Code")]
+        [StringLength(50)]
+        public string NewPartCode { get; set; }
 
-        [Display(Name = "Actual Hours")]
-        public decimal? ActualHours { get; set; }
+        [Display(Name = "Unit")]
+        [StringLength(50)]
+        public string NewPartUnit { get; set; }
 
-        [Display(Name = "Revised Completion Date")]
+        [Display(Name = "Quantity Needed")]
+        public int? NewPartQuantityNeeded { get; set; }
+
+        [Display(Name = "Estimated Finish Date")]
         [DataType(DataType.Date)]
         public DateTime? RevisedCompletionDate { get; set; }
 
-        [Display(Name = "Photo Evidence")]
+        [Display(Name = "Photo Evidence (optional)")]
         public HttpPostedFileBase PhotoEvidence { get; set; }
+
+        [Display(Name = "No Parts Needed (Skip Parts Step)")]
+        public bool NoPartsNeeded { get; set; }
+
+        [Display(Name = "Parts Cost (R)")]
+        public decimal PartsCost { get; set; }
+
+        [Display(Name = "Labour Cost (R)")]
+        public decimal LabourCost { get; set; }
+
+        [Display(Name = "Total Cost (R)")]
+        public decimal TotalCost { get; set; }
+
+        [Display(Name = "Repair Status / Current Step")]
+        public string Status { get; set; }
+
+        [Display(Name = "Repair Notes / Progress Details")]
+        [DataType(DataType.MultilineText)]
+        public string RepairNotes { get; set; }
 
         [Display(Name = "Cancellation Reason")]
         [DataType(DataType.MultilineText)]
@@ -484,7 +482,6 @@ namespace MuhleOP.ViewModels
         public byte[] RowVersion { get; set; }
 
         public List<UpdateRepairPartInputModel> PartsUsed { get; set; } = new List<UpdateRepairPartInputModel>();
-
         public List<SelectListItem> StatusOptions { get; set; } = new List<SelectListItem>();
         public List<SelectListItem> AvailableParts { get; set; } = new List<SelectListItem>();
     }

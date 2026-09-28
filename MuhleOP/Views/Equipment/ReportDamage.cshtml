@@ -7,11 +7,13 @@
 <div class="container py-4" style="max-width: 640px;">
     <h2 class="mb-4"><i class="fa-solid fa-triangle-exclamation me-2 text-danger"></i>Report Damaged Equipment</h2>
 
+    <p class="text-muted small mb-3">Showing only equipment assigned to: <strong>@(string.IsNullOrEmpty(Model.ProjectFilterLabel) ? "no active projects" : Model.ProjectFilterLabel)</strong></p>
+
     @if (Model.AvailableEquipment == null || !Model.AvailableEquipment.Any())
     {
         <div class="alert alert-warning">
             <strong>No equipment available to report.</strong><br />
-            You can only report damage on equipment that is Available or assigned to one of your active projects.
+            You can only report damage on equipment currently assigned to one of your active projects.
         </div>
         <a href="@Url.Action("Dashboard", "Home")" class="btn btn-outline-secondary">Back to Dashboard</a>
     }

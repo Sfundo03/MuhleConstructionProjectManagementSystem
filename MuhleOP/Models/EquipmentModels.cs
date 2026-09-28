@@ -255,6 +255,7 @@ namespace MuhleOP.Models
         // UC17 Additive Fields & Navigations
         public decimal? ActualHours { get; set; }
         public DateTime? RevisedCompletionDate { get; set; }
+        public DateTime? TechnicianAssignedDate { get; set; }
 
         [StringLength(500)]
         public string PhotoEvidencePath { get; set; }
@@ -302,6 +303,11 @@ namespace MuhleOP.Models
         [StringLength(20)]
         public string Priority { get; set; } // Low, Medium, High, Emergency
 
+        // Task Scope Additions
+        [StringLength(2000)]
+        public string PartsNotes { get; set; }
+        public bool RequiresProcurement { get; set; }
+
         public virtual EquipmentCheckoutChecklist CheckoutChecklist { get; set; }
 
         public virtual ICollection<RepairProgressLog> ProgressLogs { get; set; }
@@ -312,6 +318,7 @@ namespace MuhleOP.Models
             RepairDate = DateTime.Now;
             Status = "Reported";
             CreatedDate = DateTime.Now;
+            RequiresProcurement = false;
             ProgressLogs = new List<RepairProgressLog>();
             PartUsages = new List<RepairPartUsage>();
         }
@@ -333,6 +340,8 @@ namespace MuhleOP.Models
         public int? LinkedStaffId { get; set; }
         [ForeignKey("LinkedStaffId")]
         public virtual Staff LinkedStaff { get; set; }
+        public string Specialization { get; internal set; }
+        public string Phone { get; internal set; }
     }
 
     public class EquipmentCheckoutChecklist

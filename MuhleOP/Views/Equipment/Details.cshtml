@@ -151,7 +151,7 @@
                                         <td>@(r.ReportedBy ?? "—")</td>
                                         <td><span class="badge bg-@r.StatusBadgeColor">@r.Status</span></td>
                                         <td>@(r.TechnicianName ?? "—")</td>
-                                        <td>R@r.TotalCost.ToString("N2")</td>
+                                        <td>R@(r.TotalCost.ToString("N2"))</td>
                                         <td>
                                             @if (User.IsInRole("Admin") || User.IsInRole("Site Manager"))
                                             {

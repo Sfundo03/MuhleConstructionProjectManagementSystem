@@ -1,0 +1,55 @@
+﻿
+@model IEnumerable<MuhleOP.Models.EquipmentTechnician>
+@{
+    ViewBag.Title = "Manage Technicians";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Manage Technicians</h2>
+        <a href="@Url.Action("Create", "Technicians")" class="btn btn-primary"><i class="fas fa-user-plus me-1"></i> Add Technician</a>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">@TempData["SuccessMessage"]<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+    }
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Full Name</th>
+                            <th>Email (for Notifications)</th>
+                            <th>Phone</th>
+                            <th>Specialization</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in Model)
+                        {
+                            <tr>
+                                <td class="fw-semibold"><i class="fas fa-user-gear text-secondary me-2"></i>@t.FullName</td>
+                                <td><a href="mailto:@t.Email">@t.Email</a></td>
+                                <td>@(t.Phone ?? "—")</td>
+                                <td>@(t.Specialization ?? "General")</td>
+                                <td class="text-end">
+                                    <a href="@Url.Action("Edit", "Technicians", new { id = t.Id })" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i> Edit</a>
+                                    @using (Html.BeginForm("Delete", "Technicians", new { id = t.Id }, FormMethod.Post, new { style = "display:inline;" }))
+                                    {
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to remove this technician?');"><i class="fas fa-trash"></i></button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
