@@ -1,20 +1,20 @@
-﻿namespace MuhleOP.Controllers
-{
-    using System;
-    using System.Collections.Generic;
-    using System.Data.Entity;
-    using System.IO;
-    using System.Linq;
-    using System.Threading.Tasks;
-    using System.Web;
-    using System.Web.Mvc;
-    using System.Configuration;
-    using Microsoft.AspNet.Identity;
-    using Microsoft.AspNet.Identity.Owin;
-    using MuhleOP.Models;
-    using MuhleOP.ViewModels;
-    using MuhleOP.Helpers;
+﻿using System;
+using System.Collections.Generic;
+using System.Data.Entity;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Web;
+using System.Web.Mvc;
+using System.Configuration;
+using Microsoft.AspNet.Identity;
+using Microsoft.AspNet.Identity.Owin;
+using MuhleOP.Models;
+using MuhleOP.ViewModels;
+using MuhleOP.Helpers;
 
+namespace MuhleOP.Controllers
+{
     [Authorize]
     public class QualityController : Controller
     {
@@ -177,7 +177,6 @@
                         CreatedDate = DateTime.Now
                     };
 
-                    // Initial Pass/Fail evaluation based on score or ActionRequired
                     if (model.Score.HasValue)
                         inspection.IsPassed = model.Score.Value >= 80;
                     else
@@ -253,7 +252,6 @@
                         }
                     }
 
-                    // FIX 4: Automatically downgrade IsPassed to false if ANY non-conformance was logged, and set ActionRequired/IsPassed if Critical
                     if (hasNonConformance || hasCritical)
                     {
                         inspection.IsPassed = false;
@@ -343,6 +341,17 @@
                                 $"Critical safety issue recorded on '{project.ProjectName}' in inspection #{inspection.Id}.",
                                 "Project", $"/Quality/InspectionDetails/{inspection.Id}");
                         }
+                    }
+
+                    if (hasNonConformance && !hasCritical && pm != null && !string.IsNullOrEmpty(pm.UserId))
+                    {
+                        await CreateNotification(
+                            pm.UserId,
+                            "Non-Conformance Logged",
+                            $"Inspection #{inspection.Id} on '{project.ProjectName}' has an open non-conformance. Review and assign responsibility.",
+                            "Project",
+                            $"/Quality/InspectionDetails/{inspection.Id}"
+                        );
                     }
 
                     TempData["SuccessMessage"] = hasCritical ? "Inspection recorded. CRITICAL SAFETY ISSUE detected and stakeholders notified!" : "Inspection recorded successfully.";

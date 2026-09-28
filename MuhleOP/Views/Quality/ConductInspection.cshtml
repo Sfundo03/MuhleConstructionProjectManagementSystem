@@ -187,8 +187,6 @@
             return $('<div>').text(text).html();
         }
 
-        // BEFORE: Hardcoded single NC row with static index [0] and limited toggle behavior.
-        // AFTER: Dynamic generation and removal of NC rows per failed/partial item, supporting manual additions and sequential reindexing.
         function bindResultListeners() {
             $('.result-radio').on('change', function () {
                 var row = $(this).closest('tr');
@@ -196,10 +194,8 @@
                 var itemLabel = row.data('item-label');
                 var val = $(this).val();
 
-                // Remove previous auto-generated NC row for this item if present
                 $('#ncRowsContainer .nc-row[data-source-item-id="' + itemId + '"]').remove();
 
-                // If Fail or Partial, auto-generate an associated NC row pre-filled with item label
                 if (val === 'Fail' || val === 'Partial') {
                     addNcRow({
                         description: itemLabel,
@@ -222,7 +218,8 @@
                 '<input type="hidden" class="nc-is-auto" value="' + (data.isAuto ? 'true' : 'false') + '" />' +
                 '<div class="col-md-5">' +
                 '<label class="form-label">Description</label>' +
-                '<input type="text" name="Description" class="form-control nc-desc" value="' + escapeHtml(data.description) + '" placeholder="Describe the non-conformance" ' + (data.isAuto ? 'readonly' : '') + ' />' +
+                '<input type="text" name="Description" class="form-control nc-desc" value="' + escapeHtml(data.description) + '" placeholder="Describe the non-conformance" />' +
+                (data.isAuto ? '<small class="text-muted">Auto-filled from failed checklist item — you may edit this.</small>' : '') +
                 '</div>' +
                 '<div class="col-md-3">' +
                 '<label class="form-label">Severity</label>' +
@@ -250,7 +247,6 @@
             reindexNonConformances();
         }
 
-        // Renumbers all NC rows sequentially (NonConformancesInput[0], NonConformancesInput[1], ...) to ensure zero gaps for MVC model binding
         function reindexNonConformances() {
             $('#ncRowsContainer .nc-row').each(function (index, element) {
                 $(element).find('.nc-desc').attr('name', 'NonConformancesInput[' + index + '].Description');
@@ -278,6 +274,7 @@
             $('#InspectionTypeDropdown').on('change', function () {
                 renderChecklist($(this).val());
                 $('#ncRowsContainer').empty();
+                updateNonConformanceCardVisibility();
             });
 
             $('#addManualNcBtn').on('click', function () {
@@ -345,11 +342,17 @@
                     $('#SignatureData').val('');
                 });
 
-                // FIX 3: Pre-submit validation for unmarked checklist items, running BEFORE signature conversion
                 $('#inspectionForm').on('submit', function (e) {
-                    // Reset previous validation highlights and summary alerts
                     $('#checklistContainer tr').removeClass('table-danger border border-danger');
                     $('#checklistValidationAlert').addClass('d-none').text('');
+
+                    var rowCount = $('#checklistContainer tbody tr').length;
+                    if (rowCount === 0) {
+                        if (!confirm('No checklist items are loaded. Are you sure you want to submit an inspection with no checklist?')) {
+                            e.preventDefault();
+                            return false;
+                        }
+                    }
 
                     var unmarkedRows = [];
                     $('#checklistContainer tbody tr').each(function () {
@@ -360,18 +363,15 @@
                     });
 
                     if (unmarkedRows.length > 0) {
-                        // Highlight offending rows in red
                         unmarkedRows.forEach(function ($tr) {
                             $tr.addClass('table-danger border border-danger');
                         });
 
-                        // Show summary alert at top of checklist container
                         $('#checklistValidationAlert').removeClass('d-none').html('<strong>Validation Warning:</strong> ' + unmarkedRows.length + ' checklist item(s) have no result selected. Offending rows are highlighted in red below.');
 
-                        // Escape hatch confirmation prompt
                         var confirmSubmit = confirm('You have ' + unmarkedRows.length + ' unmarked checklist item(s). Do you want to submit anyway? (Click OK to submit with unmarked items, or Cancel to review).');
                         if (!confirmSubmit) {
-                            e.preventDefault(); // Block submission
+                            e.preventDefault();
                             $('html, body').animate({
                                 scrollTop: $('#checklistContainer').offset().top - 100
                             }, 300);
@@ -379,7 +379,6 @@
                         }
                     }
 
-                    // Signature-to-base64 script execution (runs after validation passes or user confirms)
                     var blank = document.createElement('canvas');
                     blank.width = canvas.width;
                     blank.height = canvas.height;
