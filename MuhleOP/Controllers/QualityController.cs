@@ -1,20 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data.Entity;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Web;
-using System.Web.Mvc;
-using System.Configuration;
-using Microsoft.AspNet.Identity;
-using Microsoft.AspNet.Identity.Owin;
-using MuhleOP.Models;
-using MuhleOP.ViewModels;
-using MuhleOP.Helpers;
-
-namespace MuhleOP.Controllers
+﻿namespace MuhleOP.Controllers
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Data.Entity;
+    using System.IO;
+    using System.Linq;
+    using System.Threading.Tasks;
+    using System.Web;
+    using System.Web.Mvc;
+    using System.Configuration;
+    using Microsoft.AspNet.Identity;
+    using Microsoft.AspNet.Identity.Owin;
+    using MuhleOP.Models;
+    using MuhleOP.ViewModels;
+    using MuhleOP.Helpers;
+
     [Authorize]
     public class QualityController : Controller
     {
@@ -177,6 +177,7 @@ namespace MuhleOP.Controllers
                         CreatedDate = DateTime.Now
                     };
 
+                    // Initial Pass/Fail evaluation based on score or ActionRequired
                     if (model.Score.HasValue)
                         inspection.IsPassed = model.Score.Value >= 80;
                     else
@@ -222,12 +223,15 @@ namespace MuhleOP.Controllers
                     }
 
                     bool hasCritical = false;
+                    bool hasNonConformance = false;
+
                     if (model.NonConformancesInput != null)
                     {
                         foreach (var ncInput in model.NonConformancesInput)
                         {
                             if (!string.IsNullOrWhiteSpace(ncInput.Description))
                             {
+                                hasNonConformance = true;
                                 var nc = new NonConformance
                                 {
                                     SiteInspectionId = inspection.Id,
@@ -249,10 +253,14 @@ namespace MuhleOP.Controllers
                         }
                     }
 
-                    if (hasCritical)
+                    // FIX 4: Automatically downgrade IsPassed to false if ANY non-conformance was logged, and set ActionRequired/IsPassed if Critical
+                    if (hasNonConformance || hasCritical)
                     {
-                        inspection.ActionRequired = true;
                         inspection.IsPassed = false;
+                        if (hasCritical)
+                        {
+                            inspection.ActionRequired = true;
+                        }
                     }
 
                     if (model.Photos != null)
@@ -736,7 +744,6 @@ namespace MuhleOP.Controllers
                     db.ProjectVariations.Add(variation);
                     await db.SaveChangesAsync();
 
-                    // Generate Year-based Reference Number
                     try
                     {
                         variation.VariationNumber = GenerateVariationNumberForYear(variation.RequestDate.Year);
@@ -1222,7 +1229,6 @@ namespace MuhleOP.Controllers
                     {
                         decimal effectiveCost = model.IsConditionalApproval ? model.ApprovedCostCap.Value : (variation.ImpactOnCost ?? 0m);
 
-                        // Check Finance Officer Threshold
                         decimal threshold = 100000m;
                         if (decimal.TryParse(ConfigurationManager.AppSettings["VariationFinanceApprovalThreshold"], out decimal customThreshold))
                         {
@@ -1320,7 +1326,6 @@ namespace MuhleOP.Controllers
 
                             await db.SaveChangesAsync();
 
-                            // Generate Variation Order PDF
                             try
                             {
                                 var pdfBytes = HandoverPdfGenerator.GenerateVariationOrder(variation, variation.Project, variation.Project?.Client);
@@ -1338,7 +1343,7 @@ namespace MuhleOP.Controllers
                             }
                         }
                     }
-                    else // Reject
+                    else
                     {
                         variation.Status = "Rejected";
                         variation.ApprovedBy = User.Identity.Name;
@@ -1460,7 +1465,6 @@ namespace MuhleOP.Controllers
 
             await db.SaveChangesAsync();
 
-            // Generate Variation Order PDF
             try
             {
                 var pdfBytes = HandoverPdfGenerator.GenerateVariationOrder(variation, variation.Project, variation.Project?.Client);
@@ -1477,7 +1481,6 @@ namespace MuhleOP.Controllers
                 System.Diagnostics.Debug.WriteLine($"Variation Order PDF generation failed: {pdfEx.Message}");
             }
 
-            // Notify PM, Client, Admins
             if (variation.Project != null)
             {
                 var pm = db.Staff.Find(variation.Project.ProjectManagerId);
