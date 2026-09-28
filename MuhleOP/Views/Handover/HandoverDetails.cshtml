@@ -59,6 +59,26 @@
                     Client Invited ✓ (@(Model.ClientInvitedDate.HasValue ? Model.ClientInvitedDate.Value.ToString("dd MMM yyyy HH:mm") : "—"))
                 </button>
             }
+            else if (Model.ClientSignOffStatus == "Rejected")
+            {
+                using (Html.BeginForm("InviteClientToSignOff", "Handover", FormMethod.Post, new { @class = "d-inline w-100" }))
+                {
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    if (!string.IsNullOrWhiteSpace(Model.CompletionNotes))
+                    {
+                        <div class="w-100 mb-2">
+                            <details class="small bg-light p-2 rounded border">
+                                <summary class="text-danger fw-semibold" style="cursor: pointer;">Previous refusals / notes</summary>
+                                <div class="mt-1 text-muted" style="white-space: pre-wrap;">@Model.CompletionNotes</div>
+                            </details>
+                        </div>
+                    }
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-redo me-1"></i> Re-invite Client to Sign Off
+                    </button>
+                }
+            }
             <a href="@Url.Action("UploadDocument", new { id = Model.Id })" class="btn btn-outline-primary">
                 <i class="fas fa-upload me-1"></i> Upload Document
             </a>

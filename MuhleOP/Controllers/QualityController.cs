@@ -222,12 +222,15 @@ namespace MuhleOP.Controllers
                     }
 
                     bool hasCritical = false;
+                    bool hasNonConformance = false;
+
                     if (model.NonConformancesInput != null)
                     {
                         foreach (var ncInput in model.NonConformancesInput)
                         {
                             if (!string.IsNullOrWhiteSpace(ncInput.Description))
                             {
+                                hasNonConformance = true;
                                 var nc = new NonConformance
                                 {
                                     SiteInspectionId = inspection.Id,
@@ -249,10 +252,13 @@ namespace MuhleOP.Controllers
                         }
                     }
 
-                    if (hasCritical)
+                    if (hasNonConformance || hasCritical)
                     {
-                        inspection.ActionRequired = true;
                         inspection.IsPassed = false;
+                        if (hasCritical)
+                        {
+                            inspection.ActionRequired = true;
+                        }
                     }
 
                     if (model.Photos != null)
@@ -335,6 +341,17 @@ namespace MuhleOP.Controllers
                                 $"Critical safety issue recorded on '{project.ProjectName}' in inspection #{inspection.Id}.",
                                 "Project", $"/Quality/InspectionDetails/{inspection.Id}");
                         }
+                    }
+
+                    if (hasNonConformance && !hasCritical && pm != null && !string.IsNullOrEmpty(pm.UserId))
+                    {
+                        await CreateNotification(
+                            pm.UserId,
+                            "Non-Conformance Logged",
+                            $"Inspection #{inspection.Id} on '{project.ProjectName}' has an open non-conformance. Review and assign responsibility.",
+                            "Project",
+                            $"/Quality/InspectionDetails/{inspection.Id}"
+                        );
                     }
 
                     TempData["SuccessMessage"] = hasCritical ? "Inspection recorded. CRITICAL SAFETY ISSUE detected and stakeholders notified!" : "Inspection recorded successfully.";
@@ -736,7 +753,6 @@ namespace MuhleOP.Controllers
                     db.ProjectVariations.Add(variation);
                     await db.SaveChangesAsync();
 
-                    // Generate Year-based Reference Number
                     try
                     {
                         variation.VariationNumber = GenerateVariationNumberForYear(variation.RequestDate.Year);
@@ -1222,7 +1238,6 @@ namespace MuhleOP.Controllers
                     {
                         decimal effectiveCost = model.IsConditionalApproval ? model.ApprovedCostCap.Value : (variation.ImpactOnCost ?? 0m);
 
-                        // Check Finance Officer Threshold
                         decimal threshold = 100000m;
                         if (decimal.TryParse(ConfigurationManager.AppSettings["VariationFinanceApprovalThreshold"], out decimal customThreshold))
                         {
@@ -1320,7 +1335,6 @@ namespace MuhleOP.Controllers
 
                             await db.SaveChangesAsync();
 
-                            // Generate Variation Order PDF
                             try
                             {
                                 var pdfBytes = HandoverPdfGenerator.GenerateVariationOrder(variation, variation.Project, variation.Project?.Client);
@@ -1338,7 +1352,7 @@ namespace MuhleOP.Controllers
                             }
                         }
                     }
-                    else // Reject
+                    else
                     {
                         variation.Status = "Rejected";
                         variation.ApprovedBy = User.Identity.Name;
@@ -1460,7 +1474,6 @@ namespace MuhleOP.Controllers
 
             await db.SaveChangesAsync();
 
-            // Generate Variation Order PDF
             try
             {
                 var pdfBytes = HandoverPdfGenerator.GenerateVariationOrder(variation, variation.Project, variation.Project?.Client);
@@ -1477,7 +1490,6 @@ namespace MuhleOP.Controllers
                 System.Diagnostics.Debug.WriteLine($"Variation Order PDF generation failed: {pdfEx.Message}");
             }
 
-            // Notify PM, Client, Admins
             if (variation.Project != null)
             {
                 var pm = db.Staff.Find(variation.Project.ProjectManagerId);

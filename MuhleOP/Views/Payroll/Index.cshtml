@@ -14,6 +14,9 @@
             <a href="@Url.Action("Generate")" class="btn btn-primary">
                 <i class="fa-solid fa-plus me-1"></i> Generate Payroll
             </a>
+            <a href="@Url.Action("ExportCsv", new { status = Model.ActiveFilter == "all" ? null : Model.ActiveFilter, year = Model.FilterYear, month = Model.FilterMonth })" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-file-csv me-1"></i> Export CSV
+            </a>
             <a href="@Url.Action("MyPayslips")" class="btn btn-outline-secondary">
                 <i class="fa-solid fa-file-pdf me-1"></i> My Payslips
             </a>

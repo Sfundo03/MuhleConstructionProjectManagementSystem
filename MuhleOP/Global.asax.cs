@@ -8,6 +8,7 @@ using System.Web.Routing;
 using Microsoft.AspNet.Identity;
 using Microsoft.AspNet.Identity.EntityFramework;
 using MuhleOP.Models;
+using MuhleOP.Helpers;
 
 namespace MuhleOP
 {
@@ -19,6 +20,15 @@ namespace MuhleOP
             FilterConfig.RegisterGlobalFilters(GlobalFilters.Filters);
             RouteConfig.RegisterRoutes(RouteTable.Routes);
             BundleConfig.RegisterBundles(BundleTable.Bundles);
+
+            try
+            {
+                InspectionTemplateSeeder.Seed();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"InspectionTemplateSeeder skipped: {ex.Message}");
+            }
         }
     }
 }

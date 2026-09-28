@@ -111,6 +111,96 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
+        // ExportCsv (CSV Export for Payroll Index)
+        // ------------------------------------------------------------------
+
+        [Authorize(Roles = "Finance Officer, Admin")]
+        public ActionResult ExportCsv(string status = null, int? year = null, int? month = null)
+        {
+            var query = db.Payrolls
+                .Include(p => p.Staff)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(status))
+                query = query.Where(p => p.Status == status);
+
+            if (year.HasValue)
+                query = query.Where(p => p.PayPeriodStart.Year == year.Value);
+
+            if (month.HasValue)
+                query = query.Where(p => p.PayPeriodStart.Month == month.Value);
+
+            // Fetch list into memory first so computed properties like FullName can be evaluated in LINQ to Objects
+            var records = query
+                .OrderByDescending(p => p.PayPeriodStart)
+                .ThenBy(p => p.Staff.LastName)
+                .ToList()
+                .Select(p => new
+                {
+                    EmployeeId = p.Staff != null ? p.Staff.EmployeeId : "",
+                    StaffName = p.Staff != null ? p.Staff.FullName : "",
+                    Role = p.Staff != null ? p.Staff.Role : "",
+                    PayPeriodStart = p.PayPeriodStart,
+                    PayPeriodEnd = p.PayPeriodEnd,
+                    RegularHours = p.RegularHours,
+                    OvertimeHours = p.OvertimeHours,
+                    GrossPay = p.GrossPay,
+                    NetPay = p.NetPay,
+                    TotalAmount = p.TotalAmount,
+                    Status = p.Status,
+                    PaymentDate = p.PaymentDate,
+                    PaymentMethod = p.PaymentMethod
+                })
+                .ToList();
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("Employee ID,Staff Name,Role,Period Start,Period End,Regular Hours,Overtime Hours,Gross Pay,Net Pay,Total Amount,Status,Payment Date,Payment Method");
+
+            foreach (var r in records)
+            {
+                var line = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12}",
+                    EscapeCsv(r.EmployeeId),
+                    EscapeCsv(r.StaffName),
+                    EscapeCsv(r.Role),
+                    r.PayPeriodStart.ToString("yyyy-MM-dd"),
+                    r.PayPeriodEnd.ToString("yyyy-MM-dd"),
+                    r.RegularHours.ToString("0.00", CultureInfo.InvariantCulture),
+                    r.OvertimeHours.ToString("0.00", CultureInfo.InvariantCulture),
+                    r.GrossPay.ToString("0.00", CultureInfo.InvariantCulture),
+                    r.NetPay.ToString("0.00", CultureInfo.InvariantCulture),
+                    r.TotalAmount.ToString("0.00", CultureInfo.InvariantCulture),
+                    EscapeCsv(r.Status),
+                    r.PaymentDate.HasValue ? r.PaymentDate.Value.ToString("yyyy-MM-dd") : "",
+                    EscapeCsv(r.PaymentMethod)
+                );
+                sb.AppendLine(line);
+            }
+
+            string filename;
+            string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+            if (year.HasValue && month.HasValue)
+            {
+                filename = $"PayrollReport_{year.Value}_{month.Value}_{timestamp}.csv";
+            }
+            else if (year.HasValue)
+            {
+                filename = $"PayrollReport_{year.Value}_{timestamp}.csv";
+            }
+            else
+            {
+                filename = $"PayrollReport_All_{timestamp}.csv";
+            }
+
+            var preamble = System.Text.Encoding.UTF8.GetPreamble();
+            var contentBytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+            var fileBytes = new byte[preamble.Length + contentBytes.Length];
+            Buffer.BlockCopy(preamble, 0, fileBytes, 0, preamble.Length);
+            Buffer.BlockCopy(contentBytes, 0, fileBytes, preamble.Length, contentBytes.Length);
+
+            return File(fileBytes, "text/csv", filename);
+        }
+
+        // ------------------------------------------------------------------
         // Generate (select period → create Draft records) – Finance Officer only
         // ------------------------------------------------------------------
 
@@ -595,7 +685,6 @@ namespace MuhleOP.Controllers
                 if (!payroll.PaymentDate.HasValue)
                     payroll.PaymentDate = DateTime.Today;
 
-                // <<DECISION 1>> — Bank file export (EFT) deferred to a future increment — requires a real bank format spec.
                 try
                 {
                     if (payroll.Staff != null)
@@ -1339,6 +1428,19 @@ namespace MuhleOP.Controllers
 
             payroll.RegularHours = Math.Round(regular, 2);
             payroll.OvertimeHours = Math.Round(overtime, 2);
+        }
+
+        private static string EscapeCsv(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return string.Empty;
+
+            if (value.Contains(",") || value.Contains("\"") || value.Contains("\n") || value.Contains("\r"))
+            {
+                return "\"" + value.Replace("\"", "\"\"") + "\"";
+            }
+
+            return value;
         }
 
         private static string MaskBankAccount(string account)

@@ -87,6 +87,7 @@
     <div class="card mb-4">
         <div class="card-header fw-semibold">Checklist Items</div>
         <div class="card-body">
+            <div id="checklistValidationAlert" class="alert alert-warning d-none mb-3"></div>
             <div id="checklistContainer">
                 <p class="text-muted">Select an inspection type to load pre-defined checklist items.</p>
             </div>
@@ -95,30 +96,16 @@
 
     <!-- Non-Conformance Dynamic Sub-Form Section -->
     <div class="card mb-4" id="nonConformanceCard" style="display:none;">
-        <div class="card-header fw-semibold text-danger">Non-Conformance Register (Triggered by Fail/Partial)</div>
+        <div class="card-header fw-semibold text-danger d-flex justify-content-between align-items-center">
+            <span>Non-Conformance Register (Triggered by Fail/Partial or Added Manually)</span>
+            <button type="button" class="btn btn-sm btn-outline-danger" id="addManualNcBtn">
+                <i class="fas fa-plus me-1"></i> Add Non-Conformance
+            </button>
+        </div>
         <div class="card-body">
-            <p class="text-muted small">One or more items were marked Fail or Partial. Please specify non-conformance details:</p>
-            <div class="row g-3">
-                <div class="col-md-5">
-                    <label class="form-label">Description</label>
-                    <input type="text" name="NonConformancesInput[0].Description" class="form-control nc-desc" placeholder="Describe the non-conformance" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Severity</label>
-                    <select name="NonConformancesInput[0].Severity" class="form-select nc-sev">
-                        <option value="Minor">Minor</option>
-                        <option value="Major">Major</option>
-                        <option value="Critical" class="text-danger fw-bold">Critical (Halts Task)</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Responsible Party</label>
-                    <input type="text" name="NonConformancesInput[0].ResponsibleParty" class="form-control" value="Site Contractor" />
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Due Date</label>
-                    <input type="date" name="NonConformancesInput[0].DueDate" class="form-control" />
-                </div>
+            <p class="text-muted small">Items marked Fail/Partial automatically generate non-conformance entries. You may also add additional manual entries below:</p>
+            <div id="ncRowsContainer">
+                <!-- Dynamic NC rows will be injected here -->
             </div>
         </div>
     </div>
@@ -152,6 +139,7 @@
         function renderChecklist(inspectionType) {
             var container = $('#checklistContainer');
             container.empty();
+            $('#checklistValidationAlert').addClass('d-none').text('');
 
             var filtered = templateItemsData.filter(function (item) {
                 return item.InspectionType === inspectionType;
@@ -159,13 +147,15 @@
 
             if (filtered.length === 0) {
                 container.html('<p class="text-muted">No template checklist items available for this type.</p>');
+                $('#nonConformanceCard').slideUp();
+                $('#ncRowsContainer').empty();
                 return;
             }
 
             var html = '<div class="table-responsive"><table class="table table-bordered align-middle"><thead><tr><th>Item</th><th>Category</th><th style="width:220px;">Result</th><th>Notes</th></tr></thead><tbody>';
 
             filtered.forEach(function (item, index) {
-                html += '<tr>' +
+                html += '<tr data-item-id="' + item.Id + '" data-item-label="' + escapeHtml(item.ItemLabel) + '">' +
                     '<td>' + escapeHtml(item.ItemLabel) +
                     '<input type="hidden" name="ItemResultsInput[' + index + '].TemplateItemId" value="' + item.Id + '" />' +
                     '<input type="hidden" name="ItemResultsInput[' + index + '].ItemLabel" value="' + escapeHtml(item.ItemLabel) + '" />' +
@@ -190,6 +180,7 @@
             html += '</tbody></table></div>';
             container.html(html);
             bindResultListeners();
+            reindexNonConformances();
         }
 
         function escapeHtml(text) {
@@ -198,18 +189,80 @@
 
         function bindResultListeners() {
             $('.result-radio').on('change', function () {
-                var showNc = false;
-                $('.result-radio:checked').each(function () {
-                    if ($(this).val() === 'Fail' || $(this).val() === 'Partial') {
-                        showNc = true;
-                    }
-                });
-                if (showNc) {
-                    $('#nonConformanceCard').slideDown();
-                } else {
-                    $('#nonConformanceCard').slideUp();
+                var row = $(this).closest('tr');
+                var itemId = row.data('item-id');
+                var itemLabel = row.data('item-label');
+                var val = $(this).val();
+
+                $('#ncRowsContainer .nc-row[data-source-item-id="' + itemId + '"]').remove();
+
+                if (val === 'Fail' || val === 'Partial') {
+                    addNcRow({
+                        description: itemLabel,
+                        severity: val === 'Fail' ? 'Major' : 'Minor',
+                        sourceItemId: itemId,
+                        isAuto: true
+                    });
                 }
+
+                updateNonConformanceCardVisibility();
+                reindexNonConformances();
             });
+        }
+
+        function addNcRow(data) {
+            data = data || { description: '', severity: 'Minor', sourceItemId: '', isAuto: false };
+            var container = $('#ncRowsContainer');
+
+            var rowHtml = '<div class="row g-3 nc-row mb-3 pb-3 border-bottom" ' + (data.sourceItemId ? 'data-source-item-id="' + data.sourceItemId + '"' : '') + '>' +
+                '<input type="hidden" class="nc-is-auto" value="' + (data.isAuto ? 'true' : 'false') + '" />' +
+                '<div class="col-md-5">' +
+                '<label class="form-label">Description</label>' +
+                '<input type="text" name="Description" class="form-control nc-desc" value="' + escapeHtml(data.description) + '" placeholder="Describe the non-conformance" />' +
+                (data.isAuto ? '<small class="text-muted">Auto-filled from failed checklist item — you may edit this.</small>' : '') +
+                '</div>' +
+                '<div class="col-md-3">' +
+                '<label class="form-label">Severity</label>' +
+                '<select name="Severity" class="form-select nc-sev">' +
+                '<option value="Minor" ' + (data.severity === 'Minor' ? 'selected' : '') + '>Minor</option>' +
+                '<option value="Major" ' + (data.severity === 'Major' ? 'selected' : '') + '>Major</option>' +
+                '<option value="Critical" class="text-danger fw-bold" ' + (data.severity === 'Critical' ? 'selected' : '') + '>Critical (Halts Task)</option>' +
+                '</select>' +
+                '</div>' +
+                '<div class="col-md-2">' +
+                '<label class="form-label">Responsible Party</label>' +
+                '<input type="text" name="ResponsibleParty" class="form-control" value="Site Contractor" />' +
+                '</div>' +
+                '<div class="col-md-1">' +
+                '<label class="form-label">Due Date</label>' +
+                '<input type="date" name="DueDate" class="form-control" />' +
+                '</div>' +
+                '<div class="col-md-1 d-flex align-items-end">' +
+                (data.isAuto ? '' : '<button type="button" class="btn btn-outline-danger btn-sm remove-nc-btn w-100"><i class="fas fa-trash"></i></button>') +
+                '</div>' +
+                '</div>';
+
+            container.append(rowHtml);
+            updateNonConformanceCardVisibility();
+            reindexNonConformances();
+        }
+
+        function reindexNonConformances() {
+            $('#ncRowsContainer .nc-row').each(function (index, element) {
+                $(element).find('.nc-desc').attr('name', 'NonConformancesInput[' + index + '].Description');
+                $(element).find('.nc-sev').attr('name', 'NonConformancesInput[' + index + '].Severity');
+                $(element).find('input[type="text"]').not('.nc-desc').attr('name', 'NonConformancesInput[' + index + '].ResponsibleParty');
+                $(element).find('input[type="date"]').attr('name', 'NonConformancesInput[' + index + '].DueDate');
+            });
+        }
+
+        function updateNonConformanceCardVisibility() {
+            var count = $('#ncRowsContainer .nc-row').length;
+            if (count > 0) {
+                $('#nonConformanceCard').slideDown();
+            } else {
+                $('#nonConformanceCard').slideUp();
+            }
         }
 
         $(document).ready(function () {
@@ -220,6 +273,18 @@
 
             $('#InspectionTypeDropdown').on('change', function () {
                 renderChecklist($(this).val());
+                $('#ncRowsContainer').empty();
+                updateNonConformanceCardVisibility();
+            });
+
+            $('#addManualNcBtn').on('click', function () {
+                addNcRow({ description: '', severity: 'Minor', sourceItemId: '', isAuto: false });
+            });
+
+            $(document).on('click', '.remove-nc-btn', function () {
+                $(this).closest('.nc-row').remove();
+                updateNonConformanceCardVisibility();
+                reindexNonConformances();
             });
 
             var canvas = document.getElementById('signatureCanvas');
@@ -277,7 +342,43 @@
                     $('#SignatureData').val('');
                 });
 
-                $('#inspectionForm').on('submit', function () {
+                $('#inspectionForm').on('submit', function (e) {
+                    $('#checklistContainer tr').removeClass('table-danger border border-danger');
+                    $('#checklistValidationAlert').addClass('d-none').text('');
+
+                    var rowCount = $('#checklistContainer tbody tr').length;
+                    if (rowCount === 0) {
+                        if (!confirm('No checklist items are loaded. Are you sure you want to submit an inspection with no checklist?')) {
+                            e.preventDefault();
+                            return false;
+                        }
+                    }
+
+                    var unmarkedRows = [];
+                    $('#checklistContainer tbody tr').each(function () {
+                        var checkedRadio = $(this).find('.result-radio:checked');
+                        if (checkedRadio.length === 0) {
+                            unmarkedRows.push($(this));
+                        }
+                    });
+
+                    if (unmarkedRows.length > 0) {
+                        unmarkedRows.forEach(function ($tr) {
+                            $tr.addClass('table-danger border border-danger');
+                        });
+
+                        $('#checklistValidationAlert').removeClass('d-none').html('<strong>Validation Warning:</strong> ' + unmarkedRows.length + ' checklist item(s) have no result selected. Offending rows are highlighted in red below.');
+
+                        var confirmSubmit = confirm('You have ' + unmarkedRows.length + ' unmarked checklist item(s). Do you want to submit anyway? (Click OK to submit with unmarked items, or Cancel to review).');
+                        if (!confirmSubmit) {
+                            e.preventDefault();
+                            $('html, body').animate({
+                                scrollTop: $('#checklistContainer').offset().top - 100
+                            }, 300);
+                            return false;
+                        }
+                    }
+
                     var blank = document.createElement('canvas');
                     blank.width = canvas.width;
                     blank.height = canvas.height;

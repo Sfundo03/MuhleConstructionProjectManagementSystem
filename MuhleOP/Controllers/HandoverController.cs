@@ -117,6 +117,62 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
+        // My Handovers — Client View
+        // ------------------------------------------------------------------
+
+        [Authorize(Roles = "Client")]
+        public ActionResult MyHandovers()
+        {
+            var client = ResolveCurrentClient();
+            if (client == null)
+            {
+                TempData["ErrorMessage"] = "No client profile is linked to your account. Please contact an administrator.";
+                return RedirectToAction("Dashboard", "Home");
+            }
+
+            var handovers = db.ProjectHandovers
+                .Include(h => h.Project)
+                .Include(h => h.Project.Client)
+                .Include(h => h.Documents)
+                .Where(h => h.Project.ClientId == client.Id)
+                .OrderByDescending(h => h.CreatedDate)
+                .ToList();
+
+            var today = DateTime.Today;
+            var startOfMonth = new DateTime(today.Year, today.Month, 1);
+
+            var viewModel = new HandoverIndexViewModel
+            {
+                Items = handovers.Select(h => new HandoverListItemViewModel
+                {
+                    Id = h.Id,
+                    ProjectId = h.ProjectId,
+                    ProjectName = h.Project != null ? h.Project.ProjectName : "Unknown",
+                    ProjectCode = h.Project != null ? h.Project.ProjectCode : null,
+                    ClientName = h.Project?.Client != null ? h.Project.Client.CompanyName : null,
+                    HandoverType = h.HandoverType,
+                    Status = h.Status,
+                    StatusBadgeColor = GetStatusBadgeColor(h.Status),
+                    ClientSignOffStatus = h.ClientSignOffStatus,
+                    ClientSignOffBadgeColor = GetClientSignOffBadgeColor(h.ClientSignOffStatus),
+                    HandoverDate = h.HandoverDate,
+                    DocumentCount = h.Documents != null ? h.Documents.Count : 0,
+                    CreatedBy = h.CreatedBy
+                }).ToList(),
+                PendingCount = handovers.Count(h => h.Status == "Initiated" || h.Status == "In Progress"),
+                AwaitingClientSignOffCount = handovers.Count(h => h.ClientSignOffStatus == "Pending" && h.Status != "Closed"),
+                CompletedThisMonthCount = handovers.Count(h =>
+                    (h.Status == "Completed" || h.Status == "Closed") &&
+                    h.ClientSignOffDate.HasValue &&
+                    h.ClientSignOffDate.Value >= startOfMonth),
+                TotalDocumentsCount = handovers.Sum(h => h.Documents != null ? h.Documents.Count : 0)
+            };
+
+            ViewBag.IsClientView = true;
+            return View("Index", viewModel);
+        }
+
+        // ------------------------------------------------------------------
         // Initiate Handover
         // ------------------------------------------------------------------
 
@@ -208,7 +264,6 @@ namespace MuhleOP.Controllers
                     db.ProjectHandovers.Add(handover);
                     await db.SaveChangesAsync();
 
-                    // Optional certificate upload
                     if (model.CertificateFile != null && model.CertificateFile.ContentLength > 0)
                     {
                         try
@@ -231,7 +286,6 @@ namespace MuhleOP.Controllers
                         }
                     }
 
-                    // Notify client if linked
                     if (project.Client != null && !string.IsNullOrEmpty(project.Client.UserId))
                     {
                         await NotifyStakeholder(
@@ -277,7 +331,6 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("Index");
             }
 
-            // Client ownership check
             if (User.IsInRole("Client") && !User.IsInRole("Admin"))
             {
                 var client = ResolveCurrentClient();
@@ -309,7 +362,6 @@ namespace MuhleOP.Controllers
             var openMajor = snagsList.Count(s => s.Severity == "Major" && s.Status != "Verified");
             var openMinor = snagsList.Count(s => s.Severity == "Minor" && s.Status != "Verified");
 
-            // Document checklist check
             var uploadedTypes = (handover.Documents ?? new List<HandoverDocument>())
                 .Select(d => d.DocumentType)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -319,7 +371,6 @@ namespace MuhleOP.Controllers
                 .Where(req => !uploadedTypes.Contains(req, StringComparer.OrdinalIgnoreCase))
                 .ToList();
 
-            // Open variations check
             var openVariations = db.ProjectVariations
                 .Where(v => v.ProjectId == handover.ProjectId && (v.Status == "Requested" || v.Status == "Under Review"))
                 .ToList();
@@ -389,7 +440,7 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Snag & Refusal Actions (UC23 Enhancements)
+        // Snag & Refusal Actions
         // ------------------------------------------------------------------
 
         [HttpPost]
@@ -610,7 +661,7 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Invite Client to Sign Off
+        // Invite Client to Sign Off (Updated for Re-invites)
         // ------------------------------------------------------------------
 
         [HttpPost]
@@ -637,12 +688,17 @@ namespace MuhleOP.Controllers
                     return RedirectToAction("HandoverDetails", new { id });
                 }
 
+                bool isReinvite = string.Equals(handover.ClientSignOffStatus, "Rejected", StringComparison.OrdinalIgnoreCase);
+
+                handover.ClientSignOffStatus = "Pending";
                 handover.ClientInvitedToSignOff = true;
                 handover.ClientInvitedDate = DateTime.Now;
                 handover.Status = "In Progress";
                 handover.LastModifiedDate = DateTime.Now;
+
+                string noteMessage = isReinvite ? "Client re-invited to sign off." : "Client invited to sign off.";
                 handover.CompletionNotes = (handover.CompletionNotes ?? "") +
-                    $" [{DateTime.Now:yyyy-MM-dd HH:mm} by {User.Identity.Name}] Client invited to sign off.";
+                    $" [{DateTime.Now:yyyy-MM-dd HH:mm} by {User.Identity.Name}] {noteMessage}";
 
                 await db.SaveChangesAsync();
 
@@ -650,7 +706,7 @@ namespace MuhleOP.Controllers
                 {
                     await NotifyStakeholder(
                         handover.Project.Client.UserId,
-                        "Action Required: Project Sign-off",
+                        isReinvite ? "Action Required: Project Re-sign-off Requested" : "Action Required: Project Sign-off",
                         $"Please review and sign off the handover for project '{handover.Project.ProjectName}'.",
                         "Project",
                         $"/Handover/ClientSignOff/{handover.Id}"
@@ -662,7 +718,7 @@ namespace MuhleOP.Controllers
                     SendClientInvitedToSignOffEmail(handover.Project.Client, handover.Project);
                 }
 
-                TempData["SuccessMessage"] = "Client has been invited to sign off.";
+                TempData["SuccessMessage"] = isReinvite ? "Client has been re-invited to sign off." : "Client has been invited to sign off.";
                 return RedirectToAction("HandoverDetails", new { id });
             }
             catch (Exception ex)
@@ -845,7 +901,7 @@ namespace MuhleOP.Controllers
                     ResolutionNotes = s.ResolutionNotes
                 }).ToList();
 
-            bool hasOpenCritical = snagsList.Any(s => s.Severity == "Critical" && s.Status != "Verified");
+            bool hasOpenCritical = snagsList.Any(s => s.Severity == "Critical" && s.Status != "Verified" && s.Status != "Rejected");
 
             var model = new ClientSignOffViewModel
             {
@@ -892,7 +948,7 @@ namespace MuhleOP.Controllers
                 .Include(h => h.SnagItems)
                 .FirstOrDefault(h => h.Id == model.HandoverId);
 
-            if (handoverCheck != null && handoverCheck.SnagItems.Any(s => s.Severity == "Critical" && s.Status != "Verified"))
+            if (handoverCheck != null && handoverCheck.SnagItems.Any(s => s.Severity == "Critical" && s.Status != "Verified" && s.Status != "Rejected"))
             {
                 ModelState.AddModelError("", "Cannot sign off while there are unresolved critical snags.");
             }
@@ -946,7 +1002,6 @@ namespace MuhleOP.Controllers
 
                     var currentUserId = User.Identity.GetUserId();
 
-                    // Generate signed handover PDF
                     byte[] signedPdfBytes = null;
                     try
                     {
@@ -971,7 +1026,6 @@ namespace MuhleOP.Controllers
                         System.IO.File.WriteAllBytes(Path.Combine(pdfFolder, pdfFileName), signedPdfBytes);
                         handover.SignedHandoverPdfPath = "/Uploads/SignedHandovers/" + pdfFileName;
 
-                        // Generate Acceptance Letter PDF
                         var acceptanceBytes = HandoverPdfGenerator.GenerateAcceptanceLetter(
                             handover, handover.Project, client, signOffMeta, handover.SnagItems);
                         var acceptanceFileName = "AcceptanceLetter_" + handover.Id + "_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".pdf";
@@ -985,15 +1039,25 @@ namespace MuhleOP.Controllers
                         System.Diagnostics.Debug.WriteLine($"Error generating signed PDFs: {pdfEx.Message}");
                     }
 
-                    // In-app notifications
                     if (handover.Project?.ProjectManager != null && !string.IsNullOrEmpty(handover.Project.ProjectManager.UserId) && handover.Project.ProjectManager.UserId != currentUserId)
                     {
                         await NotifyStakeholder(handover.Project.ProjectManager.UserId, "Client Signed Off", $"Client has signed off handover for '{handover.Project.ProjectName}'.", "Project", $"/Handover/HandoverDetails/{handover.Id}");
                     }
                     await NotifyAdmins("Client Signed Off", $"Client has signed off handover for '{handover.Project?.ProjectName}'.", $"/Handover/HandoverDetails/{handover.Id}", skipUserId: currentUserId);
 
-                    // Try auto-close
-                    bool canAutoClose = (handover.Documents != null && handover.Documents.Any()) && !string.IsNullOrEmpty(handover.SignedHandoverPdfPath);
+                    var uploadedTypes = (handover.Documents ?? new List<HandoverDocument>())
+                        .Select(d => d.DocumentType)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    var missingRequiredDocTypes = RequiredHandoverDocumentTypes
+                        .Where(req => !uploadedTypes.Contains(req, StringComparer.OrdinalIgnoreCase))
+                        .ToList();
+
+                    bool canAutoClose = handover.Documents != null
+                                     && handover.Documents.Any()
+                                     && !missingRequiredDocTypes.Any()
+                                     && !string.IsNullOrEmpty(handover.SignedHandoverPdfPath);
 
                     if (canAutoClose)
                     {
@@ -1008,7 +1072,6 @@ namespace MuhleOP.Controllers
                             handover.Project.LastModifiedBy = User.Identity.Name;
                         }
 
-                        // Generate Closure Report PDF on Auto-Close
                         try
                         {
                             var budget = db.ProjectBudgets.FirstOrDefault(b => b.ProjectId == handover.ProjectId);
@@ -1033,7 +1096,14 @@ namespace MuhleOP.Controllers
                         handover.Status = "Completed";
                         if (handover.Project != null) handover.Project.Status = "Completed";
                         await db.SaveChangesAsync();
-                        TempData["SuccessMessage"] = "Client signed off. Manual closure required.";
+                        if (missingRequiredDocTypes.Any())
+                        {
+                            TempData["SuccessMessage"] = $"Client signed off. Manual closure required — missing required documents: {string.Join(", ", missingRequiredDocTypes)}.";
+                        }
+                        else
+                        {
+                            TempData["SuccessMessage"] = "Client signed off. Manual closure required.";
+                        }
                     }
 
                     return RedirectToAction("HandoverDetails", new { id = handover.Id });
@@ -1045,7 +1115,6 @@ namespace MuhleOP.Controllers
                 }
             }
 
-            // Repopulate on redisplay
             var ho = db.ProjectHandovers.Include(h => h.Project).Include(h => h.Documents).Include(h => h.SnagItems).FirstOrDefault(h => h.Id == model.HandoverId);
             if (ho != null)
             {
@@ -1095,7 +1164,6 @@ namespace MuhleOP.Controllers
                     return RedirectToAction("HandoverDetails", new { id });
                 }
 
-                // Gate 1: Unresolved Critical Snags
                 var openCriticalSnags = handover.SnagItems
                     .Where(s => s.Severity == "Critical" && s.Status != "Verified")
                     .ToList();
@@ -1106,7 +1174,6 @@ namespace MuhleOP.Controllers
                     return RedirectToAction("HandoverDetails", new { id = handover.Id });
                 }
 
-                // Gate 2: Handover Package Checklist
                 var uploadedTypes = (handover.Documents ?? new List<HandoverDocument>())
                     .Select(d => d.DocumentType)
                     .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -1122,7 +1189,6 @@ namespace MuhleOP.Controllers
                     return RedirectToAction("HandoverDetails", new { id = handover.Id });
                 }
 
-                // Gate 3: Open Critical Variations
                 var openCriticalVariations = db.ProjectVariations
                     .Where(v => v.ProjectId == handover.ProjectId && (v.Status == "Requested" || v.Status == "Under Review"))
                     .ToList();
@@ -1139,7 +1205,6 @@ namespace MuhleOP.Controllers
                     return RedirectToAction("HandoverDetails", new { id });
                 }
 
-                // Close handover & project
                 handover.Status = "Closed";
                 handover.LastModifiedDate = DateTime.Now;
 
@@ -1152,7 +1217,6 @@ namespace MuhleOP.Controllers
                     handover.Project.LastModifiedBy = User.Identity.Name;
                 }
 
-                // Generate Closure Report PDF
                 try
                 {
                     var budget = db.ProjectBudgets.FirstOrDefault(b => b.ProjectId == handover.ProjectId);
