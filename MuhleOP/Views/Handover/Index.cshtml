@@ -1,5 +1,4 @@
-﻿
-@model MuhleOP.ViewModels.HandoverIndexViewModel
+﻿@model MuhleOP.ViewModels.HandoverIndexViewModel
 @{
     ViewBag.Title = "Project Handovers";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -25,9 +24,12 @@
         <h4 class="mb-1">Project Handovers</h4>
         <p class="text-muted mb-0">Manage final inspections, client sign-off and project closure</p>
     </div>
-    <a href="@Url.Action("InitiateHandover")" class="btn btn-primary">
-        <i class="fas fa-plus me-1"></i> Initiate Handover
-    </a>
+    @if (User.IsInRole("Admin") || User.IsInRole("Project Manager") || User.IsInRole("Site Manager"))
+    {
+        <a href="@Url.Action("InitiateHandover")" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> Initiate Handover
+        </a>
+    }
 </div>
 
 <div class="row g-3 mb-4">
