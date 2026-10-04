@@ -1,4 +1,5 @@
-﻿@model MuhleOP.ViewModels.ClientSignOffViewModel
+﻿@using MuhleOP.Helpers
+@model MuhleOP.ViewModels.ClientSignOffViewModel
 @{
     ViewBag.Title = "Client Sign-off";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -169,10 +170,14 @@
                     }
 
                     <div class="mb-3 form-check">
-                        @Html.CheckBoxFor(m => m.AcceptTerms, new { @class = "form-check-input", id = "AcceptTerms", @disabled = Model.HasOpenCriticalSnags ? "disabled" : null })
+                        @Html.CheckBoxFor(m => m.AcceptTerms,
+                            HtmlAttributeExtensions.Attrs(
+                                new { @class = "form-check-input", id = "AcceptTerms" },
+                                disabled: !Model.CanSignOff))
                         <label class="form-check-label" for="AcceptTerms">
                             I accept the project as completed and confirm that the works meet agreed requirements.
                         </label>
+                        @Html.ValidationMessageFor(m => m.AcceptTerms, "", new { @class = "text-danger small d-block" })
                     </div>
 
                     <div class="mb-3">
@@ -185,7 +190,7 @@
                         @Html.TextAreaFor(m => m.ClientSignOffNotes, new { @class = "form-control", rows = 2 })
                     </div>
 
-                    <button type="submit" class="btn btn-success w-100 @(Model.HasOpenCriticalSnags ? "disabled" : "")" @(Model.HasOpenCriticalSnags ? "disabled" : "")>
+                    <button type="submit" class="btn btn-success w-100@(Model.CanSignOff ? "" : " disabled")" @(Model.CanSignOff ? "" : "disabled")>
                         <i class="fas fa-signature me-1"></i> Confirm Sign-off
                     </button>
                 }

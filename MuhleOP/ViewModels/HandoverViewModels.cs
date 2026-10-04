@@ -220,7 +220,8 @@ namespace MuhleOP.ViewModels
         public bool HasOpenCriticalSnags { get; set; }
         public bool CanSignOff { get; set; }
 
-        [Required]
+        // NOTE: [Required] is meaningless on a non-nullable bool (it never fails server-side).
+        // The controller enforces AcceptTerms == true explicitly.
         [Display(Name = "I accept the project as completed")]
         public bool AcceptTerms { get; set; }
 

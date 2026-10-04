@@ -846,6 +846,72 @@ namespace MuhleOP.Controllers
         }
 
         // ------------------------------------------------------------------
+        // Client sign-off helpers (single source of truth for the "open critical" rule)
+        // ------------------------------------------------------------------
+
+        private static bool IsOpenCritical(SnagItem s)
+        {
+            return s.Severity == "Critical" && s.Status != "Verified" && s.Status != "Rejected";
+        }
+
+        private ClientSignOffViewModel BuildClientSignOffViewModel(ProjectHandover handover)
+        {
+            var snagEntities = handover.SnagItems ?? new List<SnagItem>();
+
+            var snags = snagEntities
+                .Select(s => new SnagItemViewModel
+                {
+                    Id = s.Id,
+                    ProjectHandoverId = s.ProjectHandoverId,
+                    ReferenceNumber = s.ReferenceNumber,
+                    Description = s.Description,
+                    Location = s.Location,
+                    Severity = s.Severity,
+                    ResponsibleParty = s.ResponsibleParty,
+                    DueDate = s.DueDate,
+                    Status = s.Status,
+                    ReportedBy = s.ReportedBy,
+                    ReportedDate = s.ReportedDate,
+                    ResolutionNotes = s.ResolutionNotes
+                }).ToList();
+
+            bool hasOpenCritical = snagEntities.Any(IsOpenCritical);
+
+            return new ClientSignOffViewModel
+            {
+                HandoverId = handover.Id,
+                ProjectName = handover.Project != null ? handover.Project.ProjectName : null,
+                ProjectCode = handover.Project != null ? handover.Project.ProjectCode : null,
+                HandoverType = handover.HandoverType,
+                CompletionNotes = handover.CompletionNotes,
+                FinalInspectionFindings = handover.FinalInspectionFindings,
+                LessonsLearned = handover.LessonsLearned,
+                Recommendations = handover.Recommendations,
+                WarrantyPeriodDays = handover.WarrantyPeriodDays,
+                WarrantyStartDate = handover.WarrantyStartDate,
+                WarrantyEndDate = handover.WarrantyEndDate,
+                ClientInvitedDate = handover.ClientInvitedDate,
+                Snags = snags,
+                HasOpenCriticalSnags = hasOpenCritical,
+                CanSignOff = !hasOpenCritical,
+                Documents = (handover.Documents ?? new List<HandoverDocument>())
+                    .OrderByDescending(d => d.UploadDate)
+                    .Select(d => new HandoverDocumentListItemViewModel
+                    {
+                        Id = d.Id,
+                        DocumentName = d.DocumentName,
+                        DocumentType = d.DocumentType,
+                        Description = d.Description,
+                        FilePath = d.FilePath,
+                        FileSizeBytes = d.FileSizeBytes,
+                        UploadDate = d.UploadDate,
+                        UploadedBy = d.UploadedBy,
+                        IsApproved = d.IsApproved
+                    }).ToList()
+            };
+        }
+
+        // ------------------------------------------------------------------
         // Client Sign-Off
         // ------------------------------------------------------------------
 
@@ -884,59 +950,7 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("HandoverDetails", new { id });
             }
 
-            var snagsList = (handover.SnagItems ?? new List<SnagItem>())
-                .Select(s => new SnagItemViewModel
-                {
-                    Id = s.Id,
-                    ProjectHandoverId = s.ProjectHandoverId,
-                    ReferenceNumber = s.ReferenceNumber,
-                    Description = s.Description,
-                    Location = s.Location,
-                    Severity = s.Severity,
-                    ResponsibleParty = s.ResponsibleParty,
-                    DueDate = s.DueDate,
-                    Status = s.Status,
-                    ReportedBy = s.ReportedBy,
-                    ReportedDate = s.ReportedDate,
-                    ResolutionNotes = s.ResolutionNotes
-                }).ToList();
-
-            bool hasOpenCritical = snagsList.Any(s => s.Severity == "Critical" && s.Status != "Verified" && s.Status != "Rejected");
-
-            var model = new ClientSignOffViewModel
-            {
-                HandoverId = handover.Id,
-                ProjectName = handover.Project.ProjectName,
-                ProjectCode = handover.Project.ProjectCode,
-                HandoverType = handover.HandoverType,
-                CompletionNotes = handover.CompletionNotes,
-                FinalInspectionFindings = handover.FinalInspectionFindings,
-                LessonsLearned = handover.LessonsLearned,
-                Recommendations = handover.Recommendations,
-                WarrantyPeriodDays = handover.WarrantyPeriodDays,
-                WarrantyStartDate = handover.WarrantyStartDate,
-                WarrantyEndDate = handover.WarrantyEndDate,
-                ClientInvitedDate = handover.ClientInvitedDate,
-                Snags = snagsList,
-                HasOpenCriticalSnags = hasOpenCritical,
-                CanSignOff = !hasOpenCritical,
-                Documents = (handover.Documents ?? Enumerable.Empty<HandoverDocument>())
-                    .OrderByDescending(d => d.UploadDate)
-                    .Select(d => new HandoverDocumentListItemViewModel
-                    {
-                        Id = d.Id,
-                        DocumentName = d.DocumentName,
-                        DocumentType = d.DocumentType,
-                        Description = d.Description,
-                        FilePath = d.FilePath,
-                        FileSizeBytes = d.FileSizeBytes,
-                        UploadDate = d.UploadDate,
-                        UploadedBy = d.UploadedBy,
-                        IsApproved = d.IsApproved
-                    }).ToList()
-            };
-
-            return View(model);
+            return View(BuildClientSignOffViewModel(handover));
         }
 
         [HttpPost]
@@ -944,11 +958,42 @@ namespace MuhleOP.Controllers
         [Authorize(Roles = "Client")]
         public async Task<ActionResult> ClientSignOff(ClientSignOffViewModel model)
         {
-            var handoverCheck = db.ProjectHandovers
+            var handover = db.ProjectHandovers
+                .Include(h => h.Project)
+                .Include(h => h.Project.Client)
+                .Include(h => h.Project.ProjectManager)
+                .Include(h => h.Project.SiteManager)
+                .Include(h => h.Documents)
                 .Include(h => h.SnagItems)
                 .FirstOrDefault(h => h.Id == model.HandoverId);
 
-            if (handoverCheck != null && handoverCheck.SnagItems.Any(s => s.Severity == "Critical" && s.Status != "Verified" && s.Status != "Rejected"))
+            if (handover == null)
+            {
+                TempData["ErrorMessage"] = "Handover not found.";
+                return RedirectToAction("Dashboard", "Home");
+            }
+
+            var client = ResolveCurrentClient();
+            if (client == null || handover.Project == null || handover.Project.ClientId != client.Id)
+            {
+                TempData["ErrorMessage"] = "You do not have access to this handover.";
+                return RedirectToAction("Dashboard", "Home");
+            }
+
+            if (!handover.ClientInvitedToSignOff)
+            {
+                TempData["ErrorMessage"] = "The project manager has not yet invited you to sign off.";
+                return RedirectToAction("HandoverDetails", new { id = handover.Id });
+            }
+
+            if (handover.ClientSignOffStatus == "Signed")
+            {
+                TempData["SuccessMessage"] = "You have already signed off this handover.";
+                return RedirectToAction("HandoverDetails", new { id = handover.Id });
+            }
+
+            // Server-side rule, enforced regardless of what the browser rendered or posted.
+            if (handover.SnagItems.Any(IsOpenCritical))
             {
                 ModelState.AddModelError("", "Cannot sign off while there are unresolved critical snags.");
             }
@@ -962,34 +1007,6 @@ namespace MuhleOP.Controllers
             {
                 try
                 {
-                    var handover = db.ProjectHandovers
-                        .Include(h => h.Project)
-                        .Include(h => h.Project.Client)
-                        .Include(h => h.Project.ProjectManager)
-                        .Include(h => h.Project.SiteManager)
-                        .Include(h => h.Documents)
-                        .Include(h => h.SnagItems)
-                        .FirstOrDefault(h => h.Id == model.HandoverId);
-
-                    if (handover == null)
-                    {
-                        TempData["ErrorMessage"] = "Handover not found.";
-                        return RedirectToAction("Dashboard", "Home");
-                    }
-
-                    var client = ResolveCurrentClient();
-                    if (client == null || handover.Project == null || handover.Project.ClientId != client.Id)
-                    {
-                        TempData["ErrorMessage"] = "You do not have access to this handover.";
-                        return RedirectToAction("Dashboard", "Home");
-                    }
-
-                    if (handover.ClientSignOffStatus == "Signed")
-                    {
-                        TempData["SuccessMessage"] = "You have already signed off this handover.";
-                        return RedirectToAction("HandoverDetails", new { id = model.HandoverId });
-                    }
-
                     handover.ClientSignOffStatus = "Signed";
                     handover.ClientSignOffDate = DateTime.Now;
                     handover.ClientSignOffNotes = model.ClientSignOffNotes;
@@ -1115,23 +1132,14 @@ namespace MuhleOP.Controllers
                 }
             }
 
-            var ho = db.ProjectHandovers.Include(h => h.Project).Include(h => h.Documents).Include(h => h.SnagItems).FirstOrDefault(h => h.Id == model.HandoverId);
-            if (ho != null)
-            {
-                model.ProjectName = ho.Project?.ProjectName;
-                model.ProjectCode = ho.Project?.ProjectCode;
-                model.HandoverType = ho.HandoverType;
-                model.CompletionNotes = ho.CompletionNotes;
-                model.Snags = ho.SnagItems.Select(s => new SnagItemViewModel
-                {
-                    Id = s.Id,
-                    ReferenceNumber = s.ReferenceNumber,
-                    Description = s.Description,
-                    Severity = s.Severity,
-                    Status = s.Status
-                }).ToList();
-            }
-            return View(model);
+            // Failed validation: rebuild the FULL view model so the page renders correctly
+            // (documents, snags, critical-snag flags, project info).
+            var vm = BuildClientSignOffViewModel(handover);
+            vm.ClientFeedback = model.ClientFeedback;
+            vm.ClientSignOffNotes = model.ClientSignOffNotes;
+            vm.AcceptTerms = false;
+            ModelState.Remove("AcceptTerms"); // don't re-render the stale posted checkbox value
+            return View(vm);
         }
 
         // ------------------------------------------------------------------
