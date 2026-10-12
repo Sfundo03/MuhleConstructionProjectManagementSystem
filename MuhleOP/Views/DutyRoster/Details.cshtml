@@ -1,0 +1,254 @@
+﻿
+@model MuhleOP.ViewModels.DutyRosterDetailsViewModel
+@{
+    ViewBag.Title = "Roster Details";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">@Model.ProjectName</h2>
+        <p class="text-muted mb-0">
+            @Model.PeriodStart.ToString("dd MMM") – @Model.PeriodEnd.ToString("dd MMM yyyy")
+            &middot; Version @Model.Version
+            &middot; <span class="badge bg-@Model.StatusBadgeColor">@Model.Status</span>
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="@Url.Action("Index")" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left me-1"></i> Queue
+        </a>
+        @if (Model.CanManage)
+        {
+            if (Model.CanEdit)
+            {
+                <a href="@Url.Action("Edit", new { id = Model.Id })" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-edit me-1"></i> Edit
+                </a>
+            }
+            if (Model.CanPublish)
+            {
+                <a href="@Url.Action("Publish", new { id = Model.Id })" class="btn btn-success btn-sm">
+                    <i class="fas fa-paper-plane me-1"></i> Publish
+                </a>
+            }
+            if (Model.CanRevise)
+            {
+                <a href="@Url.Action("Revise", new { id = Model.Id })" class="btn btn-warning btn-sm">
+                    <i class="fas fa-code-branch me-1"></i> Revise
+                </a>
+            }
+            if (Model.CanDelete)
+            {
+                using (Html.BeginForm("Delete", "DutyRoster", new { id = Model.Id }, FormMethod.Post, new { @class = "d-inline", onsubmit = "return confirm('Delete this roster permanently?');" }))
+                {
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-trash me-1"></i> Delete
+                    </button>
+                }
+            }
+        }
+    </div>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @TempData["SuccessMessage"]
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @TempData["ErrorMessage"]
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-transparent fw-semibold d-flex justify-content-between align-items-center">
+                <span>Roster Summary</span>
+                <span class="badge bg-@Model.StatusBadgeColor">@Model.Status</span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-2">
+                    <div class="col-sm-3 text-secondary">Project</div>
+                    <div class="col-sm-9">@Model.ProjectName (@Model.ProjectCode)</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-sm-3 text-secondary">Period</div>
+                    <div class="col-sm-9">@Model.PeriodStart.ToString("dd MMM yyyy") – @Model.PeriodEnd.ToString("dd MMM yyyy")</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-sm-3 text-secondary">Version</div>
+                    <div class="col-sm-9">v@Model.Version</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-sm-3 text-secondary">Created</div>
+                    <div class="col-sm-9">@Model.CreatedBy on @Model.CreatedDate.ToString("dd MMM yyyy HH:mm")</div>
+                </div>
+                @if (Model.PublishedDate.HasValue)
+                {
+                    <div class="row mb-2">
+                        <div class="col-sm-3 text-secondary">Published</div>
+                        <div class="col-sm-9">@Model.PublishedBy on @Model.PublishedDate.Value.ToString("dd MMM yyyy HH:mm")</div>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.Notes))
+                {
+                    <div class="row mb-2">
+                        <div class="col-sm-3 text-secondary">Notes</div>
+                        <div class="col-sm-9">@Model.Notes</div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (Model.ShiftsByDate != null && Model.ShiftsByDate.Any())
+        {
+            foreach (var day in Model.ShiftsByDate)
+            {
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-transparent fw-semibold">
+                        <i class="fas fa-calendar-day me-2 text-secondary"></i>@day.DateLabel
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Role</th>
+                                        <th>Location</th>
+                                        <th>Assigned Crew</th>
+                                        <th>Flags</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var s in day.Shifts)
+                                    {
+                                        <tr>
+                                            <td class="text-nowrap">@s.StartTime – @s.EndTime</td>
+                                            <td>@s.ShiftRole</td>
+                                            <td>@(string.IsNullOrWhiteSpace(s.SiteLocation) ? "—" : s.SiteLocation)</td>
+                                            <td>
+                                                @if (s.AssignedStaffNames != null && s.AssignedStaffNames.Any())
+                                                {
+                                                    foreach (var name in s.AssignedStaffNames)
+                                                    {
+                                                        <span class="badge bg-secondary me-1 mb-1">@name</span>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted small">None assigned</span>
+                                                }
+                                                <div class="small text-secondary">@s.AssignedStaffNames.Count / @s.RequiredStaffCount required</div>
+                                            </td>
+                                            <td>
+                                                @if (s.IsOvertime)
+                                                {
+                                                    <span class="badge bg-warning text-dark me-1">OT</span>
+                                                }
+                                                @if (s.IsSundayShift)
+                                                {
+                                                    <span class="badge bg-info me-1">Sunday</span>
+                                                }
+                                                @if (s.IsHolidayShift)
+                                                {
+                                                    <span class="badge bg-danger me-1">Holiday</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                        if (!string.IsNullOrWhiteSpace(s.Notes))
+                                        {
+                                            <tr>
+                                                <td colspan="5" class="small text-secondary border-0 pt-0">
+                                                    <i class="fas fa-sticky-note me-1"></i>@s.Notes
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-calendar-times fa-3x text-muted mb-3" style="opacity:0.3;"></i>
+                    <p class="text-muted mb-0">No shifts defined on this roster.</p>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="col-lg-4">
+        @if (Model.VersionHistory != null && Model.VersionHistory.Any())
+        {
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-transparent fw-semibold">Version History</div>
+                <ul class="list-group list-group-flush">
+                    @foreach (var v in Model.VersionHistory)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="fw-semibold">
+                                    @if (v.Id == Model.Id)
+                                    {
+                                        <span>v@v.Version (current)</span>
+                                    }
+                                    else
+                                    {
+                                        <a href="@Url.Action("Details", new { id = v.Id })">v@v.Version</a>
+                                    }
+                                </div>
+                                <div class="small text-secondary">@v.CreatedBy · @v.CreatedDate.ToString("dd MMM yyyy")</div>
+                                @if (v.PublishedDate.HasValue)
+                                {
+                                    <div class="small text-secondary">Published @v.PublishedDate.Value.ToString("dd MMM yyyy")</div>
+                                }
+                            </div>
+                            <span class="badge bg-@v.StatusBadgeColor">@v.Status</span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @if (Model.CanManage)
+        {
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent fw-semibold">Actions</div>
+                <div class="card-body">
+                    <ul class="list-unstyled small mb-0">
+                        @if (Model.CanEdit)
+                        {
+                            <li class="mb-2"><i class="fas fa-edit text-primary me-2"></i>Draft — editable</li>
+                        }
+                        @if (Model.CanPublish)
+                        {
+                            <li class="mb-2"><i class="fas fa-paper-plane text-success me-2"></i>Ready to publish</li>
+                        }
+                        @if (Model.CanRevise)
+                        {
+                            <li class="mb-2"><i class="fas fa-code-branch text-warning me-2"></i>Published — revise to change</li>
+                        }
+                        @if (Model.CanDelete)
+                        {
+                            <li><i class="fas fa-trash text-danger me-2"></i>Can be deleted</li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        }
+    </div>
+</div>

@@ -1,0 +1,176 @@
+﻿
+@model MuhleOP.ViewModels.DutyRosterIndexViewModel
+@{
+    ViewBag.Title = "Duty Rosters";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Duty Rosters</h2>
+        <p class="text-muted mb-0">Manage work shift rosters for your projects</p>
+    </div>
+    @if (Model.CanCreate)
+    {
+        <a href="@Url.Action("Create")" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> Create Roster
+        </a>
+    }
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @TempData["SuccessMessage"]
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @TempData["ErrorMessage"]
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+}
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-secondary small">Draft</div>
+                <div class="fs-4 fw-bold">@Model.DraftCount</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-secondary small">Published</div>
+                <div class="fs-4 fw-bold text-success">@Model.PublishedCount</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-secondary small">Superseded</div>
+                <div class="fs-4 fw-bold text-warning">@Model.SupersededCount</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-secondary small">Hours this week</div>
+                <div class="fs-4 fw-bold">@Model.TotalHoursThisWeek.ToString("N1")</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        @using (Html.BeginForm("Index", "DutyRoster", FormMethod.Get))
+        {
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small">Project</label>
+                    @Html.DropDownList("projectId", Model.Projects, "All Projects", new { @class = "form-select form-select-sm" })
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Status</label>
+                    @Html.DropDownList("status", Model.Statuses, new { @class = "form-select form-select-sm" })
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">From</label>
+                    <input type="date" name="from" value="@(Model.FromDate?.ToString("yyyy-MM-dd"))" class="form-control form-control-sm" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">To</label>
+                    <input type="date" name="to" value="@(Model.ToDate?.ToString("yyyy-MM-dd"))" class="form-control form-control-sm" />
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="fas fa-filter me-1"></i> Filter</button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        @if (Model.Rosters != null && Model.Rosters.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Project</th>
+                            <th>Period</th>
+                            <th>Status</th>
+                            <th>Version</th>
+                            <th>Shifts</th>
+                            <th>Staff</th>
+                            <th>Created</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.Rosters)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">@r.ProjectName</div>
+                                    <small class="text-secondary">@r.ProjectCode</small>
+                                </td>
+                                <td>@r.PeriodLabel</td>
+                                <td><span class="badge bg-@r.StatusBadgeColor">@r.Status</span></td>
+                                <td>v@r.Version</td>
+                                <td>@r.ShiftCount</td>
+                                <td>@r.AssignedStaffCount</td>
+                                <td>
+                                    <div>@r.CreatedDate.ToString("dd MMM yyyy")</div>
+                                    @if (r.PublishedDate.HasValue)
+                                    {
+                                        <small class="text-secondary">Pub @r.PublishedDate.Value.ToString("dd MMM")</small>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <a href="@Url.Action("Details", new { id = r.Id })" class="btn btn-sm btn-outline-secondary" title="View"><i class="fas fa-eye"></i></a>
+                                    @if (r.CanEdit)
+                                    {
+                                        <a href="@Url.Action("Edit", new { id = r.Id })" class="btn btn-sm btn-outline-primary" title="Edit"><i class="fas fa-edit"></i></a>
+                                    }
+                                    @if (r.CanRevise)
+                                    {
+                                        <a href="@Url.Action("Revise", new { id = r.Id })" class="btn btn-sm btn-outline-warning" title="Revise"><i class="fas fa-code-branch"></i></a>
+                                    }
+                                    @if (r.CanDelete)
+                                    {
+                                        using (Html.BeginForm("Delete", "DutyRoster", new { id = r.Id }, FormMethod.Post, new { @class = "d-inline", onsubmit = "return confirm('Delete this roster?');" }))
+                                        {
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"><i class="fas fa-trash"></i></button>
+                                        }
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-5">
+                <i class="fas fa-calendar-alt fa-4x text-muted mb-3" style="opacity:0.3;"></i>
+                <h5 class="text-muted">No duty rosters found</h5>
+                <p class="text-secondary">@(Model.CanCreate ? "Create your first roster to get started." : "No rosters match your filters.")</p>
+                @if (Model.CanCreate)
+                {
+                    <a href="@Url.Action("Create")" class="btn btn-primary mt-2"><i class="fas fa-plus me-1"></i> Create Roster</a>
+                }
+            </div>
+        }
+    </div>
+</div>

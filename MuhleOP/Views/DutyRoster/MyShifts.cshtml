@@ -1,0 +1,166 @@
+﻿
+@model MuhleOP.ViewModels.MyShiftsViewModel
+@{
+    ViewBag.Title = "My Shifts";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">My Shifts</h2>
+        <p class="text-muted mb-0">Upcoming and recent published shifts for @Model.StaffName</p>
+    </div>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @TempData["SuccessMessage"]
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @TempData["ErrorMessage"]
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+}
+
+<div class="row g-4">
+    <!-- Upcoming -->
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent fw-semibold d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-calendar-check me-2" style="color: var(--primary-gold, #F5A623);"></i>Upcoming Shifts</span>
+                <span class="badge bg-success">@Model.UpcomingShifts.Count</span>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.UpcomingShifts != null && Model.UpcomingShifts.Any())
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var s in Model.UpcomingShifts)
+                        {
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <div class="fw-semibold">
+                                            @s.ShiftDate.ToString("dddd, dd MMM yyyy")
+                                            @if (s.IsToday)
+                                            {
+                                                <span class="badge bg-primary ms-1">Today</span>
+                                            }
+                                        </div>
+                                        <div class="text-secondary small mt-1">
+                                            <i class="fas fa-clock me-1"></i>@s.StartTime – @s.EndTime
+                                            &middot; <i class="fas fa-hard-hat me-1"></i>@s.ShiftRole
+                                        </div>
+                                        <div class="text-secondary small">
+                                            <i class="fas fa-building me-1"></i>@s.ProjectName
+                                            @if (!string.IsNullOrWhiteSpace(s.SiteLocation))
+                                            {
+                                                <span>&middot; <i class="fas fa-map-marker-alt me-1"></i>@s.SiteLocation</span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        @if (s.CanClockIn)
+                                        {
+                                            <a href="@Url.Action("Scan", "Attendance")" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-qrcode me-1"></i> Clock In Now
+                                            </a>
+                                        }
+                                        else if (s.IsToday)
+                                        {
+                                            <span class="badge bg-secondary">Outside clock-in window</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-light text-dark border">Upcoming</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="fas fa-calendar-check fa-4x text-muted mb-3" style="opacity:0.3;"></i>
+                        <h5 class="text-muted">No upcoming shifts</h5>
+                        <p class="text-secondary mb-0">When your Project Manager publishes a roster that includes you, your shifts will appear here.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Past -->
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent fw-semibold d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-history me-2 text-secondary"></i>Past Shifts</span>
+                <span class="badge bg-secondary">@Model.PastShifts.Count</span>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.PastShifts != null && Model.PastShifts.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Project</th>
+                                    <th class="text-end">Hours</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var s in Model.PastShifts)
+                                {
+                                    <tr>
+                                        <td class="text-nowrap">@s.ShiftDate.ToString("dd MMM")</td>
+                                        <td class="text-nowrap small">@s.StartTime–@s.EndTime</td>
+                                        <td>
+                                            <div class="small">@s.ProjectName</div>
+                                            <div class="text-secondary" style="font-size:11px;">@s.ShiftRole</div>
+                                        </td>
+                                        <td class="text-end">
+                                            @if (s.HoursWorked.HasValue)
+                                            {
+                                                <span class="fw-semibold">@s.HoursWorked.Value.ToString("N1")h</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-4">
+                        <i class="fas fa-history fa-3x text-muted mb-2" style="opacity:0.3;"></i>
+                        <p class="text-muted small mb-0">No past shifts yet.</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mt-3">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-info-circle me-2"></i>How to clock in</h6>
+                <p class="small text-secondary mb-0">
+                    On the day of your shift, open <strong>My QR Code</strong> (Attendance menu) and show the QR to your Site Manager.
+                    You can also use the <strong>Clock In Now</strong> button above when the shift is active.
+                    Hours worked are recorded automatically when you are checked out.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

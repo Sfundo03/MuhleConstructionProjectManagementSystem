@@ -86,6 +86,8 @@ namespace MuhleOP.Models
         public virtual ICollection<SiteInspection> Inspections { get; set; }
         public virtual ICollection<ProjectHandover> Handovers { get; set; }
 
+        public virtual ICollection<DutyRoster> DutyRosters { get; set; }
+
         public Project()
         {
             Status = "Initiated";

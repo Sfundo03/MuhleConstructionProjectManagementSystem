@@ -183,6 +183,7 @@
     <Compile Include="Controllers\AttendanceController.cs" />
     <Compile Include="Controllers\CandidateController.cs" />
     <Compile Include="Controllers\ClientController.cs" />
+    <Compile Include="Controllers\DutyRosterController.cs" />
     <Compile Include="Controllers\EquipmentController.cs" />
     <Compile Include="Controllers\HandoverController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
@@ -204,20 +205,14 @@
     <Compile Include="Helpers\HtmlAttributeExtensions.cs" />
     <Compile Include="Helpers\InspectionTemplateSeeder.cs" />
     <Compile Include="Helpers\PayslipPdfGenerator.cs" />
-    <Compile Include="Migrations\202609221610013_AddPayRateAudit.cs" />
-    <Compile Include="Migrations\202609221610013_AddPayRateAudit.Designer.cs">
-      <DependentUpon>202609221610013_AddPayRateAudit.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Migrations\202609231811389_update-database.cs" />
-    <Compile Include="Migrations\202609231811389_update-database.Designer.cs">
-      <DependentUpon>202609231811389_update-database.cs</DependentUpon>
-    </Compile>
+    <Compile Include="Helpers\RosterValidationHelper.cs" />
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Models\AccountViewModels.cs" />
     <Compile Include="Models\AttendanceModels.cs" />
     <Compile Include="Models\CandidateModels.cs" />
     <Compile Include="Models\ClientModels.cs" />
     <Compile Include="Models\DailyOperationsModels.cs" />
+    <Compile Include="Models\DutyRosterModels.cs" />
     <Compile Include="Models\EquipmentModels.cs" />
     <Compile Include="Models\FinanceModels.cs" />
     <Compile Include="Models\HandoverModels.cs" />
@@ -232,6 +227,7 @@
     <Compile Include="Startup.cs" />
     <Compile Include="ViewModels\AttendanceViewModels.cs" />
     <Compile Include="ViewModels\CandidateViewModels.cs" />
+    <Compile Include="ViewModels\DutyRosterViewModels.cs" />
     <Compile Include="ViewModels\EquipmentPartViewModel.cs" />
     <Compile Include="ViewModels\EquipmentViewModels.cs" />
     <Compile Include="ViewModels\FinanceViewModels.cs" />
@@ -269,7 +265,13 @@
     <Content Include="Scripts\bootstrap.js" />
     <Content Include="Scripts\bootstrap.min.js" />
     <None Include="Properties\PublishProfiles\muhleapp - FTP.pubxml" />
+    <None Include="Properties\PublishProfiles\muhleapp - FTP1.pubxml" />
+    <None Include="Properties\PublishProfiles\muhleapp - FTP2.pubxml" />
+    <None Include="Properties\PublishProfiles\muhleapp - FTP3.pubxml" />
     <None Include="Properties\PublishProfiles\muhleapp - Web Deploy.pubxml" />
+    <None Include="Properties\PublishProfiles\muhleapp - Web Deploy1.pubxml" />
+    <None Include="Properties\PublishProfiles\muhleapp - Web Deploy2.pubxml" />
+    <None Include="Properties\PublishProfiles\muhleapp - Web Deploy3.pubxml" />
     <None Include="Properties\PublishProfiles\MuhleDb - FTP.pubxml" />
     <None Include="Properties\PublishProfiles\MuhleDb - Web Deploy.pubxml" />
     <None Include="Scripts\jquery-3.7.0.intellisense.js" />
@@ -383,6 +385,12 @@
     <Content Include="Views\Parts\Create.cshtml" />
     <Content Include="Views\Technicians\Index.cshtml" />
     <Content Include="Views\Technicians\Create.cshtml" />
+    <Content Include="Views\DutyRoster\Index.cshtml" />
+    <Content Include="Views\DutyRoster\Create.cshtml" />
+    <Content Include="Views\DutyRoster\MyShifts.cshtml" />
+    <Content Include="Views\DutyRoster\Publish.cshtml" />
+    <Content Include="Views\DutyRoster\Details.cshtml" />
+    <Content Include="Views\DutyRoster\Edit.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
@@ -415,14 +423,6 @@
     <Content Include="Scripts\bootstrap.bundle.js.map" />
     <Content Include="Scripts\jquery-3.7.0.slim.min.map" />
     <Content Include="Scripts\jquery-3.7.0.min.map" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Migrations\202609221610013_AddPayRateAudit.resx">
-      <DependentUpon>202609221610013_AddPayRateAudit.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Migrations\202609231811389_update-database.resx">
-      <DependentUpon>202609231811389_update-database.cs</DependentUpon>
-    </EmbeddedResource>
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>

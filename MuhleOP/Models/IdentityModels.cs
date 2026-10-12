@@ -41,6 +41,11 @@ namespace MuhleOP.Models
         public DbSet<ApplicationStatusHistory> ApplicationStatusHistories { get; set; }
         public DbSet<Notification> Notifications { get; set; }
 
+        // UC11.5 Duty Roster
+        public DbSet<DutyRoster> DutyRosters { get; set; }
+        public DbSet<Shift> Shifts { get; set; }
+        public DbSet<ShiftAssignment> ShiftAssignments { get; set; }
+        public DbSet<LeaveRecord> LeaveRecords { get; set; }
         // Attendance
         public DbSet<AttendanceRecord> AttendanceRecords { get; set; }
 
@@ -611,6 +616,61 @@ namespace MuhleOP.Models
                 .WithMany()
                 .HasForeignKey(qa => qa.ApplicationId)
                 .WillCascadeOnDelete(true);
+
+            // ===================== UC11.5 Duty Roster =====================
+            modelBuilder.Entity<DutyRoster>()
+                .HasRequired(dr => dr.Project)
+                .WithMany(p => p.DutyRosters)
+                .HasForeignKey(dr => dr.ProjectId)
+                .WillCascadeOnDelete(false);
+
+            modelBuilder.Entity<DutyRoster>()
+                .HasOptional(dr => dr.ParentRoster)
+                .WithMany(dr => dr.ChildVersions)
+                .HasForeignKey(dr => dr.ParentRosterId)
+                .WillCascadeOnDelete(false);
+
+            modelBuilder.Entity<Shift>()
+                .HasRequired(s => s.DutyRoster)
+                .WithMany(dr => dr.Shifts)
+                .HasForeignKey(s => s.DutyRosterId)
+                .WillCascadeOnDelete(true);
+
+            modelBuilder.Entity<Shift>()
+                .HasRequired(s => s.Project)
+                .WithMany()
+                .HasForeignKey(s => s.ProjectId)
+                .WillCascadeOnDelete(false);
+
+            modelBuilder.Entity<ShiftAssignment>()
+                .HasRequired(sa => sa.Shift)
+                .WithMany(s => s.Assignments)
+                .HasForeignKey(sa => sa.ShiftId)
+                .WillCascadeOnDelete(true);
+
+            modelBuilder.Entity<ShiftAssignment>()
+                .HasRequired(sa => sa.Staff)
+                .WithMany(st => st.ShiftAssignments)
+                .HasForeignKey(sa => sa.StaffId)
+                .WillCascadeOnDelete(false);
+
+            modelBuilder.Entity<LeaveRecord>()
+                .HasRequired(lr => lr.Staff)
+                .WithMany(st => st.LeaveRecords)
+                .HasForeignKey(lr => lr.StaffId)
+                .WillCascadeOnDelete(false);
+
+            // Unique index on roster identity
+            modelBuilder.Entity<DutyRoster>()
+                .HasIndex(dr => new { dr.ProjectId, dr.PeriodStart, dr.PeriodEnd, dr.Version })
+                .IsUnique();
+
+            // Performance indexes for validation queries
+            modelBuilder.Entity<Shift>()
+                .HasIndex(s => new { s.ProjectId, s.ShiftDate });
+
+            modelBuilder.Entity<ShiftAssignment>()
+                .HasIndex(sa => new { sa.StaffId, sa.ShiftId });
         }
     }
 }

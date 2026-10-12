@@ -113,6 +113,8 @@ namespace MuhleOP.Models
         public virtual ICollection<SiteInspection> Inspections { get; set; }
         public virtual ICollection<ProjectResourceAllocation> ResourceAllocations { get; set; }
 
+        public virtual ICollection<ShiftAssignment> ShiftAssignments { get; set; }
+        public virtual ICollection<LeaveRecord> LeaveRecords { get; set; }
         public Staff()
         {
             HireDate = DateTime.Now;

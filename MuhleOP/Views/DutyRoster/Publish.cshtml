@@ -1,0 +1,125 @@
+﻿
+@model MuhleOP.ViewModels.PublishRosterViewModel
+@{
+    ViewBag.Title = "Publish Duty Roster";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Publish Duty Roster</h2>
+        <p class="text-muted mb-0">Review warnings and confirm before making the roster visible to crew</p>
+    </div>
+    <a href="@Url.Action("Details", new { id = Model.DutyRosterId })" class="btn btn-outline-secondary btn-sm">Cancel</a>
+</div>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @TempData["ErrorMessage"]
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+}
+
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+        <div class="row mb-2">
+            <div class="col-sm-3 text-secondary">Project</div>
+            <div class="col-sm-9 fw-semibold">@Model.ProjectName</div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-sm-3 text-secondary">Period</div>
+            <div class="col-sm-9">@Model.PeriodLabel</div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-sm-3 text-secondary">Shifts</div>
+            <div class="col-sm-9">@Model.ShiftCount</div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-sm-3 text-secondary">Assigned staff</div>
+            <div class="col-sm-9">@Model.AssignedStaffCount</div>
+        </div>
+    </div>
+</div>
+
+@if (Model.Blockers != null && Model.Blockers.Any())
+{
+    <div class="alert alert-danger">
+        <h6 class="alert-heading"><i class="fas fa-ban me-2"></i>Blockers — cannot publish</h6>
+        <ul class="mb-0">
+            @foreach (var b in Model.Blockers)
+            {
+                <li>@b</li>
+            }
+        </ul>
+    </div>
+}
+
+@if (Model.Warnings != null && Model.Warnings.Any())
+{
+    <div class="alert alert-warning">
+        <h6 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Warnings</h6>
+        <ul class="mb-0">
+            @foreach (var w in Model.Warnings)
+            {
+                <li>@w</li>
+            }
+        </ul>
+    </div>
+}
+
+@using (Html.BeginForm("Publish", "DutyRoster", FormMethod.Post))
+{
+    @Html.AntiForgeryToken()
+    @Html.HiddenFor(m => m.DutyRosterId)
+    @Html.HiddenFor(m => m.ProjectName)
+    @Html.HiddenFor(m => m.PeriodLabel)
+    @Html.HiddenFor(m => m.ShiftCount)
+    @Html.HiddenFor(m => m.AssignedStaffCount)
+    @Html.HiddenFor(m => m.HasOvertimeWarnings)
+    @Html.HiddenFor(m => m.HasCertificationWarnings)
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            @if (Model.HasOvertimeWarnings)
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">@Html.DisplayNameFor(m => m.OvertimeOverrideReason) <span class="text-danger">*</span></label>
+                    @Html.TextAreaFor(m => m.OvertimeOverrideReason, new { @class = "form-control", rows = 2, placeholder = "Explain why overtime is approved for this roster…" })
+                    @Html.ValidationMessageFor(m => m.OvertimeOverrideReason, "", new { @class = "text-danger" })
+                </div>
+            }
+
+            @if (Model.HasCertificationWarnings)
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">@Html.DisplayNameFor(m => m.CertificationOverrideReason) <span class="text-danger">*</span></label>
+                    @Html.TextAreaFor(m => m.CertificationOverrideReason, new { @class = "form-control", rows = 2, placeholder = "Explain the certification override…" })
+                    @Html.ValidationMessageFor(m => m.CertificationOverrideReason, "", new { @class = "text-danger" })
+                </div>
+            }
+
+            <div class="form-check mb-3">
+                @Html.CheckBoxFor(m => m.ConfirmPublish, new { @class = "form-check-input", id = "ConfirmPublish" })
+                <label class="form-check-label" for="ConfirmPublish">
+                    @Html.DisplayNameFor(m => m.ConfirmPublish)
+                </label>
+                @Html.ValidationMessageFor(m => m.ConfirmPublish, "", new { @class = "text-danger d-block" })
+            </div>
+        </div>
+        <div class="card-footer text-end bg-transparent">
+            @if (Model.Blockers != null && Model.Blockers.Any())
+            {
+                <button type="button" class="btn btn-secondary" disabled>
+                    <i class="fas fa-ban me-1"></i> Cannot Publish (resolve blockers first)
+                </button>
+            }
+            else
+            {
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-paper-plane me-1"></i> Confirm & Publish
+                </button>
+            }
+        </div>
+    </div>
+}
