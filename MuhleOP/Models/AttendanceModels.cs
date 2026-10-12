@@ -25,6 +25,12 @@ namespace MuhleOP.Models
         [ForeignKey("ProjectId")]
         public virtual Project Project { get; set; }
 
+        /// <summary>Optional link to the published shift the crew member was expected to work.</summary>
+        public int? ShiftId { get; set; }
+
+        [ForeignKey("ShiftId")]
+        public virtual Shift Shift { get; set; }
+
         [Required]
         [Display(Name = "Check-In Time")]
         public DateTime CheckInTime { get; set; }
@@ -32,15 +38,10 @@ namespace MuhleOP.Models
         [Display(Name = "Check-Out Time")]
         public DateTime? CheckOutTime { get; set; }
 
-        /// <summary>
-        /// Computed hours (decimal). Null while still checked in.
-        /// </summary>
+        /// <summary>Computed hours (decimal). Null while still checked in.</summary>
         [Display(Name = "Total Hours")]
         public decimal? TotalHours { get; set; }
 
-        /// <summary>
-        /// ApplicationUser.Id of the Site Manager (or Admin) who scanned the check-in.
-        /// </summary>
         [StringLength(128)]
         public string CheckInByUserId { get; set; }
 
@@ -60,12 +61,32 @@ namespace MuhleOP.Models
 
         public DateTime CreatedDate { get; set; }
 
+        // ---- Roster reconciliation flags (populated at scan time) ----
+        public bool IsLate { get; set; }
+        public int LateMinutes { get; set; }
+        public bool IsSignificantlyLate { get; set; }
+        public bool IsEarlyDeparture { get; set; }
+        public int EarlyMinutes { get; set; }
+        public bool IsSundayShift { get; set; }
+        public bool IsHolidayShift { get; set; }
+        public bool IsOvertime { get; set; }
+        public decimal OvertimeHours { get; set; }
+
         public AttendanceRecord()
         {
             CheckInTime = DateTime.Now;
             CreatedDate = DateTime.Now;
             CheckInMethod = "QR";
             IsManualOverride = false;
+            IsLate = false;
+            LateMinutes = 0;
+            IsSignificantlyLate = false;
+            IsEarlyDeparture = false;
+            EarlyMinutes = 0;
+            IsSundayShift = false;
+            IsHolidayShift = false;
+            IsOvertime = false;
+            OvertimeHours = 0m;
         }
     }
 }

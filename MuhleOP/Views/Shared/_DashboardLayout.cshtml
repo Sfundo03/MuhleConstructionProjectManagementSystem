@@ -1411,16 +1411,7 @@
             }
         });
 
-        // Active nav link highlighting based on current URL
-        document.addEventListener('DOMContentLoaded', function () {
-            const currentUrl = window.location.pathname;
-            document.querySelectorAll('.nav-item').forEach(item => {
-                const href = item.getAttribute('href');
-                if (href && href !== '#' && currentUrl.includes(href)) {
-                    item.classList.add('active');
-                }
-            });
-        });
+       
 
         // Auto-dismiss alerts after 5 seconds
         document.addEventListener('DOMContentLoaded', function () {

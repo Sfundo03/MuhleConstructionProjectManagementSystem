@@ -1,5 +1,8 @@
-﻿using System;
+﻿// Helpers/PayslipPdfGenerator.cs
+using System;
+using System.Configuration;
 using System.IO;
+using System.Linq;
 using iTextSharp.text;
 using iTextSharp.text.pdf;
 using MuhleOP.Models;
@@ -8,148 +11,150 @@ namespace MuhleOP.Helpers
 {
     public static class PayslipPdfGenerator
     {
-        private static readonly BaseColor GoldColor = new BaseColor(245, 166, 35);
-        private static readonly BaseColor DarkColor = new BaseColor(20, 24, 29);
-        private static readonly BaseColor MutedColor = new BaseColor(110, 110, 110);
+        private static readonly BaseColor Gold = new BaseColor(245, 166, 35);
+        private static readonly BaseColor Dark = new BaseColor(20, 24, 29);
+        private static readonly BaseColor Muted = new BaseColor(110, 110, 110);
 
-        /// <summary>
-        /// Generates the official electronic payslip PDF for a paid payroll record.
-        /// </summary>
-        public static byte[] GeneratePayslip(Payroll payroll, Staff staff)
+        public static string Generate(Payroll payroll, Staff staff, string webRoot)
         {
-            using (var stream = new MemoryStream())
+            var dir = Path.Combine(webRoot, "App_Data", "Payslips");
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+            var fileName = $"Payslip_{staff.EmployeeId}_{payroll.PayPeriodStart:yyyyMM}_{payroll.Id}.pdf";
+            var fullPath = Path.Combine(dir, fileName);
+
+            using (var fs = new FileStream(fullPath, FileMode.Create))
+            using (var doc = new Document(PageSize.A4, 36, 36, 36, 36))
+            using (var writer = PdfWriter.GetInstance(doc, fs))
             {
-                var document = new Document(PageSize.A4, 50, 50, 60, 60);
-                PdfWriter.GetInstance(document, stream);
-                document.Open();
+                doc.Open();
+                var fontTitle = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 16, Dark);
+                var fontHead = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10, Dark);
+                var fontNorm = FontFactory.GetFont(FontFactory.HELVETICA, 9, Dark);
+                var fontMuted = FontFactory.GetFont(FontFactory.HELVETICA, 8, Muted);
+                var fontGold = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 11, Gold);
 
-                var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 18, DarkColor);
-                var subtitleFont = FontFactory.GetFont(FontFactory.HELVETICA, 10, MutedColor);
-                var headingFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 12, GoldColor);
-                var labelFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10, DarkColor);
-                var bodyFont = FontFactory.GetFont(FontFactory.HELVETICA, 10, DarkColor);
-                var smallMuted = FontFactory.GetFont(FontFactory.HELVETICA, 8, MutedColor);
+                // ---- Company header ----
+                var company = ConfigurationManager.AppSettings["Company.Name"] ?? "Muhle Building";
+                var reg = ConfigurationManager.AppSettings["Company.RegistrationNumber"] ?? "2018/123456/07";
+                var payeRef = ConfigurationManager.AppSettings["Company.PayeReference"] ?? "7123456789";
+                var uifRef = ConfigurationManager.AppSettings["Company.UifReference"] ?? "U123456789";
+                var sdlRef = ConfigurationManager.AppSettings["Company.SdlReference"] ?? "L123456789";
+                var addr = ConfigurationManager.AppSettings["Company.PhysicalAddress"] ?? "123 Construction Road, Cape Town, 8001";
 
-                // Header
-                document.Add(new Paragraph("PAYSLIP — MuhleOps", titleFont));
-                document.Add(new Paragraph($"Period: {payroll.PayPeriodStart:MMMM yyyy} ({payroll.PayPeriodStart:dd MMM yyyy} – {payroll.PayPeriodEnd:dd MMM yyyy})", subtitleFont));
-                document.Add(new Paragraph(" "));
+                doc.Add(new Paragraph(company, fontTitle));
+                doc.Add(new Paragraph(addr, fontMuted));
+                doc.Add(new Paragraph($"Reg: {reg}  |  PAYE: {payeRef}  |  UIF: {uifRef}  |  SDL: {sdlRef}", fontMuted));
+                doc.Add(new Paragraph(" "));
 
-                // Employer / Employee block
-                var partiesTable = new PdfPTable(2) { WidthPercentage = 100 };
-                partiesTable.SetWidths(new float[] { 1, 1 });
-                AddPartyCell(partiesTable, "EMPLOYER", "Muhle Building\nCape Town, South Africa", labelFont, bodyFont);
-                AddPartyCell(partiesTable, "EMPLOYEE", $"{staff.FullName}\nID: {(string.IsNullOrEmpty(staff.EmployeeId) ? "—" : staff.EmployeeId)}\nRole: {staff.Role}\nEmail: {staff.Email}", labelFont, bodyFont);
-                document.Add(partiesTable);
-                document.Add(new Paragraph(" "));
+                // ---- Employee block ----
+                var tEmp = new PdfPTable(2) { WidthPercentage = 100 };
+                tEmp.SetWidths(new float[] { 1, 1 });
+                AddCell(tEmp, "Employee", fontHead, true);
+                AddCell(tEmp, "Pay Period", fontHead, true);
+                AddCell(tEmp, $"{staff.FullName}\nID: {staff.EmployeeId}\nRole: {staff.Role}", fontNorm, false);
+                AddCell(tEmp, $"{payroll.PayPeriodStart:dd MMM yyyy} – {payroll.PayPeriodEnd:dd MMM yyyy}\nTax Year: {payroll.TaxYear}", fontNorm, false);
+                doc.Add(tEmp);
+                doc.Add(new Paragraph(" "));
 
-                // Earnings table
-                document.Add(new Paragraph("EARNINGS", headingFont));
-                var earningsTable = new PdfPTable(2) { WidthPercentage = 100 };
-                earningsTable.SetWidths(new float[] { 3, 1 });
-                AddDetailRow(earningsTable, $"Regular Hours ({payroll.RegularHours:N2} hrs @ R {payroll.HourlyRate:N2}/hr)", $"R {payroll.RegularPay:N2}", labelFont, bodyFont);
-                AddDetailRow(earningsTable, $"Overtime Hours ({payroll.OvertimeHours:N2} hrs @ R {payroll.OvertimeRate:N2}/hr)", $"R {payroll.OvertimePay:N2}", labelFont, bodyFont);
+                // ---- Earnings (SARS codes) ----
+                doc.Add(new Paragraph("EARNINGS", fontGold));
+                var tEarn = new PdfPTable(4) { WidthPercentage = 100 };
+                tEarn.SetWidths(new float[] { 1.2f, 3f, 1.5f, 1.5f });
+                AddHeaderRow(tEarn, new[] { "Code", "Description", "Hours / Qty", "Amount (R)" }, fontHead);
+                AddEarnRow(tEarn, "3601", "Normal / Regular Pay", payroll.RegularHours, payroll.RegularPay, fontNorm);
+                if (payroll.OvertimeHours > 0)
+                    AddEarnRow(tEarn, "3605", "Overtime Pay (1.5×)", payroll.OvertimeHours, payroll.OvertimePay, fontNorm);
+                if (payroll.SundayHours > 0)
+                    AddEarnRow(tEarn, "3607", "Sunday Pay (2×)", payroll.SundayHours, payroll.SundayPay, fontNorm);
+                if (payroll.HolidayHours > 0)
+                    AddEarnRow(tEarn, "3607", "Public Holiday Pay (2×)", payroll.HolidayHours, payroll.HolidayPay, fontNorm);
                 if (payroll.Bonus > 0)
-                {
-                    AddDetailRow(earningsTable, "Bonus", $"R {payroll.Bonus:N2}", labelFont, bodyFont);
-                }
-                if (payroll.OtherAdditions.HasValue && payroll.OtherAdditions.Value > 0)
-                {
-                    AddDetailRow(earningsTable, $"Other Additions {(string.IsNullOrWhiteSpace(payroll.AdditionNotes) ? "" : "— " + payroll.AdditionNotes)}", $"R {payroll.OtherAdditions.Value:N2}", labelFont, bodyFont);
-                }
-                AddDetailRow(earningsTable, "GROSS PAY", $"R {payroll.GrossPay:N2}", labelFont, bodyFont);
-                document.Add(earningsTable);
-                document.Add(new Paragraph(" "));
+                    AddEarnRow(tEarn, "3602", "Bonus", 0, payroll.Bonus, fontNorm);
+                if ((payroll.OtherAdditions ?? 0) > 0)
+                    AddEarnRow(tEarn, "3701", "Other Additions", 0, payroll.OtherAdditions.Value, fontNorm);
+                AddEarnRow(tEarn, "", "GROSS PAY", 0, payroll.GrossPay, fontHead);
+                doc.Add(tEarn);
+                doc.Add(new Paragraph(" "));
 
-                // Deductions table
-                document.Add(new Paragraph("DEDUCTIONS & TAX", headingFont));
-                var deductionsTable = new PdfPTable(2) { WidthPercentage = 100 };
-                deductionsTable.SetWidths(new float[] { 3, 1 });
-                AddDetailRow(deductionsTable, "UIF (1% capped)", $"R {payroll.Deductions:N2}", labelFont, bodyFont);
-                AddDetailRow(deductionsTable, "PAYE Tax (18%)", $"R {payroll.Tax:N2}", labelFont, bodyFont);
-                if (payroll.MedicalAidContribution.HasValue && payroll.MedicalAidContribution.Value > 0)
-                {
-                    AddDetailRow(deductionsTable, "Medical Aid Contribution", $"R {payroll.MedicalAidContribution.Value:N2}", labelFont, bodyFont);
-                }
-                if (payroll.PensionContribution.HasValue && payroll.PensionContribution.Value > 0)
-                {
-                    AddDetailRow(deductionsTable, "Pension Contribution", $"R {payroll.PensionContribution.Value:N2}", labelFont, bodyFont);
-                }
-                if (payroll.OtherDeductions.HasValue && payroll.OtherDeductions.Value > 0)
-                {
-                    AddDetailRow(deductionsTable, $"Other Deductions {(string.IsNullOrWhiteSpace(payroll.DeductionNotes) ? "" : "— " + payroll.DeductionNotes)}", $"R {payroll.OtherDeductions.Value:N2}", labelFont, bodyFont);
-                }
-                if (payroll.AdvanceRecovery.HasValue && payroll.AdvanceRecovery.Value > 0)
-                {
-                    AddDetailRow(deductionsTable, "Advance Recovery", $"R {payroll.AdvanceRecovery.Value:N2}", labelFont, bodyFont);
-                }
+                // ---- Deductions ----
+                doc.Add(new Paragraph("DEDUCTIONS", fontGold));
+                var tDed = new PdfPTable(3) { WidthPercentage = 100 };
+                tDed.SetWidths(new float[] { 1.2f, 4f, 1.5f });
+                AddHeaderRow(tDed, new[] { "Code", "Description", "Amount (R)" }, fontHead);
+                AddDedRow(tDed, "4001", "PAYE", payroll.Tax, fontNorm);
+                AddDedRow(tDed, "4003", "UIF (Employee)", payroll.UifEmployee, fontNorm);
+                if ((payroll.MedicalAidContribution ?? 0) > 0)
+                    AddDedRow(tDed, "4006", "Medical Aid", payroll.MedicalAidContribution.Value, fontNorm);
+                if ((payroll.PensionContribution ?? 0) > 0)
+                    AddDedRow(tDed, "4007", "Pension / Retirement Fund", payroll.PensionContribution.Value, fontNorm);
+                if ((payroll.OtherDeductions ?? 0) > 0)
+                    AddDedRow(tDed, "4091", "Other Deductions", payroll.OtherDeductions.Value, fontNorm);
+                if ((payroll.AdvanceRecovery ?? 0) > 0)
+                    AddDedRow(tDed, "4095", "Advance Recovery", payroll.AdvanceRecovery.Value, fontNorm);
+                doc.Add(tDed);
+                doc.Add(new Paragraph(" "));
 
-                var totalDeductionsCalc = payroll.Deductions + payroll.Tax +
-                    (payroll.MedicalAidContribution ?? 0m) +
-                    (payroll.PensionContribution ?? 0m) +
-                    (payroll.OtherDeductions ?? 0m) +
-                    (payroll.AdvanceRecovery ?? 0m);
+                // ---- Employer contributions ----
+                doc.Add(new Paragraph("EMPLOYER CONTRIBUTIONS (not deducted from salary)", fontGold));
+                var tEr = new PdfPTable(2) { WidthPercentage = 100 };
+                AddCell(tEr, "UIF Employer (1% capped R177.12)", fontNorm, false);
+                AddCell(tEr, payroll.UifEmployer.ToString("N2"), fontNorm, false);
+                AddCell(tEr, "SDL (1%)", fontNorm, false);
+                AddCell(tEr, payroll.Sdl.ToString("N2"), fontNorm, false);
+                doc.Add(tEr);
+                doc.Add(new Paragraph(" "));
 
-                AddDetailRow(deductionsTable, "TOTAL DEDUCTIONS", $"R {totalDeductionsCalc:N2}", labelFont, bodyFont);
-                document.Add(deductionsTable);
-                document.Add(new Paragraph(" "));
+                // ---- Net ----
+                var netPara = new Paragraph($"NET PAY: R {payroll.NetPay:N2}", fontTitle);
+                netPara.Alignment = Element.ALIGN_RIGHT;
+                doc.Add(netPara);
+                doc.Add(new Paragraph($"Payment date: {(payroll.PaymentDate.HasValue ? payroll.PaymentDate.Value.ToString("dd MMM yyyy") : "—")}  |  Bank: {Mask(payroll.BankAccount ?? staff.BankAccount)}", fontMuted) { Alignment = Element.ALIGN_RIGHT });
 
-                // Net Pay section
-                var netTable = new PdfPTable(2) { WidthPercentage = 100 };
-                netTable.SetWidths(new float[] { 3, 1 });
-                AddDetailRow(netTable, "NET PAY", $"R {payroll.NetPay:N2}", headingFont, headingFont);
-                document.Add(netTable);
-                document.Add(new Paragraph(" "));
+                // ---- Footer disclaimer ----
+                doc.Add(new Paragraph(" "));
+                doc.Add(new Paragraph(
+                    "This payslip is generated by MuhleOps for demonstration purposes. Tax figures are based on SARS 2024/25 tables and may not reflect your final tax liability. Consult a registered tax practitioner for filing.",
+                    fontMuted));
 
-                // Payment Details
-                document.Add(new Paragraph("PAYMENT DETAILS", headingFont));
-                var paymentTable = new PdfPTable(2) { WidthPercentage = 100 };
-                paymentTable.SetWidths(new float[] { 1, 1 });
-                AddDetailRow(paymentTable, "Payment Method", payroll.PaymentMethod ?? "Bank Transfer", labelFont, bodyFont);
-                AddDetailRow(paymentTable, "Payment Date", payroll.PaymentDate.HasValue ? payroll.PaymentDate.Value.ToString("dd MMM yyyy") : "—", labelFont, bodyFont);
-                AddDetailRow(paymentTable, "Bank Account", MaskBankAccount(payroll.BankAccount ?? staff.BankAccount), labelFont, bodyFont);
-                document.Add(paymentTable);
+                doc.Close();
+            }
 
-                document.Add(new Paragraph(" "));
-                var line = new Paragraph(new Chunk(new iTextSharp.text.pdf.draw.LineSeparator(0.5f, 100, MutedColor, Element.ALIGN_CENTER, 1)));
-                document.Add(line);
-                document.Add(new Paragraph(" "));
-                document.Add(new Paragraph($"Generated: {DateTime.Now:dd MMM yyyy HH:mm}", smallMuted));
-                document.Add(new Paragraph("This is a system-generated payslip and does not require a signature.", smallMuted));
+            return "/App_Data/Payslips/" + fileName;
+        }
 
-                document.Close();
-                return stream.ToArray();
+        private static void AddCell(PdfPTable t, string text, Font f, bool header)
+        {
+            var c = new PdfPCell(new Phrase(text, f)) { Border = header ? Rectangle.BOTTOM_BORDER : Rectangle.NO_BORDER, Padding = 4 };
+            t.AddCell(c);
+        }
+        private static void AddHeaderRow(PdfPTable t, string[] headers, Font f)
+        {
+            foreach (var h in headers)
+            {
+                var c = new PdfPCell(new Phrase(h, f)) { BackgroundColor = new BaseColor(245, 245, 245), Padding = 4 };
+                t.AddCell(c);
             }
         }
-
-        private static string MaskBankAccount(string account)
+        private static void AddEarnRow(PdfPTable t, string code, string desc, decimal hours, decimal amt, Font f)
         {
-            if (string.IsNullOrWhiteSpace(account))
-                return "—";
-
-            var cleaned = account.Trim().Replace(" ", "");
-            if (cleaned.Length <= 4)
-                return new string('•', cleaned.Length);
-            if (cleaned.Length <= 8)
-                return cleaned.Substring(0, 2) + new string('•', cleaned.Length - 4) + cleaned.Substring(cleaned.Length - 2);
-
-            return cleaned.Substring(0, 4) + "••••" + cleaned.Substring(cleaned.Length - 4);
+            t.AddCell(new PdfPCell(new Phrase(code, f)) { Padding = 3 });
+            t.AddCell(new PdfPCell(new Phrase(desc, f)) { Padding = 3 });
+            t.AddCell(new PdfPCell(new Phrase(hours > 0 ? hours.ToString("N2") : "", f)) { Padding = 3, HorizontalAlignment = Element.ALIGN_RIGHT });
+            t.AddCell(new PdfPCell(new Phrase(amt.ToString("N2"), f)) { Padding = 3, HorizontalAlignment = Element.ALIGN_RIGHT });
         }
-
-        private static void AddPartyCell(PdfPTable table, string label, string value, Font labelFont, Font bodyFont)
+        private static void AddDedRow(PdfPTable t, string code, string desc, decimal amt, Font f)
         {
-            var cell = new PdfPCell { Border = Rectangle.NO_BORDER, Padding = 6 };
-            cell.AddElement(new Paragraph(label, labelFont));
-            cell.AddElement(new Paragraph(value, bodyFont));
-            table.AddCell(cell);
+            t.AddCell(new PdfPCell(new Phrase(code, f)) { Padding = 3 });
+            t.AddCell(new PdfPCell(new Phrase(desc, f)) { Padding = 3 });
+            t.AddCell(new PdfPCell(new Phrase(amt.ToString("N2"), f)) { Padding = 3, HorizontalAlignment = Element.ALIGN_RIGHT });
         }
-
-        private static void AddDetailRow(PdfPTable table, string label, string value, Font labelFont, Font bodyFont)
+        private static string Mask(string acc)
         {
-            var labelCell = new PdfPCell(new Phrase(label, labelFont)) { Border = Rectangle.BOTTOM_BORDER, PaddingBottom = 6, PaddingTop = 4 };
-            var valueCell = new PdfPCell(new Phrase(value ?? "", bodyFont)) { Border = Rectangle.BOTTOM_BORDER, PaddingBottom = 6, PaddingTop = 4 };
-            table.AddCell(labelCell);
-            table.AddCell(valueCell);
+            if (string.IsNullOrWhiteSpace(acc)) return "—";
+            var c = acc.Trim().Replace(" ", "");
+            if (c.Length <= 4) return new string('•', c.Length);
+            return c.Substring(0, 4) + "••••" + c.Substring(c.Length - 4);
         }
     }
 }

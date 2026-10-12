@@ -27,6 +27,17 @@
                     <i class="fa-solid fa-file-pdf me-1"></i> Download Payslip
                 </a>
             }
+            else if (Model.Status == "Calculated" || Model.Status == "Approved" || Model.Status == "Processed" || Model.Status == "Paid")
+            {
+                using (Html.BeginForm("GeneratePayslip", "Payroll", FormMethod.Post))
+                {
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <button type="submit" class="btn btn-outline-success">
+                        <i class="fa-solid fa-file-pdf me-1"></i> Generate Payslip PDF
+                    </button>
+                }
+            }
             <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
                 <i class="fa-solid fa-arrow-left me-1"></i> Back
             </a>
@@ -60,7 +71,7 @@
                     @foreach (var anom in Model.Anomalies)
                     {
                         <li class="mb-1">
-                            <span class="badge @(anom.Severity == "Blocker" ? "bg-danger" : "bg-warning text-dark") me-2">@anom.Severity</span>
+                            <span class="badge @(anom.Severity == "Blocker" ? "bg-danger" : anom.Severity == "Warning" ? "bg-warning text-dark" : "bg-info") me-2">@anom.Severity</span>
                             <strong>[@anom.Code]</strong> @anom.Message
                             @if (!string.IsNullOrEmpty(anom.RelatedRecord))
                             {
@@ -73,10 +84,41 @@
         </div>
     }
 
+    <!-- Roster vs Attendance -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">
+            <i class="fa-solid fa-calendar-check me-1"></i> Roster vs Attendance
+        </div>
+        <div class="card-body">
+            <div class="row g-3 text-center">
+                <div class="col"><div class="text-muted small">Rostered</div><div class="fs-5">@Model.RosteredHours.ToString("N2") h</div></div>
+                <div class="col"><div class="text-muted small">Actual</div><div class="fs-5">@((Model.RegularHours + Model.OvertimeHours + Model.SundayHours + Model.HolidayHours).ToString("N2")) h</div></div>
+                <div class="col"><div class="text-muted small">Regular</div><div class="fs-5">@Model.RegularHours.ToString("N2") h</div></div>
+                <div class="col"><div class="text-muted small">Overtime</div><div class="fs-5">@Model.OvertimeHours.ToString("N2") h</div></div>
+                <div class="col"><div class="text-muted small">Sunday</div><div class="fs-5">@Model.SundayHours.ToString("N2") h</div></div>
+                <div class="col"><div class="text-muted small">Holiday</div><div class="fs-5">@Model.HolidayHours.ToString("N2") h</div></div>
+                <div class="col"><div class="text-muted small">Unworked</div><div class="fs-5 text-warning">@Model.UnworkedRosteredHours.ToString("N2") h</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- YTD -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">Year-to-Date (@Model.TaxYear)</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-6 col-md-3"><div class="text-muted small">Gross</div><div>R @Model.YtdGross.ToString("N2")</div></div>
+                <div class="col-6 col-md-3"><div class="text-muted small">PAYE</div><div>R @Model.YtdPaye.ToString("N2")</div></div>
+                <div class="col-6 col-md-3"><div class="text-muted small">UIF</div><div>R @Model.YtdUif.ToString("N2")</div></div>
+                <div class="col-6 col-md-3"><div class="text-muted small">Net</div><div>R @Model.YtdNet.ToString("N2")</div></div>
+            </div>
+        </div>
+    </div>
+
     <div class="row g-4">
         <div class="col-lg-7">
             <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white fw-semibold">Earnings &amp; Deductions</div>
+                <div class="card-header bg-white fw-semibold">Earnings &amp; Deductions (ZAR)</div>
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-6 col-md-4">
@@ -96,13 +138,27 @@
                             <div class="fs-5">R @Model.OvertimeRate.ToString("N2")</div>
                         </div>
                         <div class="col-6 col-md-4">
-                            <div class="text-muted small">Regular Pay</div>
+                            <div class="text-muted small">Regular Pay (3601)</div>
                             <div class="fs-5">R @Model.RegularPay.ToString("N2")</div>
                         </div>
                         <div class="col-6 col-md-4">
-                            <div class="text-muted small">Overtime Pay</div>
+                            <div class="text-muted small">Overtime Pay (3605)</div>
                             <div class="fs-5">R @Model.OvertimePay.ToString("N2")</div>
                         </div>
+                        @if (Model.SundayHours > 0)
+                        {
+                            <div class="col-6 col-md-4">
+                                <div class="text-muted small">Sunday Pay (3607)</div>
+                                <div class="fs-5">R @Model.SundayPay.ToString("N2")</div>
+                            </div>
+                        }
+                        @if (Model.HolidayHours > 0)
+                        {
+                            <div class="col-6 col-md-4">
+                                <div class="text-muted small">Holiday Pay (3607)</div>
+                                <div class="fs-5">R @Model.HolidayPay.ToString("N2")</div>
+                            </div>
+                        }
                         <div class="col-6 col-md-4">
                             <div class="text-muted small">Bonus</div>
                             <div class="fs-5">R @Model.Bonus.ToString("N2")</div>
@@ -124,24 +180,24 @@
 
                     <div class="row g-3">
                         <div class="col-6 col-md-4">
-                            <div class="text-muted small">UIF (1% capped R177.12)</div>
-                            <div class="fs-5 text-danger">− R @Model.Deductions.ToString("N2")</div>
+                            <div class="text-muted small">UIF Employee (4003)</div>
+                            <div class="fs-5 text-danger">− R @Model.UifEmployee.ToString("N2")</div>
                         </div>
                         <div class="col-6 col-md-4">
-                            <div class="text-muted small">PAYE Tax (18%)</div>
+                            <div class="text-muted small">PAYE (4001)</div>
                             <div class="fs-5 text-danger">− R @Model.Tax.ToString("N2")</div>
                         </div>
                         @if (Model.MedicalAidContribution > 0)
                         {
                             <div class="col-6 col-md-4">
-                                <div class="text-muted small">Medical Aid</div>
+                                <div class="text-muted small">Medical Aid (4006)</div>
                                 <div class="fs-5 text-danger">− R @Model.MedicalAidContribution.ToString("N2")</div>
                             </div>
                         }
                         @if (Model.PensionContribution > 0)
                         {
                             <div class="col-6 col-md-4">
-                                <div class="text-muted small">Pension</div>
+                                <div class="text-muted small">Pension (4007)</div>
                                 <div class="fs-5 text-danger">− R @Model.PensionContribution.ToString("N2")</div>
                             </div>
                         }
@@ -167,7 +223,23 @@
                 </div>
             </div>
 
-            <!-- Deductions & Additions Inline Edit Panel for Draft/Calculated -->
+            <!-- Employer contributions -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white fw-semibold">Employer Contributions (not deducted from salary)</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="text-muted small">UIF Employer</div>
+                            <div>R @Model.UifEmployer.ToString("N2")</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small">SDL (4005)</div>
+                            <div>R @Model.Sdl.ToString("N2")</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             @if (User.IsInRole("Finance Officer") && (Model.Status == "Draft" || Model.Status == "Calculated"))
             {
                 <div class="card border-0 shadow-sm mb-4">
@@ -179,30 +251,30 @@
                             <input type="hidden" name="id" value="@Model.Id" />
                             <div class="row g-3">
                                 <div class="col-md-4">
-                                    <label class="form-label small">Medical Aid</label>
+                                    <label class="form-label small">Medical Aid (R)</label>
                                     <input type="number" step="0.01" name="medicalAid" class="form-control form-control-sm" value="@Model.MedicalAidContribution" />
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small">Pension</label>
+                                    <label class="form-label small">Pension (R)</label>
                                     <input type="number" step="0.01" name="pension" class="form-control form-control-sm" value="@Model.PensionContribution" />
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small">Advance Recovery</label>
+                                    <label class="form-label small">Advance Recovery (R)</label>
                                     <input type="number" step="0.01" name="advance" class="form-control form-control-sm" value="@Model.AdvanceRecovery" />
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label small">Other Deductions</label>
+                                    <label class="form-label small">Other Deductions (R)</label>
                                     <input type="number" step="0.01" name="otherDed" class="form-control form-control-sm" value="@Model.OtherDeductions" />
                                     <input type="text" name="deductionNotes" class="form-control form-control-sm mt-1" placeholder="Deduction notes" value="@Model.DeductionNotes" />
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label small">Other Additions</label>
+                                    <label class="form-label small">Other Additions (R)</label>
                                     <input type="number" step="0.01" name="otherAdd" class="form-control form-control-sm" value="@Model.OtherAdditions" />
                                     <input type="text" name="additionNotes" class="form-control form-control-sm mt-1" placeholder="Addition notes" value="@Model.AdditionNotes" />
                                 </div>
                                 <div class="col-12">
                                     <button type="submit" class="btn btn-sm btn-primary">
-                                        <i class="fa-solid fa-save me-1"></i> Save Deductions &amp; Recalculate
+                                        <i class="fa-solid fa-save me-1"></i> Save &amp; Recalculate
                                     </button>
                                 </div>
                             </div>
@@ -291,8 +363,7 @@
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@Model.Id" />
                             <button type="submit" class="btn btn-success w-100"
-                                    onclick="return confirm('Mark this payroll as Paid and notify the staff member?');"
-                                    @(Model.IsPeriodLocked && Model.Status == "Paid" ? "disabled" : "")>
+                                    onclick="return confirm('Mark this payroll as Paid and notify the staff member?');">
                                 <i class="fa-solid fa-circle-check me-1"></i> Mark as Paid
                             </button>
                         }
@@ -311,7 +382,6 @@
                     <dl class="row mb-0">
                         <dt class="col-5 text-muted">Calculated by</dt>
                         <dd class="col-7">@(Model.CalculatedBy ?? "—")</dd>
-
                         <dt class="col-5 text-muted">Approved by</dt>
                         <dd class="col-7">
                             @(Model.ApprovedBy ?? "—")
@@ -320,7 +390,6 @@
                                 <span class="text-muted">(@Model.ApprovalDate.Value.ToString("dd MMM yyyy HH:mm"))</span>
                             }
                         </dd>
-
                         <dt class="col-5 text-muted">Processed by</dt>
                         <dd class="col-7">
                             @(Model.ProcessedBy ?? "—")

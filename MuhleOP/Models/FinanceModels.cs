@@ -32,6 +32,18 @@ namespace MuhleOP.Models
         [Display(Name = "Overtime Hours")]
         public decimal OvertimeHours { get; set; }
 
+        [Display(Name = "Rostered Hours")]
+        public decimal RosteredHours { get; set; }
+
+        [Display(Name = "Unworked Rostered Hours")]
+        public decimal UnworkedRosteredHours { get; set; }
+
+        [Display(Name = "Sunday Hours")]
+        public decimal SundayHours { get; set; }
+
+        [Display(Name = "Holiday Hours")]
+        public decimal HolidayHours { get; set; }
+
         [Display(Name = "Hourly Rate")]
         public decimal HourlyRate { get; set; }
 
@@ -44,13 +56,19 @@ namespace MuhleOP.Models
         [Display(Name = "Overtime Pay")]
         public decimal OvertimePay { get; set; }
 
+        [Display(Name = "Sunday Pay")]
+        public decimal SundayPay { get; set; }
+
+        [Display(Name = "Holiday Pay")]
+        public decimal HolidayPay { get; set; }
+
         [Display(Name = "Gross Pay")]
         public decimal GrossPay { get; set; }
 
         [Display(Name = "Deductions")]
-        public decimal Deductions { get; set; }
+        public decimal Deductions { get; set; }          // = UifEmployee (legacy field)
 
-        [Display(Name = "Tax")]
+        [Display(Name = "Tax (PAYE)")]
         public decimal Tax { get; set; }
 
         [Display(Name = "Net Pay")]
@@ -59,9 +77,29 @@ namespace MuhleOP.Models
         [Display(Name = "Bonus")]
         public decimal Bonus { get; set; }
 
-        // ADDED: TotalAmount property for consistency
-        [Display(Name = "Total Amount")]
-        public decimal TotalAmount { get; set; }
+        [Display(Name = "UIF Employee")]
+        public decimal UifEmployee { get; set; }
+
+        [Display(Name = "UIF Employer")]
+        public decimal UifEmployer { get; set; }
+
+        [Display(Name = "SDL")]
+        public decimal Sdl { get; set; }
+
+        [Display(Name = "PAYE before rebate")]
+        public decimal PayeBeforeRebate { get; set; }
+
+        [Display(Name = "Medical Tax Credit")]
+        public decimal MedicalTaxCredit { get; set; }
+
+        [Display(Name = "Retirement Deduction (s11F)")]
+        public decimal RetirementDeduction { get; set; }
+
+        [Display(Name = "Dependants")]
+        public int Dependants { get; set; }
+
+        [StringLength(20)]
+        public string TaxYear { get; set; }
 
         [Display(Name = "Status")]
         public string Status { get; set; } // Draft, Calculated, Approved, Processed, Paid
@@ -71,7 +109,7 @@ namespace MuhleOP.Models
         public DateTime? PaymentDate { get; set; }
 
         [Display(Name = "Payment Method")]
-        public string PaymentMethod { get; set; } // Bank Transfer, Cash, Cheque
+        public string PaymentMethod { get; set; }
 
         [Display(Name = "Bank Account")]
         public string BankAccount { get; set; }
@@ -95,7 +133,6 @@ namespace MuhleOP.Models
         [Display(Name = "Processed Date")]
         public DateTime? ProcessedDate { get; set; }
 
-        // UC22 Additions
         [StringLength(4000)]
         public string ValidationWarningsJson { get; set; }
 
@@ -117,23 +154,26 @@ namespace MuhleOP.Models
         public Payroll()
         {
             Status = "Draft";
-            TotalAmount = 0;
+            TaxYear = "2024/2025";
             MedicalAidContribution = 0m;
             PensionContribution = 0m;
             OtherDeductions = 0m;
             OtherAdditions = 0m;
             AdvanceRecovery = 0m;
+            Dependants = 0;
         }
 
-        // Helper method to calculate totals
+        /// <summary>
+        /// Computes earnings only. Tax / UIF / SDL / Net are applied by SarsTaxCalculator.
+        /// </summary>
         public void CalculateTotals()
         {
-            RegularPay = RegularHours * HourlyRate;
-            OvertimePay = OvertimeHours * OvertimeRate;
-            GrossPay = RegularPay + OvertimePay + Bonus + (OtherAdditions ?? 0m);
-            var totalDeductions = Deductions + (MedicalAidContribution ?? 0m) + (PensionContribution ?? 0m) + (OtherDeductions ?? 0m) + (AdvanceRecovery ?? 0m);
-            NetPay = GrossPay - totalDeductions - Tax;
-            TotalAmount = NetPay;
+            RegularPay = Math.Round(RegularHours * HourlyRate, 2);
+            OvertimePay = Math.Round(OvertimeHours * OvertimeRate, 2);
+            SundayPay = Math.Round(SundayHours * HourlyRate * 2.0m, 2);
+            HolidayPay = Math.Round(HolidayHours * HourlyRate * 2.0m, 2);
+            GrossPay = RegularPay + OvertimePay + SundayPay + HolidayPay + Bonus + (OtherAdditions ?? 0m);
+            // NetPay is finalised by SarsTaxCalculator
         }
     }
 
@@ -215,7 +255,7 @@ namespace MuhleOP.Models
         public string Currency { get; set; } = "ZAR";
 
         [Display(Name = "Status")]
-        public string Status { get; set; } // Draft, Sent, Paid, Overdue, Cancelled
+        public string Status { get; set; }
 
         [Display(Name = "Payment Date")]
         [DataType(DataType.Date)]

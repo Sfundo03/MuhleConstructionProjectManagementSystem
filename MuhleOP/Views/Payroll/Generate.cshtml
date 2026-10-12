@@ -8,7 +8,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
             <h1 class="h3 mb-1"><i class="fa-solid fa-file-invoice-dollar me-2"></i>Generate Payroll</h1>
-            <p class="text-muted mb-0">Create draft payroll records for a monthly period</p>
+            <p class="text-muted mb-0">Create draft payroll records for a monthly period (ZAR)</p>
         </div>
         <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
             <i class="fa-solid fa-arrow-left me-1"></i> Back to list
@@ -38,13 +38,10 @@
                     <div class="row g-2">
                         <div class="col-6">Active staff with pay rate:</div>
                         <div class="col-6 fw-semibold text-end">@Model.PreviewActiveStaffCount</div>
-
                         <div class="col-6">Staff with zero/missing pay rate (skipped):</div>
                         <div class="col-6 fw-semibold text-end text-danger">@Model.PreviewZeroRateStaffCount</div>
-
                         <div class="col-6">Attendance records with missing clock-outs:</div>
                         <div class="col-6 fw-semibold text-end text-warning">@Model.PreviewMissingClockOutCount</div>
-
                         <div class="col-6">Period lock status:</div>
                         <div class="col-6 fw-semibold text-end">
                             @if (Model.IsPeriodLocked)
@@ -82,7 +79,8 @@
                         <div class="alert alert-info small">
                             <i class="fa-solid fa-circle-info me-1"></i>
                             Draft records will be created for all <strong>active</strong> staff who have a pay rate set.
-                            Existing payrolls for the same period are skipped. Hours are pulled from attendance records.
+                            Hours are calculated from <strong>Duty Roster + Attendance</strong> (rostered vs actual).
+                            Existing payrolls for the same period are skipped.
                         </div>
 
                         <div class="d-flex gap-2">

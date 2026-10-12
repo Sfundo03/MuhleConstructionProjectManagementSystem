@@ -110,6 +110,7 @@ namespace MuhleOP.Models
         public DbSet<QuizQuestion> QuizQuestions { get; set; }
         public DbSet<QuizAttempt> QuizAttempts { get; set; }
 
+        public DbSet<PublicHoliday> PublicHolidays { get; set; }
         public static ApplicationDbContext Create()
         {
             return new ApplicationDbContext();
@@ -146,9 +147,7 @@ namespace MuhleOP.Models
                 .Property(i => i.TotalAmount)
                 .HasPrecision(18, 2);
 
-            modelBuilder.Entity<Payroll>()
-                .Property(p => p.TotalAmount)
-                .HasPrecision(18, 2);
+            
             modelBuilder.Entity<Payroll>()
                 .Property(p => p.RegularPay)
                 .HasPrecision(18, 2);
@@ -671,6 +670,46 @@ namespace MuhleOP.Models
 
             modelBuilder.Entity<ShiftAssignment>()
                 .HasIndex(sa => new { sa.StaffId, sa.ShiftId });
+
+            // PublicHoliday
+            modelBuilder.Entity<PublicHoliday>()
+                .HasIndex(h => h.HolidayDate)
+                .IsUnique();
+
+            // AttendanceRecord new FK (optional)
+            modelBuilder.Entity<AttendanceRecord>()
+                .HasOptional(ar => ar.Shift)
+                .WithMany()
+                .HasForeignKey(ar => ar.ShiftId)
+                .WillCascadeOnDelete(false);
+
+            // New Payroll decimal precision
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.RosteredHours).HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.UnworkedRosteredHours).HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.SundayHours).HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.HolidayHours).HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.SundayPay).HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.HolidayPay).HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.UifEmployee).HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.UifEmployer).HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.Sdl).HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.PayeBeforeRebate).HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.MedicalTaxCredit).HasPrecision(18, 2);
+            modelBuilder.Entity<Payroll>()
+                .Property(p => p.RetirementDeduction).HasPrecision(18, 2);
+
+            // Remove the old TotalAmount precision line if present
         }
     }
 }

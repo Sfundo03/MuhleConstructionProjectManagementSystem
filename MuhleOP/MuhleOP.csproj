@@ -205,7 +205,9 @@
     <Compile Include="Helpers\HtmlAttributeExtensions.cs" />
     <Compile Include="Helpers\InspectionTemplateSeeder.cs" />
     <Compile Include="Helpers\PayslipPdfGenerator.cs" />
+    <Compile Include="Helpers\PublicHolidaySeeder.cs" />
     <Compile Include="Helpers\RosterValidationHelper.cs" />
+    <Compile Include="Helpers\SarsTaxCalculator.cs" />
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Models\AccountViewModels.cs" />
     <Compile Include="Models\AttendanceModels.cs" />
@@ -221,6 +223,7 @@
     <Compile Include="Models\ManageViewModels.cs" />
     <Compile Include="Models\NotificationModels.cs" />
     <Compile Include="Models\ProjectModels.cs" />
+    <Compile Include="Models\PublicHoliday.cs" />
     <Compile Include="Models\QualityModels.cs" />
     <Compile Include="Models\StaffModels.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
