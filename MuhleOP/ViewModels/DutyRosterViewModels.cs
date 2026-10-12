@@ -78,17 +78,63 @@ namespace MuhleOP.ViewModels
         /// <summary>"SaveDraft" or "Publish"</summary>
         public string SubmitAction { get; set; }
 
+        // ---- Auto-generate defaults (applied to every day in the period) ----
+
+        [Required]
+        [Display(Name = "Default Start Time")]
+        public string DefaultStartTime { get; set; }
+
+        [Required]
+        [Display(Name = "Default End Time")]
+        public string DefaultEndTime { get; set; }
+
+        [Required]
+        [StringLength(100)]
+        [Display(Name = "Default Shift Role")]
+        public string DefaultShiftRole { get; set; }
+
+        [StringLength(150)]
+        [Display(Name = "Default Site Location")]
+        public string DefaultSiteLocation { get; set; }
+
+        /// <summary>Skip Saturdays and Sundays when auto-generating.</summary>
+        [Display(Name = "Weekdays only (Mon–Fri)")]
+        public bool WeekdaysOnly { get; set; }
+
+        /// <summary>Crew selected via checkboxes (must be assigned to the project).</summary>
+        [Display(Name = "Crew Members")]
+        public List<int> SelectedStaffIds { get; set; }
+
         public List<SelectListItem> Projects { get; set; }
+        public List<RosterStaffCheckboxViewModel> AvailableStaff { get; set; }
+
+        /// <summary>Used by Edit / Revise when working with individual shifts; on Create this is filled server-side by auto-generate.</summary>
         public List<ShiftInputViewModel> Shifts { get; set; }
 
         public CreateDutyRosterViewModel()
         {
             PeriodStart = DateTime.Today;
             PeriodEnd = DateTime.Today.AddDays(6);
-            Projects = new List<SelectListItem>();
-            Shifts = new List<ShiftInputViewModel>();
+            DefaultStartTime = "07:00";
+            DefaultEndTime = "16:00";
+            DefaultShiftRole = "General Labour";
+            DefaultSiteLocation = "";
+            WeekdaysOnly = true;
             SubmitAction = "SaveDraft";
+            SelectedStaffIds = new List<int>();
+            Projects = new List<SelectListItem>();
+            AvailableStaff = new List<RosterStaffCheckboxViewModel>();
+            Shifts = new List<ShiftInputViewModel>();
         }
+    }
+
+    public class RosterStaffCheckboxViewModel
+    {
+        public int StaffId { get; set; }
+        public string FullName { get; set; }
+        public string Role { get; set; }
+        public string EmployeeId { get; set; }
+        public bool IsSelected { get; set; }
     }
 
     public class ShiftInputViewModel
@@ -102,7 +148,7 @@ namespace MuhleOP.ViewModels
 
         [Required]
         [Display(Name = "Start Time")]
-        public string StartTime { get; set; } // "HH:mm" for form binding
+        public string StartTime { get; set; }
 
         [Required]
         [Display(Name = "End Time")]
@@ -123,7 +169,6 @@ namespace MuhleOP.ViewModels
 
         public List<int> StaffIds { get; set; }
 
-        // Client-side validation feedback (populated by AJAX)
         public List<string> Blockers { get; set; }
         public List<string> Warnings { get; set; }
 
@@ -159,7 +204,6 @@ namespace MuhleOP.ViewModels
         public List<ShiftDayGroupViewModel> ShiftsByDate { get; set; }
         public List<RosterVersionItemViewModel> VersionHistory { get; set; }
 
-        /// <summary>True only when the current user is the Project Manager who owns this project.</summary>
         public bool CanManage { get; set; }
         public bool CanEdit { get; set; }
         public bool CanPublish { get; set; }

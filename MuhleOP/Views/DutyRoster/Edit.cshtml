@@ -1,5 +1,4 @@
-﻿
-@model MuhleOP.ViewModels.CreateDutyRosterViewModel
+﻿@model MuhleOP.ViewModels.CreateDutyRosterViewModel
 @{
     ViewBag.Title = "Edit Duty Roster";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -92,7 +91,7 @@
                             <div class="col-md-2">
                                 <label class="form-label small">Crew</label>
                                 <select name="Shifts[@i].StaffIds" class="form-select form-select-sm shift-staff" multiple size="3"
-                                        data-selected="@string.Join(",", Model.Shifts[i].StaffIds ?? new List<int>())"></select>
+                                        data-selected="@(Model.Shifts[i].StaffIds != null ? string.Join(",", Model.Shifts[i].StaffIds) : "")"></select>
                             </div>
                             <div class="col-md-1 d-flex align-items-end">
                                 <button type="button" class="btn btn-sm btn-outline-danger remove-shift-btn w-100"><i class="fas fa-trash"></i></button>
@@ -114,7 +113,7 @@
 @section Scripts {
     @Scripts.Render("~/bundles/jqueryval")
     <script>
-        var shiftIndex = @(Model.Shifts?.Count ?? 0);
+        var shiftIndex = @(Model.Shifts != null ? Model.Shifts.Count : 0);
 
         function loadStaffForRow($row) {
             var projectId = $('#ProjectId').val();
@@ -123,15 +122,13 @@
             var end = $row.find('.shift-end').val();
             var role = $row.find('.shift-role').val();
             if (!projectId || !date || !start || !end) return;
-
             var preselected = ($row.find('.shift-staff').data('selected') || '').toString().split(',').filter(Boolean);
-
             $.get('@Url.Action("GetAvailableStaff")', {
                 projectId: projectId, shiftDate: date, startTime: start, endTime: end, shiftRole: role
             }, function (data) {
                 var $sel = $row.find('.shift-staff');
                 $sel.empty();
-                data.forEach(function (s) {
+                (data || []).forEach(function (s) {
                     var opt = $('<option></option>').val(s.StaffId).text(s.FullName + (s.IsAvailable ? '' : ' (unavailable)'));
                     if (!s.IsAvailable) opt.prop('disabled', true);
                     if (preselected.indexOf(String(s.StaffId)) >= 0) opt.prop('selected', true);
@@ -141,9 +138,8 @@
         }
 
         function validateRow($row) {
-            var projectId = $('#ProjectId').val();
             $.post('@Url.Action("ValidateShift")', {
-                projectId: projectId,
+                projectId: $('#ProjectId').val(),
                 shift: {
                     ShiftDate: $row.find('.shift-date').val(),
                     StartTime: $row.find('.shift-start').val(),
@@ -154,8 +150,8 @@
             }, function (res) {
                 var $v = $row.find('.shift-validation');
                 $v.empty();
-                if (res.HasBlockers) res.Blockers.forEach(function (b) { $v.append('<div class="text-danger"><i class="fas fa-times-circle me-1"></i>' + b + '</div>'); });
-                if (res.HasWarnings) res.Warnings.forEach(function (w) { $v.append('<div class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>' + w + '</div>'); });
+                if (res.HasBlockers) (res.Blockers || []).forEach(function (b) { $v.append('<div class="text-danger"><i class="fas fa-times-circle me-1"></i>' + b + '</div>'); });
+                if (res.HasWarnings) (res.Warnings || []).forEach(function (w) { $v.append('<div class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>' + w + '</div>'); });
                 if (!res.HasBlockers && !res.HasWarnings) $v.append('<div class="text-success"><i class="fas fa-check-circle me-1"></i> OK</div>');
             });
         }
@@ -179,14 +175,11 @@
         $(document).on('click', '.remove-shift-btn', function () { $(this).closest('.shift-row').remove(); });
         $(document).on('change', '.shift-date, .shift-start, .shift-end, .shift-role, #ProjectId', function () {
             var $row = $(this).closest('.shift-row');
-            loadStaffForRow($row);
-            validateRow($row);
+            if ($row.length) { loadStaffForRow($row); validateRow($row); }
         });
         $(document).on('change', '.shift-staff', function () { validateRow($(this).closest('.shift-row')); });
-
         $('#btnSaveDraft').on('click', function () { $('#SubmitActionField').val('SaveDraft'); });
         $('#btnPublish').on('click', function () { $('#SubmitActionField').val('Publish'); });
-
         $('.shift-row').each(function () { loadStaffForRow($(this)); });
     </script>
 }

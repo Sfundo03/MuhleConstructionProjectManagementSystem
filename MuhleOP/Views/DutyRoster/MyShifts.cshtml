@@ -1,5 +1,4 @@
-﻿
-@model MuhleOP.ViewModels.MyShiftsViewModel
+﻿@model MuhleOP.ViewModels.MyShiftsViewModel
 @{
     ViewBag.Title = "My Shifts";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -28,12 +27,11 @@
 }
 
 <div class="row g-4">
-    <!-- Upcoming -->
     <div class="col-lg-7">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-transparent fw-semibold d-flex justify-content-between align-items-center">
                 <span><i class="fas fa-calendar-check me-2" style="color: var(--primary-gold, #F5A623);"></i>Upcoming Shifts</span>
-                <span class="badge bg-success">@Model.UpcomingShifts.Count</span>
+                <span class="badge bg-success">@(Model.UpcomingShifts != null ? Model.UpcomingShifts.Count : 0)</span>
             </div>
             <div class="card-body p-0">
                 @if (Model.UpcomingShifts != null && Model.UpcomingShifts.Any())
@@ -42,7 +40,7 @@
                         @foreach (var s in Model.UpcomingShifts)
                         {
                             <div class="list-group-item">
-                                <div class="d-flex justify-content-between align-items-start">
+                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
                                     <div>
                                         <div class="fw-semibold">
                                             @s.ShiftDate.ToString("dddd, dd MMM yyyy")
@@ -96,12 +94,11 @@
         </div>
     </div>
 
-    <!-- Past -->
     <div class="col-lg-5">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-transparent fw-semibold d-flex justify-content-between align-items-center">
                 <span><i class="fas fa-history me-2 text-secondary"></i>Past Shifts</span>
-                <span class="badge bg-secondary">@Model.PastShifts.Count</span>
+                <span class="badge bg-secondary">@(Model.PastShifts != null ? Model.PastShifts.Count : 0)</span>
             </div>
             <div class="card-body p-0">
                 @if (Model.PastShifts != null && Model.PastShifts.Any())

@@ -1,20 +1,47 @@
-﻿
-@model MuhleOP.ViewModels.CreateDutyRosterViewModel
+﻿@model MuhleOP.ViewModels.CreateDutyRosterViewModel
 @{
-    ViewBag.Title = Model is MuhleOP.ViewModels.ReviseRosterViewModel ? "Revise Duty Roster" : (Model.Id.HasValue ? "Edit Duty Roster" : "Create Duty Roster");
-    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     var isRevise = Model is MuhleOP.ViewModels.ReviseRosterViewModel;
+    ViewBag.Title = isRevise ? "Revise Duty Roster" : "Create Duty Roster";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h2 class="mb-0">@ViewBag.Title</h2>
-        <p class="text-muted mb-0">Build shifts and assign crew members</p>
+        <p class="text-muted mb-0">
+            @(isRevise
+                ? "Adjust the period, crew and defaults — shifts will be regenerated for the new version."
+                : "Select project, period and crew. Shifts are generated automatically for each day.")
+        </p>
     </div>
     <a href="@Url.Action("Index")" class="btn btn-outline-secondary btn-sm">Back</a>
 </div>
 
-@using (Html.BeginForm(isRevise ? "Revise" : (Model.Id.HasValue ? "Edit" : "Create"), "DutyRoster", FormMethod.Post, new { id = "rosterForm" }))
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @TempData["ErrorMessage"]
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+}
+
+@* Server-side validation summary *@
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="alert alert-danger">
+        <ul class="mb-0">
+            @foreach (var err in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+            {
+                if (!string.IsNullOrWhiteSpace(err.ErrorMessage))
+                {
+                    <li>@err.ErrorMessage</li>
+                }
+            }
+        </ul>
+    </div>
+}
+
+@using (Html.BeginForm(isRevise ? "Revise" : "Create", "DutyRoster", FormMethod.Post, new { id = "rosterForm" }))
 {
     @Html.AntiForgeryToken()
     @Html.HiddenFor(m => m.Id)
@@ -27,177 +54,208 @@
     }
 
     <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-transparent fw-semibold">Roster Period</div>
+        <div class="card-header bg-transparent fw-semibold">1. Project &amp; period</div>
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-5">
                     <label class="form-label">@Html.DisplayNameFor(m => m.ProjectId)</label>
                     @Html.DropDownListFor(m => m.ProjectId, Model.Projects, "-- Select Project --", new { @class = "form-select", id = "ProjectId" })
                     @Html.ValidationMessageFor(m => m.ProjectId, "", new { @class = "text-danger" })
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">@Html.DisplayNameFor(m => m.PeriodStart)</label>
-                    @Html.TextBoxFor(m => m.PeriodStart, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                    @Html.TextBoxFor(m => m.PeriodStart, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date", id = "PeriodStart" })
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">@Html.DisplayNameFor(m => m.PeriodEnd)</label>
-                    @Html.TextBoxFor(m => m.PeriodEnd, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                    @Html.TextBoxFor(m => m.PeriodEnd, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date", id = "PeriodEnd" })
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                        @Html.CheckBoxFor(m => m.WeekdaysOnly, new { @class = "form-check-input", id = "WeekdaysOnly" })
+                        <label class="form-check-label" for="WeekdaysOnly">@Html.DisplayNameFor(m => m.WeekdaysOnly)</label>
+                    </div>
                 </div>
                 <div class="col-12">
                     <label class="form-label">@Html.DisplayNameFor(m => m.Notes)</label>
                     @Html.TextAreaFor(m => m.Notes, new { @class = "form-control", rows = 2 })
                 </div>
             </div>
+            <div id="periodConflictAlert" class="alert alert-warning mt-3 mb-0 d-none"></div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent fw-semibold">2. Default shift settings (applied to every generated day)</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.DefaultStartTime)</label>
+                    @Html.TextBoxFor(m => m.DefaultStartTime, new { @class = "form-control", type = "time", id = "DefaultStartTime" })
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.DefaultEndTime)</label>
+                    @Html.TextBoxFor(m => m.DefaultEndTime, new { @class = "form-control", type = "time", id = "DefaultEndTime" })
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.DefaultShiftRole)</label>
+                    @Html.DropDownListFor(m => m.DefaultShiftRole, new SelectList(new[] {
+                        "General Labour", "Crane Operator", "Forklift Operator", "Electrician",
+                        "Scaffolding Erector", "Site Supervisor", "Labourer"
+                    }, Model.DefaultShiftRole), new { @class = "form-select" })
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.DefaultSiteLocation)</label>
+                    @Html.TextBoxFor(m => m.DefaultSiteLocation, new { @class = "form-control", placeholder = "e.g. Gate 2" })
+                </div>
+            </div>
+            <p class="form-text mb-0 mt-2">
+                One shift is created for each day in the period (respecting weekdays-only). All selected crew are assigned to every shift.
+            </p>
         </div>
     </div>
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
-            <span class="fw-semibold">Shifts</span>
-            <button type="button" class="btn btn-sm btn-outline-primary" id="addShiftBtn"><i class="fas fa-plus me-1"></i> Add Shift</button>
+            <span class="fw-semibold">3. Select crew members (assigned to this project only)</span>
+            <div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllCrew">Select all</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="clearAllCrew">Clear</button>
+            </div>
         </div>
-        <div class="card-body" id="shiftsContainer">
-            @if (Model.Shifts != null)
-            {
-                for (int i = 0; i < Model.Shifts.Count; i++)
+        <div class="card-body">
+            <div id="crewLoading" class="text-muted d-none"><i class="fas fa-spinner fa-spin me-1"></i> Loading crew…</div>
+            <div id="crewEmpty" class="text-muted @(Model.AvailableStaff != null && Model.AvailableStaff.Any() ? "d-none" : "")">
+                Select a project to load assigned crew members.
+            </div>
+            <div id="crewList" class="row g-2">
+                @if (Model.AvailableStaff != null)
                 {
-                    <div class="shift-row border rounded p-3 mb-3" data-index="@i">
-                        @Html.HiddenFor(m => m.Shifts[i].Id)
-                        <div class="row g-2">
-                            <div class="col-md-2">
-                                <label class="form-label small">Date</label>
-                                @Html.TextBoxFor(m => m.Shifts[i].ShiftDate, "{0:yyyy-MM-dd}", new { @class = "form-control form-control-sm shift-date", type = "date" })
-                            </div>
-                            <div class="col-md-1">
-                                <label class="form-label small">Start</label>
-                                @Html.TextBoxFor(m => m.Shifts[i].StartTime, new { @class = "form-control form-control-sm shift-start", type = "time" })
-                            </div>
-                            <div class="col-md-1">
-                                <label class="form-label small">End</label>
-                                @Html.TextBoxFor(m => m.Shifts[i].EndTime, new { @class = "form-control form-control-sm shift-end", type = "time" })
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label small">Role</label>
-                                @Html.DropDownListFor(m => m.Shifts[i].ShiftRole, new SelectList(new[] { "General Labour", "Crane Operator", "Forklift Operator", "Electrician", "Scaffolding Erector", "Site Supervisor", "Labourer" }), new { @class = "form-select form-select-sm shift-role" })
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label small">Location</label>
-                                @Html.TextBoxFor(m => m.Shifts[i].SiteLocation, new { @class = "form-control form-control-sm", placeholder = "e.g. Gate 2" })
-                            </div>
-                            <div class="col-md-1">
-                                <label class="form-label small">Count</label>
-                                @Html.TextBoxFor(m => m.Shifts[i].RequiredStaffCount, new { @class = "form-control form-control-sm", type = "number", min = "1" })
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label small">Crew</label>
-                                <select name="Shifts[@i].StaffIds" class="form-select form-select-sm shift-staff" multiple size="3"></select>
-                            </div>
-                            <div class="col-md-1 d-flex align-items-end">
-                                <button type="button" class="btn btn-sm btn-outline-danger remove-shift-btn w-100"><i class="fas fa-trash"></i></button>
+                    foreach (var c in Model.AvailableStaff)
+                    {
+                        <div class="col-md-4 col-lg-3">
+                            <div class="form-check border rounded p-2 h-100">
+                                <input class="form-check-input crew-cb" type="checkbox" name="SelectedStaffIds" value="@c.StaffId"
+                                       id="crew_@c.StaffId" @(c.IsSelected ? "checked" : "") />
+                                <label class="form-check-label" for="crew_@c.StaffId">
+                                    <span class="fw-semibold d-block">@c.FullName</span>
+                                    <span class="small text-secondary">@c.Role@(string.IsNullOrEmpty(c.EmployeeId) ? "" : " · " + c.EmployeeId)</span>
+                                </label>
                             </div>
                         </div>
-                        <div class="shift-validation mt-2 small"></div>
-                    </div>
+                    }
                 }
-            }
+            </div>
+            @Html.ValidationMessageFor(m => m.SelectedStaffIds, "", new { @class = "text-danger d-block mt-2" })
+            <div class="mt-2 small text-secondary">
+                Selected: <strong id="crewSelectedCount">0</strong>
+                &middot; Estimated shifts: <strong id="estimatedShifts">0</strong>
+            </div>
         </div>
     </div>
 
     <div class="d-flex justify-content-end gap-2 mb-4">
-        <button type="submit" id="btnSaveDraft" class="btn btn-secondary"><i class="fas fa-save me-1"></i> Save as Draft</button>
-        <button type="submit" id="btnPublish" class="btn btn-primary"><i class="fas fa-paper-plane me-1"></i> Publish</button>
+        <button type="submit" id="btnSaveDraft" class="btn btn-secondary">
+            <i class="fas fa-save me-1"></i> Save as Draft
+        </button>
+        <button type="submit" id="btnPublish" class="btn btn-primary">
+            <i class="fas fa-paper-plane me-1"></i> Publish
+        </button>
     </div>
 }
 
 @section Scripts {
     @Scripts.Render("~/bundles/jqueryval")
     <script>
-        var shiftIndex = @(Model.Shifts?.Count ?? 0);
+        function countWeekdays(startStr, endStr, weekdaysOnly) {
+            if (!startStr || !endStr) return 0;
+            var start = new Date(startStr + 'T00:00:00');
+            var end = new Date(endStr + 'T00:00:00');
+            if (end < start) return 0;
+            var n = 0;
+            for (var d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                var day = d.getDay(); // 0 Sun .. 6 Sat
+                if (weekdaysOnly && (day === 0 || day === 6)) continue;
+                n++;
+            }
+            return n;
+        }
 
-        function loadStaffForRow($row) {
-            var projectId = $('#ProjectId').val();
-            var date = $row.find('.shift-date').val();
-            var start = $row.find('.shift-start').val();
-            var end = $row.find('.shift-end').val();
-            var role = $row.find('.shift-role').val();
-            if (!projectId || !date || !start || !end) return;
+        function updateCounts() {
+            var selected = $('.crew-cb:checked').length;
+            $('#crewSelectedCount').text(selected);
+            var days = countWeekdays($('#PeriodStart').val(), $('#PeriodEnd').val(), $('#WeekdaysOnly').is(':checked'));
+            $('#estimatedShifts').text(days);
+        }
 
-            $.get('@Url.Action("GetAvailableStaff")', {
-                projectId: projectId, shiftDate: date, startTime: start, endTime: end, shiftRole: role
-            }, function (data) {
-                var $sel = $row.find('.shift-staff');
-                var selected = $sel.val() || [];
-                $sel.empty();
-                data.forEach(function (s) {
-                    var opt = $('<option></option>').val(s.StaffId).text(s.FullName + (s.IsAvailable ? '' : ' (unavailable)'));
-                    if (!s.IsAvailable) opt.prop('disabled', true);
-                    if (selected.indexOf(String(s.StaffId)) >= 0) opt.prop('selected', true);
-                    $sel.append(opt);
+        function loadCrew(projectId) {
+            var $list = $('#crewList');
+            var $empty = $('#crewEmpty');
+            var $loading = $('#crewLoading');
+
+            if (!projectId) {
+                $list.empty();
+                $empty.removeClass('d-none').text('Select a project to load assigned crew members.');
+                updateCounts();
+                return;
+            }
+
+            $loading.removeClass('d-none');
+            $empty.addClass('d-none');
+            $list.empty();
+
+            $.get('@Url.Action("GetAssignedCrew")', { projectId: projectId })
+                .done(function (data) {
+                    $loading.addClass('d-none');
+                    if (!data || !data.length) {
+                        $empty.removeClass('d-none').text('No active Crew Members are assigned to this project.');
+                        updateCounts();
+                        return;
+                    }
+                    $empty.addClass('d-none');
+                    data.forEach(function (c) {
+                        var id = 'crew_' + c.StaffId;
+                        var html = '<div class="col-md-4 col-lg-3">' +
+                            '<div class="form-check border rounded p-2 h-100">' +
+                            '<input class="form-check-input crew-cb" type="checkbox" name="SelectedStaffIds" value="' + c.StaffId + '" id="' + id + '" />' +
+                            '<label class="form-check-label" for="' + id + '">' +
+                            '<span class="fw-semibold d-block">' + $('<div>').text(c.FullName).html() + '</span>' +
+                            '<span class="small text-secondary">' + $('<div>').text(c.Role + (c.EmployeeId ? ' · ' + c.EmployeeId : '')).html() + '</span>' +
+                            '</label></div></div>';
+                        $list.append(html);
+                    });
+                    updateCounts();
+                })
+                .fail(function () {
+                    $loading.addClass('d-none');
+                    $empty.removeClass('d-none').text('Failed to load crew.');
                 });
-            });
         }
 
-        function validateRow($row) {
-            var projectId = $('#ProjectId').val();
-            var payload = {
-                projectId: projectId,
-                shift: {
-                    ShiftDate: $row.find('.shift-date').val(),
-                    StartTime: $row.find('.shift-start').val(),
-                    EndTime: $row.find('.shift-end').val(),
-                    ShiftRole: $row.find('.shift-role').val(),
-                    StaffIds: $row.find('.shift-staff').val() || []
-                }
-            };
-            $.post('@Url.Action("ValidateShift")', payload, function (res) {
-                var $v = $row.find('.shift-validation');
-                $v.empty();
-                if (res.HasBlockers) {
-                    res.Blockers.forEach(function (b) { $v.append('<div class="text-danger"><i class="fas fa-times-circle me-1"></i>' + b + '</div>'); });
-                }
-                if (res.HasWarnings) {
-                    res.Warnings.forEach(function (w) { $v.append('<div class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>' + w + '</div>'); });
-                }
-                if (!res.HasBlockers && !res.HasWarnings) {
-                    $v.append('<div class="text-success"><i class="fas fa-check-circle me-1"></i> OK</div>');
-                }
-            });
-        }
-
-        $('#addShiftBtn').on('click', function () {
-            var html = '<div class="shift-row border rounded p-3 mb-3" data-index="' + shiftIndex + '">' +
-                '<div class="row g-2">' +
-                '<div class="col-md-2"><label class="form-label small">Date</label><input type="date" name="Shifts[' + shiftIndex + '].ShiftDate" class="form-control form-control-sm shift-date" /></div>' +
-                '<div class="col-md-1"><label class="form-label small">Start</label><input type="time" name="Shifts[' + shiftIndex + '].StartTime" value="07:00" class="form-control form-control-sm shift-start" /></div>' +
-                '<div class="col-md-1"><label class="form-label small">End</label><input type="time" name="Shifts[' + shiftIndex + '].EndTime" value="16:00" class="form-control form-control-sm shift-end" /></div>' +
-                '<div class="col-md-2"><label class="form-label small">Role</label><select name="Shifts[' + shiftIndex + '].ShiftRole" class="form-select form-select-sm shift-role"><option>General Labour</option><option>Crane Operator</option><option>Forklift Operator</option><option>Electrician</option><option>Scaffolding Erector</option><option>Site Supervisor</option><option>Labourer</option></select></div>' +
-                '<div class="col-md-2"><label class="form-label small">Location</label><input type="text" name="Shifts[' + shiftIndex + '].SiteLocation" class="form-control form-control-sm" placeholder="e.g. Gate 2" /></div>' +
-                '<div class="col-md-1"><label class="form-label small">Count</label><input type="number" name="Shifts[' + shiftIndex + '].RequiredStaffCount" value="1" min="1" class="form-control form-control-sm" /></div>' +
-                '<div class="col-md-2"><label class="form-label small">Crew</label><select name="Shifts[' + shiftIndex + '].StaffIds" class="form-select form-select-sm shift-staff" multiple size="3"></select></div>' +
-                '<div class="col-md-1 d-flex align-items-end"><button type="button" class="btn btn-sm btn-outline-danger remove-shift-btn w-100"><i class="fas fa-trash"></i></button></div>' +
-                '</div><div class="shift-validation mt-2 small"></div></div>';
-            $('#shiftsContainer').append(html);
-            shiftIndex++;
+        $('#ProjectId').on('change', function () {
+            loadCrew($(this).val());
         });
 
-        $(document).on('click', '.remove-shift-btn', function () {
-            $(this).closest('.shift-row').remove();
-        });
+        $('#PeriodStart, #PeriodEnd, #WeekdaysOnly').on('change', updateCounts);
+        $(document).on('change', '.crew-cb', updateCounts);
 
-        $(document).on('change', '.shift-date, .shift-start, .shift-end, .shift-role, #ProjectId', function () {
-            var $row = $(this).closest('.shift-row');
-            loadStaffForRow($row);
-            validateRow($row);
+        $('#selectAllCrew').on('click', function () {
+            $('.crew-cb').prop('checked', true);
+            updateCounts();
         });
-
-        $(document).on('change', '.shift-staff', function () {
-            validateRow($(this).closest('.shift-row'));
+        $('#clearAllCrew').on('click', function () {
+            $('.crew-cb').prop('checked', false);
+            updateCounts();
         });
 
         $('#btnSaveDraft').on('click', function () { $('#SubmitActionField').val('SaveDraft'); });
         $('#btnPublish').on('click', function () { $('#SubmitActionField').val('Publish'); });
 
-        // Initial load for existing rows
-        $('.shift-row').each(function () { loadStaffForRow($(this)); });
+        // Initial
+        updateCounts();
+        var initialProject = $('#ProjectId').val();
+        if (initialProject && $('#crewList .crew-cb').length === 0) {
+            loadCrew(initialProject);
+        }
     </script>
 }

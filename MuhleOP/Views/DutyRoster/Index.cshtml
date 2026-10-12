@@ -1,5 +1,4 @@
-﻿
-@model MuhleOP.ViewModels.DutyRosterIndexViewModel
+﻿@model MuhleOP.ViewModels.DutyRosterIndexViewModel
 @{
     ViewBag.Title = "Duty Rosters";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -83,11 +82,11 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small">From</label>
-                    <input type="date" name="from" value="@(Model.FromDate?.ToString("yyyy-MM-dd"))" class="form-control form-control-sm" />
+                    <input type="date" name="from" value="@(Model.FromDate.HasValue ? Model.FromDate.Value.ToString("yyyy-MM-dd") : "")" class="form-control form-control-sm" />
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small">To</label>
-                    <input type="date" name="to" value="@(Model.ToDate?.ToString("yyyy-MM-dd"))" class="form-control form-control-sm" />
+                    <input type="date" name="to" value="@(Model.ToDate.HasValue ? Model.ToDate.Value.ToString("yyyy-MM-dd") : "")" class="form-control form-control-sm" />
                 </div>
                 <div class="col-md-3">
                     <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="fas fa-filter me-1"></i> Filter</button>
@@ -125,7 +124,7 @@
                                 </td>
                                 <td>@r.PeriodLabel</td>
                                 <td><span class="badge bg-@r.StatusBadgeColor">@r.Status</span></td>
-                                <td>v@r.Version</td>
+                                <td>v@(r.Version)</td>
                                 <td>@r.ShiftCount</td>
                                 <td>@r.AssignedStaffCount</td>
                                 <td>
@@ -135,7 +134,7 @@
                                         <small class="text-secondary">Pub @r.PublishedDate.Value.ToString("dd MMM")</small>
                                     }
                                 </td>
-                                <td class="text-end">
+                                <td class="text-end text-nowrap">
                                     <a href="@Url.Action("Details", new { id = r.Id })" class="btn btn-sm btn-outline-secondary" title="View"><i class="fas fa-eye"></i></a>
                                     @if (r.CanEdit)
                                     {

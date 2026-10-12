@@ -7,7 +7,6 @@ using MuhleOP.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Data.Entity;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
@@ -21,17 +20,20 @@ namespace MuhleOP.Controllers
         private readonly ApplicationDbContext db = new ApplicationDbContext();
 
         private ApplicationUserManager _userManager;
-        private ApplicationUserManager UserManager =>
-            _userManager ?? HttpContext.GetOwinContext().GetUserManager<ApplicationUserManager>();
+        private ApplicationUserManager UserManager
+        {
+            get { return _userManager ?? HttpContext.GetOwinContext().GetUserManager<ApplicationUserManager>(); }
+        }
 
         // ------------------------------------------------------------------
-        // Index (read-only for PM / Admin / Site Manager)
+        // Index
         // ------------------------------------------------------------------
 
         [Authorize(Roles = "Project Manager, Admin, Site Manager")]
         public ActionResult Index(string status = null, int? projectId = null, DateTime? from = null, DateTime? to = null)
         {
             var staff = ResolveCurrentStaff();
+
             IQueryable<DutyRoster> query = db.DutyRosters
                 .Include(r => r.Project)
                 .Include(r => r.Shifts.Select(s => s.Assignments))
@@ -43,11 +45,13 @@ namespace MuhleOP.Controllers
             }
             else if (User.IsInRole("Project Manager") && staff != null)
             {
-                query = query.Where(r => r.Project.ProjectManagerId == staff.Id);
+                int pmStaffId = staff.Id;
+                query = query.Where(r => r.Project.ProjectManagerId == pmStaffId);
             }
             else if (User.IsInRole("Site Manager") && staff != null)
             {
-                query = query.Where(r => r.Project.SiteManagerId == staff.Id);
+                int smStaffId = staff.Id;
+                query = query.Where(r => r.Project.SiteManagerId == smStaffId);
             }
             else
             {
@@ -55,33 +59,64 @@ namespace MuhleOP.Controllers
             }
 
             if (!string.IsNullOrWhiteSpace(status))
-                query = query.Where(r => r.Status == status);
-            if (projectId.HasValue)
-                query = query.Where(r => r.ProjectId == projectId.Value);
-            if (from.HasValue)
-                query = query.Where(r => r.PeriodEnd >= from.Value.Date);
-            if (to.HasValue)
-                query = query.Where(r => r.PeriodStart <= to.Value.Date);
-
-            var list = query.OrderByDescending(r => r.CreatedDate).ToList();
-
-            var isPm = User.IsInRole("Project Manager") && staff != null;
-            var managedProjectIds = isPm
-                ? db.Projects.Where(p => p.ProjectManagerId == staff.Id && p.IsActive).Select(p => p.Id).ToList()
-                : new List<int>();
-
-            var items = list.Select(r =>
             {
-                var shiftCount = r.Shifts?.Count ?? 0;
-                var assigned = r.Shifts?.SelectMany(s => s.Assignments ?? Enumerable.Empty<ShiftAssignment>())
-                    .Count(a => a.IsActive) ?? 0;
-                var canManage = isPm && managedProjectIds.Contains(r.ProjectId);
-                return new DutyRosterListItemViewModel
+                string statusFilter = status;
+                query = query.Where(r => r.Status == statusFilter);
+            }
+
+            if (projectId.HasValue)
+            {
+                int pid = projectId.Value;
+                query = query.Where(r => r.ProjectId == pid);
+            }
+
+            if (from.HasValue)
+            {
+                DateTime fromDate = from.Value.Date;
+                query = query.Where(r => r.PeriodEnd >= fromDate);
+            }
+
+            if (to.HasValue)
+            {
+                DateTime toDate = to.Value.Date;
+                query = query.Where(r => r.PeriodStart <= toDate);
+            }
+
+            List<DutyRoster> list = query.OrderByDescending(r => r.CreatedDate).ToList();
+
+            bool isPm = User.IsInRole("Project Manager") && staff != null;
+            List<int> managedProjectIds = new List<int>();
+            if (isPm)
+            {
+                int pmId = staff.Id;
+                managedProjectIds = db.Projects
+                    .Where(p => p.ProjectManagerId == pmId && p.IsActive)
+                    .Select(p => p.Id)
+                    .ToList();
+            }
+
+            List<DutyRosterListItemViewModel> items = new List<DutyRosterListItemViewModel>();
+            foreach (var r in list)
+            {
+                int shiftCount = r.Shifts != null ? r.Shifts.Count : 0;
+                int assigned = 0;
+                if (r.Shifts != null)
+                {
+                    foreach (var s in r.Shifts)
+                    {
+                        if (s.Assignments != null)
+                            assigned += s.Assignments.Count(a => a.IsActive);
+                    }
+                }
+
+                bool canManage = isPm && managedProjectIds.Contains(r.ProjectId);
+
+                items.Add(new DutyRosterListItemViewModel
                 {
                     Id = r.Id,
-                    ProjectName = r.Project?.ProjectName,
-                    ProjectCode = r.Project?.ProjectCode,
-                    PeriodLabel = $"{r.PeriodStart:dd MMM} – {r.PeriodEnd:dd MMM yyyy}",
+                    ProjectName = r.Project != null ? r.Project.ProjectName : null,
+                    ProjectCode = r.Project != null ? r.Project.ProjectCode : null,
+                    PeriodLabel = r.PeriodStart.ToString("dd MMM") + " – " + r.PeriodEnd.ToString("dd MMM yyyy"),
                     Status = r.Status,
                     StatusBadgeColor = GetStatusBadgeColor(r.Status),
                     Version = r.Version,
@@ -93,22 +128,25 @@ namespace MuhleOP.Controllers
                     CanEdit = canManage && r.Status == "Draft",
                     CanDelete = canManage && (r.Status == "Draft" || (r.Status == "Published" && !HasAttendanceAgainstRoster(r.Id))),
                     CanRevise = canManage && r.Status == "Published" && r.IsActive
-                };
-            }).ToList();
+                });
+            }
 
-            var weekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek + (int)DayOfWeek.Monday);
+            DateTime weekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek + (int)DayOfWeek.Monday);
             if (weekStart > DateTime.Today) weekStart = weekStart.AddDays(-7);
-            var weekEnd = weekStart.AddDays(7);
+            DateTime weekEnd = weekStart.AddDays(7);
 
             decimal totalHours = 0m;
-            var relevantRosters = list.Where(r => r.Status == "Published" && r.IsActive).ToList();
-            foreach (var r in relevantRosters)
+            foreach (var r in list)
             {
-                foreach (var s in r.Shifts ?? Enumerable.Empty<Shift>())
+                if (r.Status != "Published" || !r.IsActive || r.Shifts == null) continue;
+                foreach (var s in r.Shifts)
                 {
                     if (s.ShiftDate >= weekStart && s.ShiftDate < weekEnd)
-                        totalHours += RosterValidationHelper.CalculateShiftHours(s.StartTime, s.EndTime)
-                                      * (s.Assignments?.Count(a => a.IsActive) ?? 0);
+                    {
+                        decimal hours = RosterValidationHelper.CalculateShiftHours(s.StartTime, s.EndTime);
+                        int staffCount = s.Assignments != null ? s.Assignments.Count(a => a.IsActive) : 0;
+                        totalHours += hours * staffCount;
+                    }
                 }
             }
 
@@ -123,7 +161,7 @@ namespace MuhleOP.Controllers
                 PublishedCount = list.Count(r => r.Status == "Published"),
                 SupersededCount = list.Count(r => r.Status == "Superseded"),
                 TotalHoursThisWeek = totalHours,
-                CanCreate = isPm && managedProjectIds.Any(),
+                CanCreate = isPm && managedProjectIds.Count > 0,
                 Projects = GetProjectSelectListForViewer(staff),
                 Statuses = new List<SelectListItem>
                 {
@@ -162,12 +200,16 @@ namespace MuhleOP.Controllers
             }
 
             var staff = ResolveCurrentStaff();
-            var canManage = User.IsInRole("Project Manager") && staff != null
-                            && roster.Project != null
-                            && roster.Project.ProjectManagerId == staff.Id;
+            bool canManage = User.IsInRole("Project Manager") && staff != null
+                             && roster.Project != null
+                             && roster.Project.ProjectManagerId == staff.Id;
 
-            var shiftsByDate = (roster.Shifts ?? Enumerable.Empty<Shift>())
-                .OrderBy(s => s.ShiftDate).ThenBy(s => s.StartTime)
+            var shifts = (roster.Shifts ?? Enumerable.Empty<Shift>())
+                .OrderBy(s => s.ShiftDate)
+                .ThenBy(s => s.StartTime)
+                .ToList();
+
+            var shiftsByDate = shifts
                 .GroupBy(s => s.ShiftDate.Date)
                 .Select(g => new ShiftDayGroupViewModel
                 {
@@ -187,36 +229,40 @@ namespace MuhleOP.Controllers
                         Notes = s.Notes,
                         AssignedStaffNames = (s.Assignments ?? Enumerable.Empty<ShiftAssignment>())
                             .Where(a => a.IsActive)
-                            .Select(a => a.Staff?.FullName ?? "Unknown")
+                            .Select(a => a.Staff != null ? a.Staff.FullName : "Unknown")
                             .ToList()
                     }).ToList()
                 }).ToList();
 
-            // Version history (same project + period lineage)
-            var history = db.DutyRosters
+            int projectId = roster.ProjectId;
+            DateTime periodStart = roster.PeriodStart;
+            DateTime periodEnd = roster.PeriodEnd;
+
+            var historyRows = db.DutyRosters
                 .Where(r => !r.IsDeleted
-                            && r.ProjectId == roster.ProjectId
-                            && r.PeriodStart == roster.PeriodStart
-                            && r.PeriodEnd == roster.PeriodEnd)
+                            && r.ProjectId == projectId
+                            && r.PeriodStart == periodStart
+                            && r.PeriodEnd == periodEnd)
                 .OrderByDescending(r => r.Version)
-                .ToList()
-                .Select(r => new RosterVersionItemViewModel
-                {
-                    Id = r.Id,
-                    Version = r.Version,
-                    Status = r.Status,
-                    StatusBadgeColor = GetStatusBadgeColor(r.Status),
-                    CreatedDate = r.CreatedDate,
-                    CreatedBy = r.CreatedBy,
-                    PublishedDate = r.PublishedDate
-                }).ToList();
+                .ToList();
+
+            var history = historyRows.Select(r => new RosterVersionItemViewModel
+            {
+                Id = r.Id,
+                Version = r.Version,
+                Status = r.Status,
+                StatusBadgeColor = GetStatusBadgeColor(r.Status),
+                CreatedDate = r.CreatedDate,
+                CreatedBy = r.CreatedBy,
+                PublishedDate = r.PublishedDate
+            }).ToList();
 
             var vm = new DutyRosterDetailsViewModel
             {
                 Id = roster.Id,
                 ProjectId = roster.ProjectId,
-                ProjectName = roster.Project?.ProjectName,
-                ProjectCode = roster.Project?.ProjectCode,
+                ProjectName = roster.Project != null ? roster.Project.ProjectName : null,
+                ProjectCode = roster.Project != null ? roster.Project.ProjectCode : null,
                 PeriodStart = roster.PeriodStart,
                 PeriodEnd = roster.PeriodEnd,
                 Status = roster.Status,
@@ -256,7 +302,10 @@ namespace MuhleOP.Controllers
             var model = new CreateDutyRosterViewModel
             {
                 ProjectId = projectId ?? 0,
-                Projects = GetManagedProjectSelectList(staff.Id)
+                Projects = GetManagedProjectSelectList(staff.Id),
+                AvailableStaff = projectId.HasValue
+                    ? GetAssignedCrewCheckboxes(projectId.Value, null)
+                    : new List<RosterStaffCheckboxViewModel>()
             };
             return View(model);
         }
@@ -274,26 +323,56 @@ namespace MuhleOP.Controllers
             }
 
             model.Projects = GetManagedProjectSelectList(staff.Id);
-
-            if (model.Shifts == null || !model.Shifts.Any())
-                ModelState.AddModelError("", "Add at least one shift before saving.");
+            model.AvailableStaff = GetAssignedCrewCheckboxes(model.ProjectId, model.SelectedStaffIds);
 
             if (model.PeriodEnd < model.PeriodStart)
                 ModelState.AddModelError("PeriodEnd", "Period end must be on or after period start.");
 
+            if (model.SelectedStaffIds == null || model.SelectedStaffIds.Count == 0)
+                ModelState.AddModelError("SelectedStaffIds", "Select at least one crew member assigned to this project.");
+
+            TimeSpan startTs, endTs;
+            if (!TimeSpan.TryParse(model.DefaultStartTime, out startTs) || !TimeSpan.TryParse(model.DefaultEndTime, out endTs))
+                ModelState.AddModelError("DefaultStartTime", "Invalid start or end time.");
+            else if (endTs <= startTs)
+                ModelState.AddModelError("DefaultEndTime", "End time must be after start time.");
+
+            // Free unique index slots left by previous soft-deletes
+            await PurgeSoftDeletedRostersForPeriodAsync(model.ProjectId, model.PeriodStart.Date, model.PeriodEnd.Date);
+
+            if (RosterPeriodAlreadyExists(model.ProjectId, model.PeriodStart.Date, model.PeriodEnd.Date, null))
+            {
+                ModelState.AddModelError("", "A duty roster already exists for this project that overlaps the selected dates. Edit or revise the existing roster, or choose different dates.");
+            }
+
+            if (model.SelectedStaffIds != null && model.SelectedStaffIds.Count > 0)
+            {
+                List<string> invalid = GetStaffNotAssignedToProject(model.ProjectId, model.SelectedStaffIds, model.PeriodStart.Date, model.PeriodEnd.Date);
+                if (invalid.Count > 0)
+                    ModelState.AddModelError("SelectedStaffIds", "These crew members are not actively assigned to this project for the selected period: " + string.Join(", ", invalid));
+            }
+
             if (!ModelState.IsValid)
                 return View(model);
 
-            var publish = string.Equals(model.SubmitAction, "Publish", StringComparison.OrdinalIgnoreCase);
+            model.Shifts = AutoGenerateShifts(model);
+            if (model.Shifts == null || model.Shifts.Count == 0)
+            {
+                ModelState.AddModelError("", "No shifts were generated (check period and weekdays-only setting).");
+                return View(model);
+            }
 
-            // Full validation
-            var validation = ValidateRosterInput(model, staff.Id);
+            bool publish = string.Equals(model.SubmitAction, "Publish", StringComparison.OrdinalIgnoreCase);
+
+            RosterValidationResultViewModel validation = ValidateRosterInput(model, staff.Id);
             if (validation.HasBlockers)
             {
-                foreach (var b in validation.Blockers)
+                foreach (string b in validation.Blockers)
                     ModelState.AddModelError("", b);
                 return View(model);
             }
+
+            int nextVersion = GetNextRosterVersion(model.ProjectId, model.PeriodStart.Date, model.PeriodEnd.Date);
 
             var roster = new DutyRoster
             {
@@ -301,7 +380,7 @@ namespace MuhleOP.Controllers
                 PeriodStart = model.PeriodStart.Date,
                 PeriodEnd = model.PeriodEnd.Date,
                 Status = publish ? "Published" : "Draft",
-                Version = 1,
+                Version = nextVersion,
                 IsActive = true,
                 Notes = model.Notes,
                 CreatedBy = User.Identity.GetUserId(),
@@ -317,7 +396,7 @@ namespace MuhleOP.Controllers
             db.DutyRosters.Add(roster);
             await db.SaveChangesAsync();
 
-            await SaveShiftsFromInput(roster, model.Shifts, staff.Id);
+            await SaveShiftsFromInput(roster, model.Shifts);
             await db.SaveChangesAsync();
 
             if (publish)
@@ -327,14 +406,34 @@ namespace MuhleOP.Controllers
             }
             else
             {
-                TempData["SuccessMessage"] = "Duty roster saved as draft.";
+                TempData["SuccessMessage"] = "Duty roster saved as draft (" + model.Shifts.Count + " shifts auto-generated).";
             }
 
             return RedirectToAction("Details", new { id = roster.Id });
         }
 
+        [HttpGet]
+        [Authorize(Roles = "Project Manager")]
+        public ActionResult GetAssignedCrew(int projectId)
+        {
+            var staff = ResolveCurrentStaff();
+            if (staff == null || !IsProjectManagerForProject(projectId, staff.Id))
+                return Json(new List<object>(), JsonRequestBehavior.AllowGet);
+
+            var list = GetAssignedCrewCheckboxes(projectId, null)
+                .Select(s => new
+                {
+                    StaffId = s.StaffId,
+                    FullName = s.FullName,
+                    Role = s.Role,
+                    EmployeeId = s.EmployeeId
+                }).ToList();
+
+            return Json(list, JsonRequestBehavior.AllowGet);
+        }
+
         // ------------------------------------------------------------------
-        // Edit (Draft only)
+        // Edit
         // ------------------------------------------------------------------
 
         [Authorize(Roles = "Project Manager")]
@@ -357,6 +456,24 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("Details", new { id });
             }
 
+            List<int> staffIds = new List<int>();
+            if (roster.Shifts != null)
+            {
+                foreach (var s in roster.Shifts)
+                {
+                    if (s.Assignments == null) continue;
+                    foreach (var a in s.Assignments)
+                    {
+                        if (a.IsActive && !staffIds.Contains(a.StaffId))
+                            staffIds.Add(a.StaffId);
+                    }
+                }
+            }
+
+            Shift firstShift = null;
+            if (roster.Shifts != null)
+                firstShift = roster.Shifts.OrderBy(s => s.ShiftDate).FirstOrDefault();
+
             var model = new CreateDutyRosterViewModel
             {
                 Id = roster.Id,
@@ -364,19 +481,14 @@ namespace MuhleOP.Controllers
                 PeriodStart = roster.PeriodStart,
                 PeriodEnd = roster.PeriodEnd,
                 Notes = roster.Notes,
+                DefaultStartTime = firstShift != null ? firstShift.StartTime.ToString(@"hh\:mm") : "07:00",
+                DefaultEndTime = firstShift != null ? firstShift.EndTime.ToString(@"hh\:mm") : "16:00",
+                DefaultShiftRole = firstShift != null ? firstShift.ShiftRole : "General Labour",
+                DefaultSiteLocation = firstShift != null ? firstShift.SiteLocation : "",
+                WeekdaysOnly = true,
+                SelectedStaffIds = staffIds,
                 Projects = GetManagedProjectSelectList(staff.Id),
-                Shifts = (roster.Shifts ?? Enumerable.Empty<Shift>()).Select(s => new ShiftInputViewModel
-                {
-                    Id = s.Id,
-                    ShiftDate = s.ShiftDate,
-                    StartTime = s.StartTime.ToString(@"hh\:mm"),
-                    EndTime = s.EndTime.ToString(@"hh\:mm"),
-                    ShiftRole = s.ShiftRole,
-                    SiteLocation = s.SiteLocation,
-                    RequiredStaffCount = s.RequiredStaffCount,
-                    StaffIds = (s.Assignments ?? Enumerable.Empty<ShiftAssignment>())
-                        .Where(a => a.IsActive).Select(a => a.StaffId).ToList()
-                }).ToList()
+                AvailableStaff = GetAssignedCrewCheckboxes(roster.ProjectId, staffIds)
             };
 
             return View(model);
@@ -394,9 +506,10 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("Index");
             }
 
+            int rosterId = model.Id.Value;
             var roster = db.DutyRosters
                 .Include(r => r.Shifts.Select(s => s.Assignments))
-                .FirstOrDefault(r => r.Id == model.Id.Value && !r.IsDeleted);
+                .FirstOrDefault(r => r.Id == rosterId && !r.IsDeleted);
 
             if (roster == null || !IsProjectManagerForProject(roster.ProjectId, staff.Id) || roster.Status != "Draft")
             {
@@ -405,18 +518,38 @@ namespace MuhleOP.Controllers
             }
 
             model.Projects = GetManagedProjectSelectList(staff.Id);
+            model.AvailableStaff = GetAssignedCrewCheckboxes(roster.ProjectId, model.SelectedStaffIds);
 
-            if (model.Shifts == null || !model.Shifts.Any())
-                ModelState.AddModelError("", "Add at least one shift before saving.");
+            if (model.PeriodEnd < model.PeriodStart)
+                ModelState.AddModelError("PeriodEnd", "Period end must be on or after period start.");
+
+            if (model.SelectedStaffIds == null || model.SelectedStaffIds.Count == 0)
+                ModelState.AddModelError("SelectedStaffIds", "Select at least one crew member.");
+
+            TimeSpan startTs, endTs;
+            if (!TimeSpan.TryParse(model.DefaultStartTime, out startTs) || !TimeSpan.TryParse(model.DefaultEndTime, out endTs))
+                ModelState.AddModelError("DefaultStartTime", "Invalid start or end time.");
+            else if (endTs <= startTs)
+                ModelState.AddModelError("DefaultEndTime", "End time must be after start time.");
+
+            if (RosterPeriodAlreadyExists(model.ProjectId, model.PeriodStart.Date, model.PeriodEnd.Date, model.Id))
+                ModelState.AddModelError("", "Another duty roster already overlaps these dates for this project.");
 
             if (!ModelState.IsValid)
                 return View(model);
 
-            var publish = string.Equals(model.SubmitAction, "Publish", StringComparison.OrdinalIgnoreCase);
-            var validation = ValidateRosterInput(model, staff.Id);
+            model.Shifts = AutoGenerateShifts(model);
+            if (model.Shifts == null || model.Shifts.Count == 0)
+            {
+                ModelState.AddModelError("", "No shifts were generated.");
+                return View(model);
+            }
+
+            bool publish = string.Equals(model.SubmitAction, "Publish", StringComparison.OrdinalIgnoreCase);
+            RosterValidationResultViewModel validation = ValidateRosterInput(model, staff.Id);
             if (validation.HasBlockers)
             {
-                foreach (var b in validation.Blockers)
+                foreach (string b in validation.Blockers)
                     ModelState.AddModelError("", b);
                 return View(model);
             }
@@ -424,16 +557,18 @@ namespace MuhleOP.Controllers
             roster.PeriodStart = model.PeriodStart.Date;
             roster.PeriodEnd = model.PeriodEnd.Date;
             roster.Notes = model.Notes;
+            roster.ProjectId = model.ProjectId;
 
-            // Remove existing shifts/assignments
-            foreach (var s in roster.Shifts.ToList())
+            List<Shift> existingShifts = roster.Shifts != null ? roster.Shifts.ToList() : new List<Shift>();
+            foreach (var s in existingShifts)
             {
-                db.ShiftAssignments.RemoveRange(s.Assignments);
+                if (s.Assignments != null)
+                    db.ShiftAssignments.RemoveRange(s.Assignments.ToList());
                 db.Shifts.Remove(s);
             }
             await db.SaveChangesAsync();
 
-            await SaveShiftsFromInput(roster, model.Shifts, staff.Id);
+            await SaveShiftsFromInput(roster, model.Shifts);
 
             if (publish)
             {
@@ -447,7 +582,7 @@ namespace MuhleOP.Controllers
             else
             {
                 await db.SaveChangesAsync();
-                TempData["SuccessMessage"] = "Draft roster updated.";
+                TempData["SuccessMessage"] = "Draft roster updated (" + model.Shifts.Count + " shifts).";
             }
 
             return RedirectToAction("Details", new { id = roster.Id });
@@ -484,10 +619,10 @@ namespace MuhleOP.Controllers
             var vm = new PublishRosterViewModel
             {
                 DutyRosterId = roster.Id,
-                ProjectName = roster.Project?.ProjectName,
-                PeriodLabel = $"{roster.PeriodStart:dd MMM} – {roster.PeriodEnd:dd MMM yyyy}",
-                ShiftCount = roster.Shifts?.Count ?? 0,
-                AssignedStaffCount = roster.Shifts?.SelectMany(s => s.Assignments ?? Enumerable.Empty<ShiftAssignment>()).Count(a => a.IsActive) ?? 0,
+                ProjectName = roster.Project != null ? roster.Project.ProjectName : null,
+                PeriodLabel = roster.PeriodStart.ToString("dd MMM") + " – " + roster.PeriodEnd.ToString("dd MMM yyyy"),
+                ShiftCount = roster.Shifts != null ? roster.Shifts.Count : 0,
+                AssignedStaffCount = CountActiveAssignments(roster),
                 Blockers = validation.Blockers,
                 Warnings = validation.Warnings,
                 HasOvertimeWarnings = validation.Warnings.Any(w => w.IndexOf("overtime", StringComparison.OrdinalIgnoreCase) >= 0),
@@ -531,18 +666,14 @@ namespace MuhleOP.Controllers
 
             if (validation.Warnings.Any(w => w.IndexOf("overtime", StringComparison.OrdinalIgnoreCase) >= 0)
                 && string.IsNullOrWhiteSpace(model.OvertimeOverrideReason))
-            {
                 ModelState.AddModelError("OvertimeOverrideReason", "Overtime override reason is required.");
-            }
+
             if (validation.Warnings.Any(w => w.IndexOf("certification", StringComparison.OrdinalIgnoreCase) >= 0)
                 && string.IsNullOrWhiteSpace(model.CertificationOverrideReason))
-            {
                 ModelState.AddModelError("CertificationOverrideReason", "Certification override reason is required.");
-            }
+
             if (!model.ConfirmPublish)
-            {
                 ModelState.AddModelError("ConfirmPublish", "You must confirm before publishing.");
-            }
 
             if (!ModelState.IsValid)
             {
@@ -550,33 +681,42 @@ namespace MuhleOP.Controllers
                 model.Warnings = validation.Warnings;
                 model.HasOvertimeWarnings = validation.Warnings.Any(w => w.IndexOf("overtime", StringComparison.OrdinalIgnoreCase) >= 0);
                 model.HasCertificationWarnings = validation.Warnings.Any(w => w.IndexOf("certification", StringComparison.OrdinalIgnoreCase) >= 0);
-                model.ProjectName = roster.Project?.ProjectName;
-                model.PeriodLabel = $"{roster.PeriodStart:dd MMM} – {roster.PeriodEnd:dd MMM yyyy}";
+                model.ProjectName = roster.Project != null ? roster.Project.ProjectName : null;
+                model.PeriodLabel = roster.PeriodStart.ToString("dd MMM") + " – " + roster.PeriodEnd.ToString("dd MMM yyyy");
+                model.ShiftCount = roster.Shifts != null ? roster.Shifts.Count : 0;
+                model.AssignedStaffCount = CountActiveAssignments(roster);
                 return View(model);
             }
 
-            // Apply override reasons to assignments that need them
-            foreach (var shift in roster.Shifts ?? Enumerable.Empty<Shift>())
+            string userId = User.Identity.GetUserId();
+            if (roster.Shifts != null)
             {
-                foreach (var a in shift.Assignments ?? Enumerable.Empty<ShiftAssignment>())
+                foreach (var shift in roster.Shifts)
                 {
-                    if (!string.IsNullOrWhiteSpace(model.OvertimeOverrideReason) || !string.IsNullOrWhiteSpace(model.CertificationOverrideReason))
+                    if (shift.Assignments != null)
                     {
-                        a.OverrideReason = string.Join(" | ",
-                            new[] { model.OvertimeOverrideReason, model.CertificationOverrideReason }
-                                .Where(x => !string.IsNullOrWhiteSpace(x)));
-                        a.OverrideApprovedBy = User.Identity.GetUserId();
+                        foreach (var a in shift.Assignments)
+                        {
+                            if (!string.IsNullOrWhiteSpace(model.OvertimeOverrideReason) || !string.IsNullOrWhiteSpace(model.CertificationOverrideReason))
+                            {
+                                List<string> parts = new List<string>();
+                                if (!string.IsNullOrWhiteSpace(model.OvertimeOverrideReason)) parts.Add(model.OvertimeOverrideReason);
+                                if (!string.IsNullOrWhiteSpace(model.CertificationOverrideReason)) parts.Add(model.CertificationOverrideReason);
+                                a.OverrideReason = string.Join(" | ", parts);
+                                a.OverrideApprovedBy = userId;
+                            }
+                        }
                     }
-                }
-                if (shift.IsOvertime)
-                {
-                    shift.OvertimeApprovedBy = User.Identity.GetUserId();
-                    shift.OvertimeApprovedDate = DateTime.Now;
+                    if (shift.IsOvertime)
+                    {
+                        shift.OvertimeApprovedBy = userId;
+                        shift.OvertimeApprovedDate = DateTime.Now;
+                    }
                 }
             }
 
             roster.Status = "Published";
-            roster.PublishedBy = User.Identity.GetUserId();
+            roster.PublishedBy = userId;
             roster.PublishedDate = DateTime.Now;
             await db.SaveChangesAsync();
 
@@ -609,6 +749,24 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("Details", new { id });
             }
 
+            List<int> staffIds = new List<int>();
+            if (parent.Shifts != null)
+            {
+                foreach (var s in parent.Shifts)
+                {
+                    if (s.Assignments == null) continue;
+                    foreach (var a in s.Assignments)
+                    {
+                        if (a.IsActive && !staffIds.Contains(a.StaffId))
+                            staffIds.Add(a.StaffId);
+                    }
+                }
+            }
+
+            Shift firstShift = null;
+            if (parent.Shifts != null)
+                firstShift = parent.Shifts.OrderBy(s => s.ShiftDate).FirstOrDefault();
+
             var model = new ReviseRosterViewModel
             {
                 ParentRosterId = parent.Id,
@@ -617,21 +775,17 @@ namespace MuhleOP.Controllers
                 PeriodStart = parent.PeriodStart,
                 PeriodEnd = parent.PeriodEnd,
                 Notes = parent.Notes,
+                DefaultStartTime = firstShift != null ? firstShift.StartTime.ToString(@"hh\:mm") : "07:00",
+                DefaultEndTime = firstShift != null ? firstShift.EndTime.ToString(@"hh\:mm") : "16:00",
+                DefaultShiftRole = firstShift != null ? firstShift.ShiftRole : "General Labour",
+                DefaultSiteLocation = firstShift != null ? firstShift.SiteLocation : "",
+                WeekdaysOnly = true,
+                SelectedStaffIds = staffIds,
                 Projects = GetManagedProjectSelectList(staff.Id),
-                Shifts = (parent.Shifts ?? Enumerable.Empty<Shift>()).Select(s => new ShiftInputViewModel
-                {
-                    ShiftDate = s.ShiftDate,
-                    StartTime = s.StartTime.ToString(@"hh\:mm"),
-                    EndTime = s.EndTime.ToString(@"hh\:mm"),
-                    ShiftRole = s.ShiftRole,
-                    SiteLocation = s.SiteLocation,
-                    RequiredStaffCount = s.RequiredStaffCount,
-                    StaffIds = (s.Assignments ?? Enumerable.Empty<ShiftAssignment>())
-                        .Where(a => a.IsActive).Select(a => a.StaffId).ToList()
-                }).ToList()
+                AvailableStaff = GetAssignedCrewCheckboxes(parent.ProjectId, staffIds)
             };
 
-            return View("Create", model); // reuse Create view with revise context
+            return View("Create", model);
         }
 
         [HttpPost]
@@ -650,22 +804,36 @@ namespace MuhleOP.Controllers
             }
 
             model.Projects = GetManagedProjectSelectList(staff.Id);
+            model.AvailableStaff = GetAssignedCrewCheckboxes(parent.ProjectId, model.SelectedStaffIds);
 
-            if (model.Shifts == null || !model.Shifts.Any())
-                ModelState.AddModelError("", "Add at least one shift.");
+            if (model.SelectedStaffIds == null || model.SelectedStaffIds.Count == 0)
+                ModelState.AddModelError("SelectedStaffIds", "Select at least one crew member.");
+
+            if (model.PeriodEnd < model.PeriodStart)
+                ModelState.AddModelError("PeriodEnd", "Period end must be on or after period start.");
+
+            TimeSpan startTs, endTs;
+            if (!TimeSpan.TryParse(model.DefaultStartTime, out startTs) || !TimeSpan.TryParse(model.DefaultEndTime, out endTs))
+                ModelState.AddModelError("DefaultStartTime", "Invalid start or end time.");
 
             if (!ModelState.IsValid)
                 return View("Create", model);
 
+            model.Shifts = AutoGenerateShifts(model);
+            if (model.Shifts == null || model.Shifts.Count == 0)
+            {
+                ModelState.AddModelError("", "No shifts were generated.");
+                return View("Create", model);
+            }
+
             var validation = ValidateRosterInput(model, staff.Id);
             if (validation.HasBlockers)
             {
-                foreach (var b in validation.Blockers)
+                foreach (string b in validation.Blockers)
                     ModelState.AddModelError("", b);
                 return View("Create", model);
             }
 
-            // Supersede parent
             parent.Status = "Superseded";
             parent.IsActive = false;
 
@@ -685,18 +853,17 @@ namespace MuhleOP.Controllers
             db.DutyRosters.Add(newRoster);
             await db.SaveChangesAsync();
 
-            await SaveShiftsFromInput(newRoster, model.Shifts, staff.Id);
+            await SaveShiftsFromInput(newRoster, model.Shifts);
             await db.SaveChangesAsync();
 
-            // Notify only crew whose shifts changed (simplified: notify all assigned on new version)
-            await NotifyOnRevise(parent, newRoster);
+            await NotifyOnRevise(newRoster);
 
-            TempData["SuccessMessage"] = $"Revision v{newRoster.Version} created as draft. Previous version is now superseded.";
+            TempData["SuccessMessage"] = "Revision v" + newRoster.Version + " created as draft. Previous version is now superseded.";
             return RedirectToAction("Details", new { id = newRoster.Id });
         }
 
         // ------------------------------------------------------------------
-        // Delete
+        // Delete — hard delete so unique index is freed
         // ------------------------------------------------------------------
 
         [HttpPost]
@@ -706,7 +873,7 @@ namespace MuhleOP.Controllers
         {
             var staff = ResolveCurrentStaff();
             var roster = db.DutyRosters
-                .Include(r => r.Shifts)
+                .Include(r => r.Shifts.Select(s => s.Assignments))
                 .FirstOrDefault(r => r.Id == id && !r.IsDeleted);
 
             if (roster == null || staff == null || !IsProjectManagerForProject(roster.ProjectId, staff.Id))
@@ -721,131 +888,20 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("Details", new { id });
             }
 
-            roster.IsDeleted = true;
-            roster.DeletedBy = User.Identity.GetUserId();
-            roster.DeletedDate = DateTime.Now;
-            roster.IsActive = false;
-            await db.SaveChangesAsync();
+            await HardDeleteRosterAsync(roster);
 
             TempData["SuccessMessage"] = "Roster deleted.";
             return RedirectToAction("Index");
         }
 
         // ------------------------------------------------------------------
-        // AJAX validation & available staff
-        // ------------------------------------------------------------------
-
-        [HttpPost]
-        [Authorize(Roles = "Project Manager")]
-        public ActionResult ValidateShift(ShiftInputViewModel shift, int projectId)
-        {
-            var result = new RosterValidationResultViewModel();
-            if (shift == null)
-            {
-                result.Blockers.Add("Invalid shift data.");
-                result.HasBlockers = true;
-                return Json(result);
-            }
-
-            if (!TimeSpan.TryParse(shift.StartTime, out var start) || !TimeSpan.TryParse(shift.EndTime, out var end))
-            {
-                result.Blockers.Add("Invalid start or end time.");
-                result.HasBlockers = true;
-                return Json(result);
-            }
-
-            RosterValidationHelper.ValidateShiftDuration(start, end, result.Blockers, result.Warnings);
-            RosterValidationHelper.ValidateSundayAndHoliday(shift.ShiftDate, result.Warnings);
-
-            if (shift.StaffIds != null)
-            {
-                foreach (var staffId in shift.StaffIds.Distinct())
-                {
-                    var staffMember = db.Staff.Find(staffId);
-                    if (staffMember == null) continue;
-
-                    var blockers = new List<string>();
-                    var warnings = new List<string>();
-
-                    ValidateShiftAssignmentInternal(shift.ShiftDate, start, end, shift.ShiftRole, projectId, staffMember, null, blockers, warnings);
-
-                    foreach (var b in blockers) result.Blockers.Add($"{staffMember.FullName}: {b}");
-                    foreach (var w in warnings) result.Warnings.Add($"{staffMember.FullName}: {w}");
-                }
-            }
-
-            result.HasBlockers = result.Blockers.Any();
-            result.HasWarnings = result.Warnings.Any();
-            result.IsValid = !result.HasBlockers;
-
-            if (result.HasBlockers)
-            {
-                // Suggest replacements for the first blocked staff slot
-                var tempShift = new Shift
-                {
-                    ProjectId = projectId,
-                    ShiftDate = shift.ShiftDate,
-                    StartTime = start,
-                    EndTime = end,
-                    ShiftRole = shift.ShiftRole
-                };
-                result.SuggestedReplacements = SuggestReplacements(tempShift, shift.StaffIds ?? new List<int>());
-            }
-
-            return Json(result);
-        }
-
-        [HttpGet]
-        [Authorize(Roles = "Project Manager")]
-        public ActionResult GetAvailableStaff(int projectId, DateTime shiftDate, string startTime, string endTime, string shiftRole)
-        {
-            if (!TimeSpan.TryParse(startTime, out var start) || !TimeSpan.TryParse(endTime, out var end))
-                return Json(new List<AvailableStaffItemViewModel>(), JsonRequestBehavior.AllowGet);
-
-            var staff = ResolveCurrentStaff();
-            if (staff == null || !IsProjectManagerForProject(projectId, staff.Id))
-                return Json(new List<AvailableStaffItemViewModel>(), JsonRequestBehavior.AllowGet);
-
-            var allocated = db.ProjectResourceAllocations
-                .Where(a => a.ProjectId == projectId
-                            && a.IsActive
-                            && a.StartDate <= shiftDate
-                            && (a.EndDate == null || a.EndDate >= shiftDate)
-                            && a.Staff.Role == "Crew Member"
-                            && a.Staff.IsActive)
-                .Select(a => a.Staff)
-                .Distinct()
-                .ToList();
-
-            var result = new List<AvailableStaffItemViewModel>();
-            foreach (var s in allocated)
-            {
-                var blockers = new List<string>();
-                var warnings = new List<string>();
-                ValidateShiftAssignmentInternal(shiftDate, start, end, shiftRole, projectId, s, null, blockers, warnings);
-
-                result.Add(new AvailableStaffItemViewModel
-                {
-                    StaffId = s.Id,
-                    FullName = s.FullName,
-                    Role = s.Role,
-                    Certifications = s.Certifications,
-                    IsAvailable = !blockers.Any(),
-                    UnavailableReason = blockers.FirstOrDefault()
-                });
-            }
-
-            return Json(result.OrderBy(x => x.FullName), JsonRequestBehavior.AllowGet);
-        }
-
-        // ------------------------------------------------------------------
-        // My Shifts (Crew Member)
+        // My Shifts
         // ------------------------------------------------------------------
 
         [Authorize(Roles = "Crew Member")]
         public ActionResult MyShifts()
         {
-            var userId = User.Identity.GetUserId();
+            string userId = User.Identity.GetUserId();
             var staff = db.Staff.FirstOrDefault(s => s.UserId == userId && s.IsActive);
             if (staff == null)
             {
@@ -853,11 +909,13 @@ namespace MuhleOP.Controllers
                 return RedirectToAction("Dashboard", "Home");
             }
 
-            var today = DateTime.Today;
+            DateTime today = DateTime.Today;
+            int staffId = staff.Id;
+
             var assignments = db.ShiftAssignments
                 .Include(a => a.Shift.DutyRoster.Project)
                 .Include(a => a.Shift.DutyRoster)
-                .Where(a => a.StaffId == staff.Id
+                .Where(a => a.StaffId == staffId
                             && a.IsActive
                             && a.Shift.DutyRoster.Status == "Published"
                             && a.Shift.DutyRoster.IsActive
@@ -866,7 +924,8 @@ namespace MuhleOP.Controllers
 
             var upcoming = assignments
                 .Where(a => a.Shift.ShiftDate >= today)
-                .OrderBy(a => a.Shift.ShiftDate).ThenBy(a => a.Shift.StartTime)
+                .OrderBy(a => a.Shift.ShiftDate)
+                .ThenBy(a => a.Shift.StartTime)
                 .Select(a => MapMyShiftItem(a, today))
                 .ToList();
 
@@ -877,30 +936,218 @@ namespace MuhleOP.Controllers
                 .Select(a => MapMyShiftItem(a, today))
                 .ToList();
 
-            // Pull hours from AttendanceRecord where possible (same day + project)
-            foreach (var item in past.Concat(upcoming))
+            var allItems = past.Concat(upcoming).ToList();
+            if (allItems.Count > 0)
             {
-                var att = db.AttendanceRecords
-                    .Where(r => r.StaffId == staff.Id
-                                && r.ProjectId == db.Shifts.Find(item.ShiftId).ProjectId
-                                && DbFunctions.TruncateTime(r.CheckInTime) == item.ShiftDate.Date)
-                    .OrderByDescending(r => r.CheckInTime)
-                    .FirstOrDefault();
-                if (att != null && att.TotalHours.HasValue)
-                    item.HoursWorked = att.TotalHours;
+                List<int> projectIds = assignments.Select(a => a.Shift.ProjectId).Distinct().ToList();
+                DateTime minDate = allItems.Min(i => i.ShiftDate).Date;
+                DateTime maxDate = allItems.Max(i => i.ShiftDate).Date.AddDays(1);
+
+                var attendance = db.AttendanceRecords
+                    .Where(r => r.StaffId == staffId
+                                && projectIds.Contains(r.ProjectId)
+                                && r.CheckInTime >= minDate
+                                && r.CheckInTime < maxDate)
+                    .ToList();
+
+                foreach (var item in allItems)
+                {
+                    int projectId = 0;
+                    foreach (var a in assignments)
+                    {
+                        if (a.ShiftId == item.ShiftId)
+                        {
+                            projectId = a.Shift.ProjectId;
+                            break;
+                        }
+                    }
+
+                    DateTime day = item.ShiftDate.Date;
+                    var att = attendance
+                        .Where(r => r.ProjectId == projectId && r.CheckInTime.Date == day)
+                        .OrderByDescending(r => r.CheckInTime)
+                        .FirstOrDefault();
+
+                    if (att != null && att.TotalHours.HasValue)
+                        item.HoursWorked = att.TotalHours;
+                }
             }
 
-            var vm = new MyShiftsViewModel
+            return View(new MyShiftsViewModel
             {
                 StaffName = staff.FullName,
                 UpcomingShifts = upcoming,
                 PastShifts = past
-            };
-            return View(vm);
+            });
         }
 
         // ------------------------------------------------------------------
-        // Private helpers – validation engine
+        // Auto-generate / unique-key helpers
+        // ------------------------------------------------------------------
+
+        private List<ShiftInputViewModel> AutoGenerateShifts(CreateDutyRosterViewModel model)
+        {
+            var shifts = new List<ShiftInputViewModel>();
+            if (model.SelectedStaffIds == null || model.SelectedStaffIds.Count == 0)
+                return shifts;
+
+            DateTime start = model.PeriodStart.Date;
+            DateTime end = model.PeriodEnd.Date;
+            List<int> staffIds = model.SelectedStaffIds.Distinct().ToList();
+
+            for (DateTime d = start; d <= end; d = d.AddDays(1))
+            {
+                if (model.WeekdaysOnly && (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday))
+                    continue;
+
+                shifts.Add(new ShiftInputViewModel
+                {
+                    ShiftDate = d,
+                    StartTime = model.DefaultStartTime,
+                    EndTime = model.DefaultEndTime,
+                    ShiftRole = string.IsNullOrWhiteSpace(model.DefaultShiftRole) ? "General Labour" : model.DefaultShiftRole,
+                    SiteLocation = model.DefaultSiteLocation,
+                    RequiredStaffCount = staffIds.Count,
+                    StaffIds = new List<int>(staffIds)
+                });
+            }
+
+            return shifts;
+        }
+
+        private bool RosterPeriodAlreadyExists(int projectId, DateTime periodStart, DateTime periodEnd, int? excludeRosterId)
+        {
+            IQueryable<DutyRoster> q = db.DutyRosters.Where(r =>
+                !r.IsDeleted
+                && r.IsActive
+                && r.ProjectId == projectId
+                && (r.Status == "Draft" || r.Status == "Published")
+                && r.PeriodStart <= periodEnd
+                && r.PeriodEnd >= periodStart);
+
+            if (excludeRosterId.HasValue)
+            {
+                int excludeId = excludeRosterId.Value;
+                q = q.Where(r => r.Id != excludeId);
+            }
+
+            return q.Any();
+        }
+
+        /// <summary>
+        /// Hard-removes soft-deleted rosters for this exact period so the unique index is free.
+        /// </summary>
+        private async Task PurgeSoftDeletedRostersForPeriodAsync(int projectId, DateTime periodStart, DateTime periodEnd)
+        {
+            var softDeleted = db.DutyRosters
+                .Include(r => r.Shifts.Select(s => s.Assignments))
+                .Where(r => r.IsDeleted
+                            && r.ProjectId == projectId
+                            && r.PeriodStart == periodStart
+                            && r.PeriodEnd == periodEnd)
+                .ToList();
+
+            foreach (var r in softDeleted)
+                await HardDeleteRosterAsync(r);
+        }
+
+        private async Task HardDeleteRosterAsync(DutyRoster roster)
+        {
+            if (roster == null) return;
+
+            if (roster.Shifts == null)
+                db.Entry(roster).Collection(r => r.Shifts).Load();
+
+            List<Shift> shifts = roster.Shifts != null ? roster.Shifts.ToList() : new List<Shift>();
+            foreach (var s in shifts)
+            {
+                if (s.Assignments == null)
+                    db.Entry(s).Collection(x => x.Assignments).Load();
+
+                if (s.Assignments != null && s.Assignments.Count > 0)
+                    db.ShiftAssignments.RemoveRange(s.Assignments.ToList());
+
+                db.Shifts.Remove(s);
+            }
+
+            db.DutyRosters.Remove(roster);
+            await db.SaveChangesAsync();
+        }
+
+        private int GetNextRosterVersion(int projectId, DateTime periodStart, DateTime periodEnd)
+        {
+            var versions = db.DutyRosters
+                .Where(r => r.ProjectId == projectId
+                            && r.PeriodStart == periodStart
+                            && r.PeriodEnd == periodEnd)
+                .Select(r => r.Version)
+                .ToList();
+
+            if (versions.Count == 0) return 1;
+            return versions.Max() + 1;
+        }
+
+        private List<RosterStaffCheckboxViewModel> GetAssignedCrewCheckboxes(int projectId, List<int> selectedIds)
+        {
+            DateTime today = DateTime.Today;
+            DateTime rangeEnd = today.AddYears(1);
+            DateTime rangeStart = today.AddDays(-30);
+
+            List<int> staffIdList = db.ProjectResourceAllocations
+                .Where(a => a.ProjectId == projectId
+                            && a.IsActive
+                            && a.StartDate <= rangeEnd
+                            && (a.EndDate == null || a.EndDate >= rangeStart))
+                .Select(a => a.StaffId)
+                .Distinct()
+                .ToList();
+
+            if (staffIdList.Count == 0)
+                return new List<RosterStaffCheckboxViewModel>();
+
+            List<Staff> crew = db.Staff
+                .Where(s => staffIdList.Contains(s.Id)
+                            && s.IsActive
+                            && s.Role == "Crew Member")
+                .OrderBy(s => s.LastName)
+                .ThenBy(s => s.FirstName)
+                .ToList();
+
+            List<int> selected = selectedIds ?? new List<int>();
+
+            return crew.Select(s => new RosterStaffCheckboxViewModel
+            {
+                StaffId = s.Id,
+                FullName = s.FullName,
+                Role = s.Role,
+                EmployeeId = s.EmployeeId,
+                IsSelected = selected.Contains(s.Id)
+            }).ToList();
+        }
+
+        private List<string> GetStaffNotAssignedToProject(int projectId, List<int> staffIds, DateTime periodStart, DateTime periodEnd)
+        {
+            var invalid = new List<string>();
+            foreach (int sid in staffIds.Distinct())
+            {
+                bool ok = db.ProjectResourceAllocations.Any(a =>
+                    a.StaffId == sid
+                    && a.ProjectId == projectId
+                    && a.IsActive
+                    && a.StartDate <= periodEnd
+                    && (a.EndDate == null || a.EndDate >= periodStart));
+
+                if (!ok)
+                {
+                    var st = db.Staff.Find(sid);
+                    invalid.Add(st != null ? st.FullName : ("#" + sid));
+                }
+            }
+            return invalid;
+        }
+
+        // ------------------------------------------------------------------
+        // Validation
         // ------------------------------------------------------------------
 
         private void ValidateShiftAssignmentInternal(
@@ -908,70 +1155,80 @@ namespace MuhleOP.Controllers
             Staff staffMember, int? excludeShiftId,
             List<string> blockers, List<string> warnings)
         {
-            // Project assignment
-            var isAssigned = db.ProjectResourceAllocations.Any(a =>
-                a.StaffId == staffMember.Id
+            DateTime shiftDateOnly = shiftDate.Date;
+            int staffId = staffMember.Id;
+
+            bool isAssigned = db.ProjectResourceAllocations.Any(a =>
+                a.StaffId == staffId
                 && a.ProjectId == projectId
                 && a.IsActive
-                && a.StartDate <= shiftDate
-                && (a.EndDate == null || a.EndDate >= shiftDate));
+                && a.StartDate <= shiftDateOnly
+                && (a.EndDate == null || a.EndDate >= shiftDateOnly));
             RosterValidationHelper.ValidateProjectAssignment(isAssigned, blockers);
 
-            // Role check
             if (staffMember.Role != "Crew Member")
                 blockers.Add("Only Crew Members can be rostered to shifts.");
 
-            // Leave
-            var hasLeave = db.LeaveRecords.Any(l =>
-                l.StaffId == staffMember.Id
+            bool hasLeave = db.LeaveRecords.Any(l =>
+                l.StaffId == staffId
                 && l.Status == "Approved"
-                && l.StartDate <= shiftDate
-                && l.EndDate >= shiftDate);
-            RosterValidationHelper.ValidateLeaveOverlap(hasLeave, shiftDate, blockers);
+                && l.StartDate <= shiftDateOnly
+                && l.EndDate >= shiftDateOnly);
+            RosterValidationHelper.ValidateLeaveOverlap(hasLeave, shiftDateOnly, blockers);
 
-            // Overlap (any project)
-            var hasOverlap = db.ShiftAssignments
+            IQueryable<ShiftAssignment> overlapQuery = db.ShiftAssignments
                 .Include(a => a.Shift)
-                .Any(a => a.StaffId == staffMember.Id
-                          && a.IsActive
-                          && a.Shift.ShiftDate == shiftDate.Date
-                          && (excludeShiftId == null || a.ShiftId != excludeShiftId)
-                          && a.Shift.DutyRoster.IsActive
-                          && !a.Shift.DutyRoster.IsDeleted
-                          && a.Shift.DutyRoster.Status != "Superseded"
-                          && TimesOverlap(a.Shift.StartTime, a.Shift.EndTime, start, end));
+                .Include(a => a.Shift.DutyRoster)
+                .Where(a => a.StaffId == staffId
+                            && a.IsActive
+                            && a.Shift.ShiftDate == shiftDateOnly
+                            && a.Shift.DutyRoster.IsActive
+                            && !a.Shift.DutyRoster.IsDeleted
+                            && a.Shift.DutyRoster.Status != "Superseded");
+
+            if (excludeShiftId.HasValue)
+            {
+                int eid = excludeShiftId.Value;
+                overlapQuery = overlapQuery.Where(a => a.ShiftId != eid);
+            }
+
+            var sameDayTimes = overlapQuery
+                .Select(a => new { a.Shift.StartTime, a.Shift.EndTime })
+                .ToList();
+
+            bool hasOverlap = sameDayTimes.Any(s => s.StartTime < end && start < s.EndTime);
             RosterValidationHelper.ValidateNoOverlap(hasOverlap, blockers);
 
-            // Daily rest (previous day last shift)
-            var prevDay = shiftDate.Date.AddDays(-1);
-            var prevShifts = db.ShiftAssignments
+            DateTime prevDay = shiftDateOnly.AddDays(-1);
+            var prevEnds = db.ShiftAssignments
                 .Include(a => a.Shift)
-                .Where(a => a.StaffId == staffMember.Id
+                .Include(a => a.Shift.DutyRoster)
+                .Where(a => a.StaffId == staffId
                             && a.IsActive
                             && a.Shift.ShiftDate == prevDay
                             && a.Shift.DutyRoster.IsActive
                             && !a.Shift.DutyRoster.IsDeleted)
-                .Select(a => a.Shift)
+                .Select(a => a.Shift.EndTime)
                 .ToList();
-            if (prevShifts.Any())
+
+            if (prevEnds.Count > 0)
             {
-                var lastEnd = prevShifts.Max(s => s.EndTime);
-                var prevEndDt = prevDay.Add(lastEnd);
-                var thisStartDt = shiftDate.Date.Add(start);
+                TimeSpan lastEnd = prevEnds.Max();
+                DateTime prevEndDt = prevDay.Add(lastEnd);
+                DateTime thisStartDt = shiftDateOnly.Add(start);
                 RosterValidationHelper.ValidateDailyRest(prevEndDt, thisStartDt, blockers);
             }
 
-            // Weekly hours
-            var weekStart = shiftDate.Date.AddDays(-(int)shiftDate.DayOfWeek + (int)DayOfWeek.Monday);
-            if (weekStart > shiftDate.Date) weekStart = weekStart.AddDays(-7);
-            var weekEnd = weekStart.AddDays(7);
-            var weekHours = GetWeeklyHoursForStaff(staffMember.Id, weekStart, weekEnd, excludeShiftId);
-            var proposed = RosterValidationHelper.CalculateShiftHours(start, end);
+            DateTime weekStart = shiftDateOnly.AddDays(-(int)shiftDateOnly.DayOfWeek + (int)DayOfWeek.Monday);
+            if (weekStart > shiftDateOnly) weekStart = weekStart.AddDays(-7);
+            DateTime weekEnd = weekStart.AddDays(7);
+
+            var weekHours = GetWeeklyHoursForStaff(staffId, weekStart, weekEnd, excludeShiftId);
+            decimal proposed = RosterValidationHelper.CalculateShiftHours(start, end);
             bool isOt;
             RosterValidationHelper.ValidateWeeklyHours(weekHours.Ordinary, weekHours.Overtime, proposed, blockers, warnings, out isOt);
 
-            // Certification
-            RosterValidationHelper.ValidateCertificationMatch(shiftRole, staffMember.Certifications, blockers, warnings, allowOverride: true);
+            RosterValidationHelper.ValidateCertificationMatch(shiftRole, staffMember.Certifications, blockers, warnings, true);
         }
 
         private RosterValidationResultViewModel ValidateRosterInput(CreateDutyRosterViewModel model, int currentStaffId)
@@ -981,9 +1238,10 @@ namespace MuhleOP.Controllers
 
             foreach (var shift in model.Shifts)
             {
-                if (!TimeSpan.TryParse(shift.StartTime, out var start) || !TimeSpan.TryParse(shift.EndTime, out var end))
+                TimeSpan start, end;
+                if (!TimeSpan.TryParse(shift.StartTime, out start) || !TimeSpan.TryParse(shift.EndTime, out end))
                 {
-                    result.Blockers.Add($"Invalid times on {shift.ShiftDate:dd MMM}.");
+                    result.Blockers.Add("Invalid times on " + shift.ShiftDate.ToString("dd MMM") + ".");
                     continue;
                 }
 
@@ -992,104 +1250,81 @@ namespace MuhleOP.Controllers
 
                 if (shift.StaffIds != null)
                 {
-                    foreach (var sid in shift.StaffIds.Distinct())
+                    foreach (int sid in shift.StaffIds.Distinct())
                     {
                         var sm = db.Staff.Find(sid);
                         if (sm == null) continue;
                         var b = new List<string>();
                         var w = new List<string>();
                         ValidateShiftAssignmentInternal(shift.ShiftDate, start, end, shift.ShiftRole, model.ProjectId, sm, shift.Id, b, w);
-                        foreach (var x in b) result.Blockers.Add($"{sm.FullName} ({shift.ShiftDate:dd MMM}): {x}");
-                        foreach (var x in w) result.Warnings.Add($"{sm.FullName} ({shift.ShiftDate:dd MMM}): {x}");
+                        foreach (string x in b) result.Blockers.Add(sm.FullName + " (" + shift.ShiftDate.ToString("dd MMM") + "): " + x);
+                        foreach (string x in w) result.Warnings.Add(sm.FullName + " (" + shift.ShiftDate.ToString("dd MMM") + "): " + x);
                     }
                 }
             }
 
-            result.HasBlockers = result.Blockers.Any();
-            result.HasWarnings = result.Warnings.Any();
+            result.HasBlockers = result.Blockers.Count > 0;
+            result.HasWarnings = result.Warnings.Count > 0;
             result.IsValid = !result.HasBlockers;
             return result;
         }
 
-        private (decimal Ordinary, decimal Overtime) GetWeeklyHoursForStaff(int staffId, DateTime weekStart, DateTime weekEnd, int? excludeShiftId)
+        private WeekHoursResult GetWeeklyHoursForStaff(int staffId, DateTime weekStart, DateTime weekEnd, int? excludeShiftId)
         {
-            var assignments = db.ShiftAssignments
+            IQueryable<ShiftAssignment> q = db.ShiftAssignments
                 .Include(a => a.Shift)
+                .Include(a => a.Shift.DutyRoster)
                 .Where(a => a.StaffId == staffId
                             && a.IsActive
                             && a.Shift.ShiftDate >= weekStart
                             && a.Shift.ShiftDate < weekEnd
                             && a.Shift.DutyRoster.IsActive
                             && !a.Shift.DutyRoster.IsDeleted
-                            && a.Shift.DutyRoster.Status != "Superseded"
-                            && (excludeShiftId == null || a.ShiftId != excludeShiftId))
-                .Select(a => a.Shift)
-                .ToList();
+                            && a.Shift.DutyRoster.Status != "Superseded");
 
-            decimal ordinary = 0m, overtime = 0m;
-            foreach (var s in assignments)
+            if (excludeShiftId.HasValue)
             {
-                var h = RosterValidationHelper.CalculateShiftHours(s.StartTime, s.EndTime);
+                int eid = excludeShiftId.Value;
+                q = q.Where(a => a.ShiftId != eid);
+            }
+
+            List<Shift> shifts = q.Select(a => a.Shift).ToList();
+
+            decimal ordinary = 0m;
+            decimal overtime = 0m;
+            foreach (var s in shifts)
+            {
+                decimal h = RosterValidationHelper.CalculateShiftHours(s.StartTime, s.EndTime);
                 if (s.IsOvertime) overtime += h;
                 else ordinary += h;
             }
-            return (ordinary, overtime);
+            return new WeekHoursResult { Ordinary = ordinary, Overtime = overtime };
         }
 
-        private List<ReplacementSuggestionViewModel> SuggestReplacements(Shift shift, List<int> excludeStaffIds)
+        private class WeekHoursResult
         {
-            var candidates = db.ProjectResourceAllocations
-                .Where(a => a.ProjectId == shift.ProjectId
-                            && a.IsActive
-                            && a.StartDate <= shift.ShiftDate
-                            && (a.EndDate == null || a.EndDate >= shift.ShiftDate)
-                            && a.Staff.Role == "Crew Member"
-                            && a.Staff.IsActive
-                            && !excludeStaffIds.Contains(a.StaffId))
-                .Select(a => a.Staff)
-                .Distinct()
-                .ToList();
-
-            var suggestions = new List<ReplacementSuggestionViewModel>();
-            foreach (var c in candidates.Take(8))
-            {
-                var blockers = new List<string>();
-                var warnings = new List<string>();
-                ValidateShiftAssignmentInternal(shift.ShiftDate, shift.StartTime, shift.EndTime, shift.ShiftRole, shift.ProjectId, c, null, blockers, warnings);
-                if (!blockers.Any())
-                {
-                    suggestions.Add(new ReplacementSuggestionViewModel
-                    {
-                        StaffId = c.Id,
-                        FullName = c.FullName,
-                        Role = c.Role,
-                        Reason = warnings.Any() ? "Available (with warnings)" : "Available and holds required certification"
-                    });
-                }
-            }
-            return suggestions;
+            public decimal Ordinary { get; set; }
+            public decimal Overtime { get; set; }
         }
 
         // ------------------------------------------------------------------
-        // Persistence helpers
+        // Persistence
         // ------------------------------------------------------------------
 
-        private async Task SaveShiftsFromInput(DutyRoster roster, List<ShiftInputViewModel> inputs, int assignedByStaffId)
+        private async Task SaveShiftsFromInput(DutyRoster roster, List<ShiftInputViewModel> inputs)
         {
             if (inputs == null) return;
-            var userId = User.Identity.GetUserId();
+            string userId = User.Identity.GetUserId();
 
             foreach (var input in inputs)
             {
-                if (!TimeSpan.TryParse(input.StartTime, out var start) || !TimeSpan.TryParse(input.EndTime, out var end))
+                TimeSpan start, end;
+                if (!TimeSpan.TryParse(input.StartTime, out start) || !TimeSpan.TryParse(input.EndTime, out end))
                     continue;
 
-                var isSunday = RosterValidationHelper.IsSunday(input.ShiftDate);
-                var isHoliday = RosterValidationHelper.IsPublicHoliday(input.ShiftDate);
-                var hours = RosterValidationHelper.CalculateShiftHours(start, end);
-
-                // Rough overtime flag (full weekly calc is done at validation time)
-                var isOt = hours > 8m; // simple heuristic; refined on publish
+                bool isSunday = RosterValidationHelper.IsSunday(input.ShiftDate);
+                bool isHoliday = RosterValidationHelper.IsPublicHoliday(input.ShiftDate);
+                decimal hours = RosterValidationHelper.CalculateShiftHours(start, end);
 
                 var shift = new Shift
                 {
@@ -1101,7 +1336,7 @@ namespace MuhleOP.Controllers
                     ShiftRole = input.ShiftRole,
                     SiteLocation = input.SiteLocation,
                     RequiredStaffCount = input.RequiredStaffCount > 0 ? input.RequiredStaffCount : 1,
-                    IsOvertime = isOt,
+                    IsOvertime = hours > 8m,
                     IsSundayShift = isSunday,
                     IsHolidayShift = isHoliday,
                     CreatedDate = DateTime.Now
@@ -1111,7 +1346,7 @@ namespace MuhleOP.Controllers
 
                 if (input.StaffIds != null)
                 {
-                    foreach (var sid in input.StaffIds.Distinct())
+                    foreach (int sid in input.StaffIds.Distinct())
                     {
                         db.ShiftAssignments.Add(new ShiftAssignment
                         {
@@ -1128,6 +1363,33 @@ namespace MuhleOP.Controllers
 
         private CreateDutyRosterViewModel BuildInputFromRoster(DutyRoster roster)
         {
+            var shifts = new List<ShiftInputViewModel>();
+            if (roster.Shifts != null)
+            {
+                foreach (var s in roster.Shifts)
+                {
+                    var staffIds = new List<int>();
+                    if (s.Assignments != null)
+                    {
+                        foreach (var a in s.Assignments)
+                        {
+                            if (a.IsActive) staffIds.Add(a.StaffId);
+                        }
+                    }
+                    shifts.Add(new ShiftInputViewModel
+                    {
+                        Id = s.Id,
+                        ShiftDate = s.ShiftDate,
+                        StartTime = s.StartTime.ToString(@"hh\:mm"),
+                        EndTime = s.EndTime.ToString(@"hh\:mm"),
+                        ShiftRole = s.ShiftRole,
+                        SiteLocation = s.SiteLocation,
+                        RequiredStaffCount = s.RequiredStaffCount,
+                        StaffIds = staffIds
+                    });
+                }
+            }
+
             return new CreateDutyRosterViewModel
             {
                 Id = roster.Id,
@@ -1135,19 +1397,23 @@ namespace MuhleOP.Controllers
                 PeriodStart = roster.PeriodStart,
                 PeriodEnd = roster.PeriodEnd,
                 Notes = roster.Notes,
-                Shifts = (roster.Shifts ?? Enumerable.Empty<Shift>()).Select(s => new ShiftInputViewModel
-                {
-                    Id = s.Id,
-                    ShiftDate = s.ShiftDate,
-                    StartTime = s.StartTime.ToString(@"hh\:mm"),
-                    EndTime = s.EndTime.ToString(@"hh\:mm"),
-                    ShiftRole = s.ShiftRole,
-                    SiteLocation = s.SiteLocation,
-                    RequiredStaffCount = s.RequiredStaffCount,
-                    StaffIds = (s.Assignments ?? Enumerable.Empty<ShiftAssignment>())
-                        .Where(a => a.IsActive).Select(a => a.StaffId).ToList()
-                }).ToList()
+                Shifts = shifts
             };
+        }
+
+        private static int CountActiveAssignments(DutyRoster roster)
+        {
+            int n = 0;
+            if (roster.Shifts == null) return 0;
+            foreach (var s in roster.Shifts)
+            {
+                if (s.Assignments == null) continue;
+                foreach (var a in s.Assignments)
+                {
+                    if (a.IsActive) n++;
+                }
+            }
+            return n;
         }
 
         // ------------------------------------------------------------------
@@ -1156,14 +1422,18 @@ namespace MuhleOP.Controllers
 
         private async Task NotifyOnPublish(DutyRoster roster)
         {
-            var project = db.Projects.Include(p => p.SiteManager).FirstOrDefault(p => p.Id == roster.ProjectId);
+            int projectId = roster.ProjectId;
+            var project = db.Projects.Include(p => p.SiteManager).FirstOrDefault(p => p.Id == projectId);
+            int rosterId = roster.Id;
+
             var assignments = db.ShiftAssignments
                 .Include(a => a.Staff)
-                .Include(a => a.Shift)
-                .Where(a => a.Shift.DutyRosterId == roster.Id && a.IsActive)
+                .Where(a => a.Shift.DutyRosterId == rosterId && a.IsActive)
                 .ToList();
 
             var notifiedUserIds = new HashSet<string>();
+            string projectName = project != null ? project.ProjectName : "project";
+            string periodLabel = roster.PeriodStart.ToString("dd MMM") + " – " + roster.PeriodEnd.ToString("dd MMM");
 
             foreach (var a in assignments)
             {
@@ -1171,47 +1441,49 @@ namespace MuhleOP.Controllers
                 {
                     await CreateNotification(a.Staff.UserId,
                         "New Duty Roster Published",
-                        $"A duty roster for '{project?.ProjectName}' ({roster.PeriodStart:dd MMM} – {roster.PeriodEnd:dd MMM}) has been published. Check My Shifts for your assignments.",
+                        "A duty roster for '" + projectName + "' (" + periodLabel + ") has been published. Check My Shifts for your assignments.",
                         "Project",
                         "/DutyRoster/MyShifts");
                 }
             }
 
-            if (project?.SiteManager != null && !string.IsNullOrEmpty(project.SiteManager.UserId)
+            if (project != null && project.SiteManager != null && !string.IsNullOrEmpty(project.SiteManager.UserId)
                 && notifiedUserIds.Add(project.SiteManager.UserId))
             {
                 await CreateNotification(project.SiteManager.UserId,
                     "Duty Roster Published",
-                    $"Duty roster for '{project.ProjectName}' ({roster.PeriodStart:dd MMM} – {roster.PeriodEnd:dd MMM}) has been published.",
+                    "Duty roster for '" + projectName + "' (" + periodLabel + ") has been published.",
                     "Project",
-                    $"/DutyRoster/Details/{roster.Id}");
+                    "/DutyRoster/Details/" + roster.Id);
             }
 
-            // Confirmation for PM (in-app only)
-            var pmUserId = User.Identity.GetUserId();
-            await CreateNotification(pmUserId,
+            await CreateNotification(User.Identity.GetUserId(),
                 "Roster Published",
-                $"You published the duty roster for '{project?.ProjectName}' ({roster.PeriodStart:dd MMM} – {roster.PeriodEnd:dd MMM}).",
+                "You published the duty roster for '" + projectName + "' (" + periodLabel + ").",
                 "System",
-                $"/DutyRoster/Details/{roster.Id}");
+                "/DutyRoster/Details/" + roster.Id);
         }
 
-        private async Task NotifyOnRevise(DutyRoster oldRoster, DutyRoster newRoster)
+        private async Task NotifyOnRevise(DutyRoster newRoster)
         {
             var project = db.Projects.Find(newRoster.ProjectId);
+            int newRosterId = newRoster.Id;
+
             var newAssignments = db.ShiftAssignments
                 .Include(a => a.Staff)
-                .Where(a => a.Shift.DutyRosterId == newRoster.Id && a.IsActive)
+                .Where(a => a.Shift.DutyRosterId == newRosterId && a.IsActive)
                 .ToList();
 
             var notified = new HashSet<string>();
+            string projectName = project != null ? project.ProjectName : "project";
+
             foreach (var a in newAssignments)
             {
                 if (a.Staff != null && !string.IsNullOrEmpty(a.Staff.UserId) && notified.Add(a.Staff.UserId))
                 {
                     await CreateNotification(a.Staff.UserId,
                         "Duty Roster Revised",
-                        $"Your shifts on '{project?.ProjectName}' have been updated (v{newRoster.Version}). Please review My Shifts.",
+                        "Your shifts on '" + projectName + "' have been updated (v" + newRoster.Version + "). Please review My Shifts.",
                         "Project",
                         "/DutyRoster/MyShifts");
                 }
@@ -1237,17 +1509,17 @@ namespace MuhleOP.Controllers
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"DutyRoster notification error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine("DutyRoster notification error: " + ex.Message);
             }
         }
 
         // ------------------------------------------------------------------
-        // Auth / scoping helpers
+        // Auth / scoping
         // ------------------------------------------------------------------
 
         private Staff ResolveCurrentStaff()
         {
-            var userId = User.Identity.GetUserId();
+            string userId = User.Identity.GetUserId();
             return db.Staff.FirstOrDefault(s => s.UserId == userId && s.IsActive);
         }
 
@@ -1270,20 +1542,27 @@ namespace MuhleOP.Controllers
 
         private bool HasAttendanceAgainstRoster(int rosterId)
         {
-            // Any AttendanceRecord on the same project + date as a shift in this roster
-            var shifts = db.Shifts.Where(s => s.DutyRosterId == rosterId).Select(s => new { s.ProjectId, s.ShiftDate }).ToList();
-            foreach (var s in shifts)
+            var shiftKeys = db.Shifts
+                .Where(s => s.DutyRosterId == rosterId)
+                .Select(s => new { s.ProjectId, s.ShiftDate })
+                .ToList();
+
+            if (shiftKeys.Count == 0) return false;
+
+            foreach (var key in shiftKeys)
             {
-                if (db.AttendanceRecords.Any(r => r.ProjectId == s.ProjectId
-                                                  && DbFunctions.TruncateTime(r.CheckInTime) == s.ShiftDate.Date))
-                    return true;
+                DateTime dayStart = key.ShiftDate.Date;
+                DateTime dayEnd = dayStart.AddDays(1);
+                int projectId = key.ProjectId;
+
+                bool hasAtt = db.AttendanceRecords.Any(r =>
+                    r.ProjectId == projectId
+                    && r.CheckInTime >= dayStart
+                    && r.CheckInTime < dayEnd);
+
+                if (hasAtt) return true;
             }
             return false;
-        }
-
-        private static bool TimesOverlap(TimeSpan aStart, TimeSpan aEnd, TimeSpan bStart, TimeSpan bEnd)
-        {
-            return aStart < bEnd && bStart < aEnd;
         }
 
         private List<SelectListItem> GetManagedProjectSelectList(int staffId)
@@ -1291,6 +1570,7 @@ namespace MuhleOP.Controllers
             return db.Projects
                 .Where(p => p.ProjectManagerId == staffId && p.IsActive)
                 .OrderBy(p => p.ProjectName)
+                .ToList()
                 .Select(p => new SelectListItem
                 {
                     Value = p.Id.ToString(),
@@ -1301,15 +1581,28 @@ namespace MuhleOP.Controllers
         private List<SelectListItem> GetProjectSelectListForViewer(Staff staff)
         {
             IQueryable<Project> q = db.Projects.Where(p => p.IsActive);
-            if (User.IsInRole("Admin")) { /* all */ }
+
+            if (User.IsInRole("Admin"))
+            {
+                // all
+            }
             else if (User.IsInRole("Project Manager") && staff != null)
-                q = q.Where(p => p.ProjectManagerId == staff.Id);
+            {
+                int sid = staff.Id;
+                q = q.Where(p => p.ProjectManagerId == sid);
+            }
             else if (User.IsInRole("Site Manager") && staff != null)
-                q = q.Where(p => p.SiteManagerId == staff.Id);
+            {
+                int sid = staff.Id;
+                q = q.Where(p => p.SiteManagerId == sid);
+            }
             else
+            {
                 q = q.Where(p => false);
+            }
 
             return q.OrderBy(p => p.ProjectName)
+                .ToList()
                 .Select(p => new SelectListItem { Value = p.Id.ToString(), Text = p.ProjectName })
                 .ToList();
         }
@@ -1327,11 +1620,15 @@ namespace MuhleOP.Controllers
 
         private MyShiftItemViewModel MapMyShiftItem(ShiftAssignment a, DateTime today)
         {
-            var isToday = a.Shift.ShiftDate.Date == today;
-            var now = DateTime.Now.TimeOfDay;
-            var canClock = isToday
-                           && now >= a.Shift.StartTime.Add(TimeSpan.FromHours(-1))
-                           && now <= a.Shift.EndTime.Add(TimeSpan.FromHours(1));
+            bool isToday = a.Shift.ShiftDate.Date == today;
+            TimeSpan now = DateTime.Now.TimeOfDay;
+            bool canClock = isToday
+                            && now >= a.Shift.StartTime.Add(TimeSpan.FromHours(-1))
+                            && now <= a.Shift.EndTime.Add(TimeSpan.FromHours(1));
+
+            string projectName = "Unknown";
+            if (a.Shift.DutyRoster != null && a.Shift.DutyRoster.Project != null)
+                projectName = a.Shift.DutyRoster.Project.ProjectName;
 
             return new MyShiftItemViewModel
             {
@@ -1339,7 +1636,7 @@ namespace MuhleOP.Controllers
                 ShiftDate = a.Shift.ShiftDate,
                 StartTime = a.Shift.StartTime.ToString(@"hh\:mm"),
                 EndTime = a.Shift.EndTime.ToString(@"hh\:mm"),
-                ProjectName = a.Shift.DutyRoster?.Project?.ProjectName ?? "Unknown",
+                ProjectName = projectName,
                 ShiftRole = a.Shift.ShiftRole,
                 SiteLocation = a.Shift.SiteLocation,
                 IsToday = isToday,
